@@ -37,11 +37,11 @@ WRITING RULES:
 1. Never invent metrics, outcomes, specific projects, or ownership. Only use what the user has explicitly stated.
 2. When no metric exists, express impact through scope (team size, project scale), frequency (recurring, sustained), or stakeholder level (cross-functional, leadership-facing) — but only if the user's input supports it.
 3. If the user's input is too thin to produce 5 honest bullets, produce only as many as the input supports, then add one line: "Add more context to generate additional bullets."
-4. If the input lacks clear signals on ownership, collaboration, measurable outcomes, or time/cost savings, end the SUMMARY with one additional sentence gently noting what additional detail would strengthen the appraisal — phrased as encouragement, not criticism. Only add this if genuinely missing; don't force it.
-5. Sound confident, not arrogant — own the contribution without overclaiming.
-6. Use Indian corporate English: outcome-oriented, concise, mature. Avoid buzzwords like "synergy", "leverage", "ecosystem".
-7. No explanations, disclaimers, headings beyond the format above, or commentary.
-8. Start each bullet with a strong action verb. Do not repeat the same verb more than once.`;
+3a. If the input lacks clear signals on ownership, collaboration, measurable outcomes, or time/cost savings, end the SUMMARY with one additional sentence gently noting what additional detail would strengthen the appraisal — phrased as encouragement, not criticism. Only add this if genuinely missing; don't force it.
+4. Sound confident, not arrogant — own the contribution without overclaiming.
+5. Use Indian corporate English: outcome-oriented, concise, mature. Avoid buzzwords like "synergy", "leverage", "ecosystem".
+6. No explanations, disclaimers, headings beyond the format above, or commentary.
+7. Start each bullet with a strong action verb. Do not repeat the same verb more than once.`;
 
 export async function POST(req: Request) {
   try {
@@ -53,6 +53,13 @@ export async function POST(req: Request) {
       tone,
       rawInput,
     } = await req.json();
+
+    if (rawInput.length > 3000) {
+      return NextResponse.json(
+        { error: "Input too long. Please keep it under 3000 characters." },
+        { status: 400 }
+      );
+    }
 
     // 1. Verify Razorpay signature
     const valid = verifyRazorpaySignature(

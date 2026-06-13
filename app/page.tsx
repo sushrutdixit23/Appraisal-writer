@@ -40,6 +40,10 @@ export default function Home() {
       setError("Give us a bit more to work with — at least 20 words.");
       return;
     }
+    if (rawInput.length > 3000) {
+      setError("Please keep your input under 3000 characters.");
+      return;
+    }
     setError("");
     setLoading(true);
 
