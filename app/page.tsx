@@ -1,5 +1,5 @@
-﻿"use client";
-import { useState } from "react";
+"use client";
+import { useState, useRef } from "react";
 
 const TONES = ["Conservative", "Confident", "Senior"] as const;
 type Tone = typeof TONES[number];
@@ -13,6 +13,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [recoveryId, setRecoveryId] = useState("");
   const [paymentId, setPaymentId] = useState("");
+  const outputRef = useRef<HTMLDivElement>(null);
 
   const handlePayAndGenerate = async () => {
     if (!jobTitle.trim() || !rawInput.trim()) {
@@ -72,6 +73,9 @@ export default function Home() {
               return;
             }
             setOutput(result.output);
+            setTimeout(() => {
+              outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
           } catch (err: any) {
             setError(err.message || "Generation failed. Use your payment ID below to recover.");
           } finally {
@@ -104,6 +108,9 @@ export default function Home() {
       const result = await res.json();
       if (result.error) throw new Error(result.error);
       setOutput(result.output);
+      setTimeout(() => {
+        outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch (err: any) {
       setError(err.message || "Recovery failed. Contact support.");
     } finally {
@@ -185,7 +192,7 @@ export default function Home() {
           disabled={loading}
           className="w-full bg-gray-900 text-white py-3 rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Processing..." : "Generate for ₹149"}
+          {loading ? "Generating your appraisal..." : "Generate for ₹149"}
         </button>
 
         <div className="border-t pt-6">
@@ -212,7 +219,7 @@ export default function Home() {
       </div>
 
       {output && (
-        <div className="mt-12">
+        <div className="mt-12" ref={outputRef}>
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold text-gray-900">
               Your Appraisal
