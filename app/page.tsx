@@ -217,6 +217,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <p className="text-xs text-gray-400 text-center mt-8">
+         Problems? Email <a href="mailto:support@zyntask.in" className="underline">support@zyntask.in</a> with your payment ID.
+      </p>
 
       {output && (
         <div className="mt-12" ref={outputRef}>
