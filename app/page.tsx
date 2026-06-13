@@ -4,6 +4,22 @@ import { useState, useRef } from "react";
 const TONES = ["Conservative", "Confident", "Senior"] as const;
 type Tone = typeof TONES[number];
 
+function parseOutput(raw: string): { bullets: string[]; summary: string } {
+  const bulletsMatch = raw.match(/BULLETS\s*([\s\S]*?)\s*SUMMARY/i);
+  const summaryMatch = raw.match(/SUMMARY\s*([\s\S]*)/i);
+
+  const bullets = bulletsMatch
+    ? bulletsMatch[1]
+        .split("\n")
+        .map((l) => l.replace(/^[•\-]\s*/, "").trim())
+        .filter(Boolean)
+    : [];
+
+  const summary = summaryMatch ? summaryMatch[1].trim() : raw;
+
+  return { bullets, summary };
+}
+
 export default function Home() {
   const [jobTitle, setJobTitle] = useState("");
   const [rawInput, setRawInput] = useState("");
@@ -46,8 +62,8 @@ export default function Home() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: order.amount,
         currency: "INR",
-        name: "Appraisal Writer",
-        description: "Performance Review Generation",
+        name: "Zyntask",
+        description: "Appraisal Writer — one generation",
         order_id: order.id,
         handler: async (response: any) => {
           try {
@@ -86,7 +102,7 @@ export default function Home() {
           ondismiss: () => setLoading(false),
         },
         prefill: {},
-        theme: { color: "#1a1a1a" },
+        theme: { color: "#1D4DFF" },
       });
       rzp.open();
     } catch (err: any) {
@@ -118,84 +134,157 @@ export default function Home() {
     }
   };
 
+  const parsed = output ? parseOutput(output) : null;
+
   return (
-    <main className="min-h-screen bg-white max-w-2xl mx-auto px-6 py-16">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">
-        Appraisal Writer
-      </h1>
-      <p className="text-gray-500 mb-10">
-        You did the work. The hard part is saying so without sounding arrogant
-        or making excuses. We handle that.
-      </p>
-
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Your Job Title
-          </label>
-          <input
-            type="text"
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value)}
-            placeholder="e.g. Senior Software Engineer"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-          />
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-xl mx-auto px-6 py-12">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-sm font-medium" style={{ backgroundColor: "#1D4DFF" }}>
+            Z
+          </div>
+          <span className="text-sm font-medium text-gray-500">Zyntask</span>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            What did you do this year? (plain language, no polish needed)
-          </label>
-          <textarea
-            value={rawInput}
-            onChange={(e) => setRawInput(e.target.value)}
-            rows={6}
-            placeholder="Tell us like you'd tell a friend. What did you work on? What was hard? What did you figure out on your own?"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-          />
-        </div>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+          Appraisal Writer
+        </h1>
+        <p className="text-gray-500 mb-8 leading-relaxed">
+          You did the work. The hard part is saying so without sounding arrogant
+          or making excuses. We handle that.
+        </p>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tone
-          </label>
-          <div className="flex gap-3">
-            {TONES.map((t) => (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Your Job Title
+              </label>
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Senior Software Engineer"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ "--tw-ring-color": "#1D4DFF" } as React.CSSProperties}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                What did you do this year?
+              </label>
+              <textarea
+                value={rawInput}
+                onChange={(e) => setRawInput(e.target.value)}
+                rows={5}
+                placeholder="Tell us like you'd tell a friend. What did you work on? What was hard? What did you figure out on your own?"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">No polish needed — plain language works best.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tone
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {TONES.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTone(t)}
+                    className="px-3 py-2 rounded-lg text-sm font-medium transition-colors border"
+                    style={
+                      tone === t
+                        ? { backgroundColor: "#E6F1FB", borderColor: "#1D4DFF", color: "#1D4DFF" }
+                        : { backgroundColor: "white", borderColor: "#D1D5DB", color: "#6B7280" }
+                    }
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                <p className="text-red-600 text-sm">{error}</p>
+                {paymentId && (
+                  <p className="text-red-400 text-xs mt-1">
+                    Your payment ID: <span className="font-mono font-medium">{paymentId}</span> — use the recovery tool below.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
               <button
-                key={t}
-                onClick={() => setTone(t)}
-                className={`px-4 py-2 rounded-lg text-sm border transition-colors ${
-                  tone === t
-                    ? "bg-gray-900 text-white border-gray-900"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-500"
-                }`}
+                onClick={handlePayAndGenerate}
+                disabled={loading}
+                className="w-full text-white py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: "#1D4DFF" }}
               >
-                {t}
+                {loading ? "Generating your appraisal..." : "Generate for ₹149"}
               </button>
-            ))}
+              <p className="text-xs text-gray-400 text-center mt-2.5 flex items-center justify-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+                Secured by Razorpay · one-time payment, no subscription
+              </p>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            <p className="text-red-600 text-sm">{error}</p>
+        {parsed && (
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mt-6" ref={outputRef}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-semibold text-gray-900">
+                Your Appraisal
+              </h2>
+              <button
+                onClick={() => navigator.clipboard.writeText(output)}
+                className="text-sm font-medium hover:underline"
+                style={{ color: "#1D4DFF" }}
+              >
+                Copy to clipboard
+              </button>
+            </div>
+
+            {parsed.bullets.length > 0 && (
+              <div className="mb-5">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                  Bullets
+                </p>
+                <ul className="space-y-2 text-sm text-gray-800 leading-relaxed list-disc pl-5">
+                  {parsed.bullets.map((b, i) => (
+                    <li key={i}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {parsed.summary && (
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                  Summary
+                </p>
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {parsed.summary}
+                </p>
+              </div>
+            )}
+
             {paymentId && (
-              <p className="text-red-400 text-xs mt-1">
-                Your payment ID: <span className="font-mono font-medium">{paymentId}</span> — use the recovery tool below.
+              <p className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-100">
+                Payment ID: <span className="font-mono">{paymentId}</span> — save this to recover your result anytime.
               </p>
             )}
           </div>
         )}
 
-        <button
-          onClick={handlePayAndGenerate}
-          disabled={loading}
-          className="w-full bg-gray-900 text-white py-3 rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Generating your appraisal..." : "Generate for ₹149"}
-        </button>
-
-        <div className="border-t pt-6">
+        <div className="mt-6 pt-5 border-t border-gray-200">
           <p className="text-xs text-gray-400 mb-2">
             Had a failed generation? Recover your result using your payment ID.
           </p>
@@ -205,7 +294,8 @@ export default function Home() {
               value={recoveryId}
               onChange={(e) => setRecoveryId(e.target.value)}
               placeholder="pay_xxxxxxxxxxxxxxx"
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": "#1D4DFF" } as React.CSSProperties}
             />
             <button
               onClick={handleRecover}
@@ -216,34 +306,15 @@ export default function Home() {
             </button>
           </div>
         </div>
-      </div>
-      <p className="text-xs text-gray-400 text-center mt-8">
-         Problems? Email <a href="mailto:support@zyntask.in" className="underline">support@zyntask.in</a> with your payment ID.
-      </p>
 
-      {output && (
-        <div className="mt-12" ref={outputRef}>
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Your Appraisal
-            </h2>
-            <button
-              onClick={() => navigator.clipboard.writeText(output)}
-              className="text-sm text-gray-500 hover:text-gray-900 underline"
-            >
-              Copy to clipboard
-            </button>
-          </div>
-          <pre className="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 rounded-lg p-6 leading-relaxed">
-            {output}
-          </pre>
-          {paymentId && (
-            <p className="text-xs text-gray-400 mt-3">
-              Payment ID: <span className="font-mono">{paymentId}</span> — save this to recover your result anytime.
-            </p>
-          )}
-        </div>
-      )}
+        <p className="text-xs text-gray-400 text-center mt-8">
+          Problems? Email{" "}
+          <a href="mailto:support@zyntask.in" className="underline" style={{ color: "#1D4DFF" }}>
+            support@zyntask.in
+          </a>{" "}
+          with your payment ID.
+        </p>
+      </div>
     </main>
   );
 }
