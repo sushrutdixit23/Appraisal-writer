@@ -140,9 +140,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-xl mx-auto px-6 py-12">
         <div className="flex items-center gap-2 mb-6">
-          <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-sm font-medium" style={{ backgroundColor: "#1D4DFF" }}>
-            Z
-          </div>
+          <img src="/logo.png" alt="Zyntask" className="w-7 h-7 rounded-md" />
           <span className="text-sm font-medium text-gray-500">Zyntask</span>
         </div>
 
@@ -166,7 +164,6 @@ export default function Home() {
                 onChange={(e) => setJobTitle(e.target.value)}
                 placeholder="e.g. Senior Software Engineer"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ "--tw-ring-color": "#1D4DFF" } as React.CSSProperties}
               />
             </div>
 
@@ -184,7 +181,6 @@ export default function Home() {
                 placeholder="Tell us like you'd tell a friend. What did you work on? What was hard? What did you figure out on your own?"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
-              <p className="text-xs text-gray-400 mt-1.5">No polish needed — plain language works best.</p>
             </div>
 
             <div>
@@ -298,7 +294,6 @@ export default function Home() {
               onChange={(e) => setRecoveryId(e.target.value)}
               placeholder="pay_xxxxxxxxxxxxxxx"
               className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ "--tw-ring-color": "#1D4DFF" } as React.CSSProperties}
             />
             <button
               onClick={handleRecover}
