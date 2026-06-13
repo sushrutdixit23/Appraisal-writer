@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Appraisal Writer",
-  description: "Performance review writing for Indian professionals",
+  title: "Appraisal Writer by Zyntask",
+  description: "Turn your raw work into a polished performance review. No login required.",
 };
 
 export default function RootLayout({
@@ -17,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
         <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </head>
       <body className={geist.className}>{children}</body>
