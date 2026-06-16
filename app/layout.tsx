@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
-
-const geist = Geist({ subsets: ["latin"] });
+import PageTransition from "./components/PageTransition";
 
 export const metadata: Metadata = {
-  title: "Appraisal Writer by Zyntask",
-  description: "Turn your raw work into a polished performance review. No login required.",
+  title: "Zyntask — Agents that work with you",
+  description: "Zyntask builds AI agents that handle the work, while you keep the final call. Calm, in sync, and always moving toward done.",
 };
 
 export default function RootLayout({
@@ -20,7 +18,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
         <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </head>
-      <body className={geist.className}>{children}</body>
+      <body>
+        <PageTransition>{children}</PageTransition>
+      </body>
     </html>
   );
 }
