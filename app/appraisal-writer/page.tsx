@@ -1,126 +1,321 @@
-@"
+"use client";
+import { useState, useRef } from "react";
 import SiteNav from "../components/SiteNav";
 
-export default function EngagePage() {
+const TONES = ["Conservative", "Confident", "Senior"] as const;
+type Tone = typeof TONES[number];
+
+function parseOutput(raw: string): { bullets: string[]; summary: string } {
+  const bulletsMatch = raw.match(/BULLETS\s*([\s\S]*?)\s*SUMMARY/i);
+  const summaryMatch = raw.match(/SUMMARY\s*([\s\S]*)/i);
+
+  const bullets = bulletsMatch
+    ? bulletsMatch[1]
+        .split("\n")
+        .map((l) => l.replace(/^[•\-]\s*/, "").trim())
+        .filter(Boolean)
+    : [];
+
+  const summary = summaryMatch ? summaryMatch[1].trim() : raw;
+
+  return { bullets, summary };
+}
+
+export default function Home() {
+  const [jobTitle, setJobTitle] = useState("");
+  const [rawInput, setRawInput] = useState("");
+  const [tone, setTone] = useState<Tone>("Confident");
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [recoveryId, setRecoveryId] = useState("");
+  const [paymentId, setPaymentId] = useState("");
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  const handlePayAndGenerate = async () => {
+    if (!jobTitle.trim() || !rawInput.trim()) {
+      setError("Please fill in both fields.");
+      return;
+    }
+    if (rawInput.trim().split(/\s+/).length < 20) {
+      setError("Give us a bit more to work with — at least 20 words.");
+      return;
+    }
+    if (rawInput.length > 3000) {
+      setError("Please keep your input under 3000 characters.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+
+    try {
+      const orderRes = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 14900 }),
+      });
+      const order = await orderRes.json();
+      if (!order.id) throw new Error("Order creation failed");
+
+      if (!(window as any).Razorpay) {
+        setError("Payment system failed to load. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
+
+      const rzp = new (window as any).Razorpay({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: "INR",
+        name: "Zyntask",
+        description: "Appraisal Writer — one generation",
+        order_id: order.id,
+        handler: async (response: any) => {
+          try {
+            setPaymentId(response.razorpay_payment_id);
+            const genRes = await fetch("/api/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                jobTitle,
+                tone,
+                rawInput,
+              }),
+            });
+            const result = await genRes.json();
+            if (result.error) {
+              setError(result.error);
+              if (result.payment_id) {
+                setPaymentId(result.payment_id);
+              }
+              return;
+            }
+            setOutput(result.output);
+            setTimeout(() => {
+              outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
+          } catch (err: any) {
+            setError(err.message || "Generation failed. Use your payment ID below to recover.");
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setLoading(false),
+        },
+        prefill: {},
+        theme: { color: "#5B4BFF" },
+      });
+      rzp.open();
+    } catch (err: any) {
+      setError(err.message || "Something went wrong.");
+      setLoading(false);
+    }
+  };
+
+  const handleRecover = async () => {
+    if (!recoveryId.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_id: recoveryId.trim() }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      setOutput(result.output);
+      setTimeout(() => {
+        outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } catch (err: any) {
+      setError(err.message || "Recovery failed. Contact support.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const parsed = output ? parseOutput(output) : null;
+
   return (
-    <main className="min-h-screen bg-ink overflow-x-hidden">
+    <main className="min-h-screen bg-mist overflow-x-hidden">
       <SiteNav />
-      <header className="relative pt-[70px] pb-24 bg-ink text-white">
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-[200px] -right-[120px] w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.28),transparent_62%)] blur-[20px]" />
-          <div className="absolute -bottom-[260px] -left-[160px] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(41,211,240,0.2),transparent_62%)] blur-[20px]" />
+
+      <div className="max-w-xl mx-auto px-6 py-16">
+        <div className="text-center mb-10">
+          <span className="inline-flex items-center gap-2 bg-cloud border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11px] tracking-wide uppercase mb-6">
+            By Zyntask
+          </span>
+          <h1 className="font-display font-bold tracking-tight text-[clamp(30px,4vw,40px)] text-ink mb-3">
+            Appraisal Writer
+          </h1>
+          <p className="text-slate text-[17px] leading-relaxed max-w-[40ch] mx-auto">
+            You did the work. The hard part is saying so without sounding arrogant or making excuses. We handle that.
+          </p>
         </div>
-        <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
-          <div className="font-serif italic text-[15px] tracking-wide text-slate-light mb-8">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
-          <h1 className="font-serif font-semibold tracking-tight leading-[1.0] text-[clamp(52px,9vw,108px)] mb-3 text-white">Engage<span style={{ color: "#8a6ff0" }}>.</span></h1>
-          <p className="font-mono text-[11.5px] tracking-[0.22em] uppercase text-slate-light mb-10">Your LinkedIn voice, on time -- every time</p>
-          <h2 className="font-display font-semibold tracking-tight leading-[1.1] text-[clamp(26px,3.6vw,38px)] mb-7 text-white/95 max-w-[20ch] mx-auto">You never miss a meaningful LinkedIn conversation.</h2>
-          <p className="text-[18px] text-slate-light max-w-[50ch] mx-auto mb-10 leading-relaxed">Engage watches your comments and messages, writes thoughtful replies that sound like you, and lines them up for a quick yes before anything is sent.</p>
-          <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg transition-all">Talk to us about Engage</a>
-        </div>
-      </header>
-      <section className="py-24 bg-mist">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="font-display font-bold tracking-tight text-[clamp(28px,3.5vw,40px)] mb-5 text-ink">Stay present on LinkedIn without living in it.</h2>
-          <p className="text-lg text-slate leading-relaxed mb-4">A strong presence on LinkedIn runs on replies -- to the people who comment on your posts, and the ones who reach out directly. But keeping up takes real time, and the moment you fall behind, conversations cool off and opportunities quietly slip away.</p>
-          <p className="text-lg text-slate leading-relaxed">Engage takes that weight off your day. It keeps an eye on your inbox and your posts around the clock, understands what each message is really asking, and prepares a reply written in your voice. All that's left for you is the easy part: a glance, and a yes.</p>
-        </div>
-      </section>
-      <section className="py-24 bg-ink text-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="max-w-[660px] mx-auto mb-14 text-center">
-            <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">How it works</span>
-            <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)]">Three simple steps. Yours is the easy one.</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { n: "i", title: "It watches", body: "Engage quietly checks your direct messages and the comments on your recent posts, all day long. Nothing slips past, even the notes that arrive at 2 a.m." },
-              { n: "ii", title: "It drafts", body: "For each new message, it works out what the person needs and writes a reply in your tone, ready to send. Spam and bulk promotions are set aside automatically." },
-              { n: "iii", title: "You approve", body: "Every draft waits for you in one simple screen. Read it, send it as-is, adjust a word, or skip it. Nothing leaves your account until you say so." },
-            ].map((step) => (
-              <div key={step.n} className="bg-white/5 border border-white/10 rounded-[20px] p-7">
-                <div className="font-serif italic text-[#8a6ff0] text-4xl mb-3">{step.n}</div>
-                <h3 className="font-semibold text-xl mb-2">{step.title}</h3>
-                <p className="text-[15px] text-slate-light leading-relaxed">{step.body}</p>
+
+        <div className="bg-cloud border border-line rounded-[20px] p-7 shadow-zy-sm">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">
+                Your Job Title
+              </label>
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Senior Software Engineer"
+                className="w-full border border-line rounded-[11px] px-4 py-2.5 text-sm bg-mist focus:outline-none focus:ring-2 focus:ring-indigo focus:border-transparent transition-shadow"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">
+                What did you do this year?
+              </label>
+              <p className="text-xs text-slate-light mb-2">
+                Mention what you improved, any time saved, who you helped, and anything you owned end-to-end — even rough notes work.
+              </p>
+              <textarea
+                value={rawInput}
+                onChange={(e) => setRawInput(e.target.value)}
+                rows={5}
+                placeholder="Tell us like you'd tell a friend. What did you work on? What was hard? What did you figure out on your own?"
+                className="w-full border border-line rounded-[11px] px-4 py-2.5 text-sm bg-mist focus:outline-none focus:ring-2 focus:ring-indigo focus:border-transparent resize-none transition-shadow"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2.5">
+                Tone
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {TONES.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTone(t)}
+                    className={`px-3 py-2.5 rounded-[10px] text-sm font-medium border transition-colors ${
+                      tone === t
+                        ? "bg-indigo/10 border-indigo text-indigo-deep"
+                        : "bg-cloud border-line text-slate hover:border-slate-light"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="py-24 bg-mist">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="max-w-[660px] mx-auto mb-14 text-center">
-            <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">Built to be safe</span>
-            <h2 className="font-display font-bold tracking-tight text-[clamp(28px,3.5vw,40px)] text-ink">Five promises that protect you and your account.</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[
-              { title: "Nothing sends without you", body: "Every single reply is read and approved by you before it goes out. There is no setting that lets it send on its own." },
-              { title: "A daily limit, always on", body: "Engage will never send more than a set number of messages a day, keeping your activity well inside what LinkedIn considers normal." },
-              { title: "Spam stays out", body: "Promotional blasts, cold sales pitches, and messages from company pages are filtered out and never get an automatic reply in your name." },
-              { title: "Big moments come to you", body: "Any message about a call, a meeting, or working together is always set aside for your personal attention." },
-            ].map((g) => (
-              <div key={g.title} className="bg-cloud border border-line rounded-[20px] p-7">
-                <h3 className="font-semibold text-[17px] mb-2 text-ink">{g.title}</h3>
-                <p className="text-[14.5px] text-slate leading-relaxed">{g.body}</p>
+            </div>
+
+            {error && (
+              <div className="bg-rose/10 border border-rose/30 rounded-[11px] px-4 py-3">
+                <p className="text-rose text-sm">{error}</p>
+                {paymentId && (
+                  <p className="text-rose/70 text-xs mt-1">
+                    Your payment ID: <span className="font-mono font-medium">{paymentId}</span> — use the recovery tool below.
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-          <div className="bg-cloud border border-line rounded-[20px] p-7 mt-5">
-            <h3 className="font-semibold text-[17px] mb-2 text-ink">It sounds like you -- because it learns from you</h3>
-            <p className="text-[14.5px] text-slate leading-relaxed">Before it writes a word, Engage is tuned using real examples of how you actually reply. The result reads like you on a good day, not like a robot. And since you approve everything, you always have the final edit.</p>
+            )}
+
+            <div>
+              <button
+                onClick={handlePayAndGenerate}
+                disabled={loading}
+                className="w-full text-white py-3.5 rounded-[12px] text-sm font-medium bg-grad shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all disabled:opacity-50 disabled:translate-y-0"
+              >
+                {loading ? "Generating your appraisal..." : "Generate for ₹149"}
+              </button>
+              <p className="text-xs text-slate-light text-center mt-3 flex items-center justify-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+                Secured by Razorpay · one-time payment, no subscription
+              </p>
+            </div>
           </div>
         </div>
-      </section>
-      <section className="py-24 bg-ink text-white">
-        <div className="max-w-2xl mx-auto px-6 text-center">
-          <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Founding offer</span>
-          <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] mb-5">The Founding Partnership.</h2>
-          <p className="text-slate-light text-[17px] leading-relaxed max-w-[48ch] mx-auto mb-12">We're taking on a small number of founding clients -- direct access to me, permanent pricing locked in for as long as you stay, and a system tuned around your actual results.</p>
-          <div className="bg-white/5 border border-white/10 rounded-[28px] p-9 md:p-11 text-left">
-            <div className="flex flex-wrap items-end justify-between gap-4 mb-8 pb-8 border-b border-white/10">
+
+        {parsed && (
+          <div className="bg-cloud border border-line rounded-[20px] p-7 shadow-zy-sm mt-6" ref={outputRef}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="font-display font-semibold text-lg text-ink">
+                Your Appraisal
+              </h2>
+              <button
+                onClick={() => navigator.clipboard.writeText(output)}
+                className="text-sm font-medium text-indigo hover:text-indigo-deep transition-colors"
+              >
+                Copy to clipboard
+              </button>
+            </div>
+
+            {parsed.bullets.length > 0 && (
+              <div className="mb-6">
+                <p className="text-xs font-medium text-slate-light uppercase tracking-wide mb-2.5">
+                  Bullets
+                </p>
+                <ul className="space-y-2 text-sm text-ink-soft leading-relaxed list-disc pl-5">
+                  {parsed.bullets.map((b, i) => (
+                    <li key={i}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {parsed.summary && (
               <div>
-                <div className="font-serif font-semibold text-[48px] tracking-tight leading-none">Rs 49,000</div>
-                <div className="text-sm text-slate-light mt-1.5">One-time setup</div>
+                <p className="text-xs font-medium text-slate-light uppercase tracking-wide mb-2.5">
+                  Summary
+                </p>
+                <p className="text-sm text-ink-soft leading-relaxed">
+                  {parsed.summary}
+                </p>
               </div>
-              <div className="text-right">
-                <div className="font-serif font-semibold text-[34px] tracking-tight leading-none">Rs 7,500<span className="text-lg text-slate-light">/mo</span></div>
-                <div className="text-sm text-slate-light mt-1.5">Ongoing partnership</div>
-              </div>
-            </div>
-            <ul className="space-y-3 mb-8">
-              {[
-                "Full setup -- connection, your voice, your dashboard",
-                "Permanent founding-client pricing, for as long as you stay",
-                "Direct access to me, not a support queue",
-                "The system tuned and adjusted around your real usage",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-3 text-[15px] text-slate-light">
-                  <span className="text-sky mt-0.5">+</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="bg-black/30 rounded-2xl px-6 py-5">
-              <p className="text-[14.5px] text-slate-light leading-relaxed"><b className="text-white">Our promise:</b> if Engage isn't saving you real time within the first month, we keep refining it with you at no extra cost until it does.</p>
-            </div>
+            )}
+
+            {paymentId && (
+              <p className="text-xs text-slate-light mt-5 pt-5 border-t border-line">
+                Payment ID: <span className="font-mono">{paymentId}</span> — save this to recover your result anytime.
+              </p>
+            )}
           </div>
-          <p className="text-[13px] text-slate-light mt-7">Open to the first few founding clients -- running costs billed separately, at actual cost</p>
-        </div>
-      </section>
-      <section className="px-6 pb-24 bg-mist pt-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="relative overflow-hidden rounded-[32px] bg-grad text-white text-center px-8 py-16">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.18),transparent_40%)]" />
-            <div className="relative z-10 max-w-xl mx-auto">
-              <h2 className="font-serif font-semibold text-[clamp(30px,4.2vw,46px)] tracking-tight mb-4">Never leave a good conversation waiting.</h2>
-              <p className="text-white/85 text-lg mb-8">Engage keeps you responsive, consistent, and unmistakably yourself.</p>
-              <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-white text-indigo-deep hover:-translate-y-0.5 transition-all">Talk to us</a>
-            </div>
+        )}
+
+        <div className="mt-7 pt-6 border-t border-line">
+          <p className="text-xs text-slate-light mb-2.5">
+            Had a failed generation? Recover your result using your payment ID.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={recoveryId}
+              onChange={(e) => setRecoveryId(e.target.value)}
+              placeholder="pay_xxxxxxxxxxxxxxx"
+              className="flex-1 border border-line rounded-[11px] px-4 py-2.5 text-sm bg-cloud focus:outline-none focus:ring-2 focus:ring-indigo"
+            />
+            <button
+              onClick={handleRecover}
+              disabled={loading || !recoveryId.trim()}
+              className="px-5 py-2.5 bg-cloud text-ink-soft rounded-[11px] text-sm border border-line hover:border-slate-light disabled:opacity-50 transition-colors"
+            >
+              Recover
+            </button>
           </div>
         </div>
-      </section>
+
+        <p className="text-xs text-slate-light text-center mt-9">
+          Problems? Email{" "}
+          <a href="mailto:support@zyntask.in" className="underline text-indigo hover:text-indigo-deep">
+            support@zyntask.in
+          </a>{" "}
+          with your payment ID.
+        </p>
+      </div>
     </main>
   );
 }
-"@ | Set-Content -Path app\engage\page.tsx -Encoding utf8
