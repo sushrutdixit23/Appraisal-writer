@@ -1,4 +1,4 @@
-import SiteNav from "../components/SiteNav";
+import SiteNav from "./components/SiteNav";
 
 export default function EngagePage() {
   return (
