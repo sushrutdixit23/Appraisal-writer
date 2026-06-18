@@ -1,4 +1,13 @@
 // cache-bust 2026-06-16
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Engage by Zyntask — Your LinkedIn voice, on time",
+  description: "Engage watches your LinkedIn comments and messages, drafts replies in your voice, and waits for your approval before anything is sent. Founding Partnership now open.",
+};
+
+
 import SiteNav from "../components/SiteNav";
 
 export default function EngagePage() {
