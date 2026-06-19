@@ -12,7 +12,8 @@ export default function LoginPage() {
     if (!email.trim()) return;
     setStatus("sending");
     setErrorMsg("");
-
+    console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL); // ADD THIS
+  
    const { error } = await supabase.auth.signInWithOtp({
      email: email.trim(),
      options: {
