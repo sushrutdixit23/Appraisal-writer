@@ -52,8 +52,9 @@ async function routeUser(session: any, router: any) {
     .single();
 
   if (client) {
-    router.replace("/dashboard");
+    router.replace("/welcome");
   } else {
     router.replace("/welcome");
   }
 }
+
