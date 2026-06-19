@@ -24,7 +24,6 @@ export default function AuthCallback() {
         }
       );
 
-      // Timeout fallback — if no session after 5s, go to login
       setTimeout(() => {
         subscription.unsubscribe();
         router.replace("/login");
