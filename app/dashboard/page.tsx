@@ -54,7 +54,6 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
 
-  const { data } = await supabase
   const loadItems = async (clientId: string) => {
     const { data } = await supabase
       .from("interactions")
@@ -399,3 +398,4 @@ export default function Dashboard() {
     </main>
   );
 }
+
