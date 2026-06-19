@@ -25,7 +25,7 @@ export default function EngagePage() {
           <p className="font-mono text-[11.5px] tracking-[0.22em] uppercase text-slate-light mb-10">Your LinkedIn voice, on time -- every time</p>
           <h2 className="font-display font-semibold tracking-tight leading-[1.1] text-[clamp(26px,3.6vw,38px)] mb-7 text-white/95 max-w-[20ch] mx-auto">You never miss a meaningful LinkedIn conversation.</h2>
           <p className="text-[18px] text-slate-light max-w-[50ch] mx-auto mb-10 leading-relaxed">Engage watches your comments and messages, writes thoughtful replies that sound like you, and lines them up for a quick yes before anything is sent.</p>
-          <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg transition-all">Talk to us about Engage</a>
+          <a href="/onboard" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg transition-all">Get started →</a>
         </div>
       </header>
       <section className="py-24 bg-mist">
