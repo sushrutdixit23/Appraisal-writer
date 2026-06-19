@@ -7,7 +7,6 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_KEY!
   );
 
-export async function POST(req: NextRequest) {
   const { id, client_id } = await req.json();
 
   if (!id || !client_id) {

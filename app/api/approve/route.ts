@@ -7,14 +7,12 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_KEY!
   );
 
-export async function POST(req: NextRequest) {
   const { id, client_id, text } = await req.json();
 
   if (!id || !client_id || !text) {
     return NextResponse.json({ error: "Missing id, client_id, or text" }, { status: 400 });
   }
 
-  // Fetch the interaction row to get type, chat_id, and the client's Unipile credentials
   const { data: interaction, error: fetchError } = await supabase
     .from("interactions")
     .select("*")
@@ -36,7 +34,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  // Check the daily cap before sending
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
@@ -50,7 +47,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Daily cap reached" }, { status: 429 });
   }
 
-  // Send via Unipile
   const unipileUrl =
     interaction.type === "dm"
       ? `${process.env.UNIPILE_DSN}/api/v1/chats/${interaction.chat_id}/messages`
@@ -74,7 +70,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unipile error: ${errText}` }, { status: 502 });
   }
 
-  // Mark as sent, log the send
   await supabase.from("interactions").update({ status: "sent" }).eq("id", id).eq("client_id", client_id);
   await supabase.from("send_log").insert({ client_id });
 
