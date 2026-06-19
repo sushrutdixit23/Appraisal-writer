@@ -3,14 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow auth callback to pass through
-  if (pathname.startsWith("/auth")) {
+  // Allow these to pass through always
+  if (
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/"
+  ) {
     return NextResponse.next();
   }
 
-  const token = req.cookies.get("sb-access-token")?.value;
+  // Check for any Supabase session cookie
+  const cookies = req.cookies.getAll();
+  const hasSession = cookies.some(
+    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+  );
 
-  if (!token) {
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -18,5 +28,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/auth/:path*"],
+  matcher: ["/dashboard/:path*"],
 };
