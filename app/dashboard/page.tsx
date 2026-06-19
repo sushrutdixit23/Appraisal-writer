@@ -54,13 +54,12 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
 
-  const loadItems = async (clientId: string) => {
-  const { data } = await supa
-    .select("*")
-    .eq("client_idbase
-    .from("interactions")", clientId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const { data } = await supabase
+  .from("interactions")
+  .select("*")
+  .eq("client_id", clientId)
+  .eq("status", "pending")
+  .order("created_at", { ascending: false });
 
 
     if (data) {
