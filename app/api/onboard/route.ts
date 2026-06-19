@@ -48,15 +48,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create client." }, { status: 500 });
   }
 
-  // 3. Create Supabase auth user and send magic link
-  const { error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
-    data: { client_id: client.id, full_name },
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-  });
-
-  if (authError) {
-    return NextResponse.json({ error: "Client created but failed to send login email: " + authError.message }, { status: 500 });
-  }
-
   return NextResponse.json({ status: "ok", client_id: client.id });
 }
