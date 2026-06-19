@@ -106,7 +106,7 @@ export default function SiteNav() {
 
       {/* Auth popup */}
       {authOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4" onClick={closeAuth}>
+        <div className="fixed inset-0 z-[100] flex items-start justify-end px-4 pt-[72px]" onClick={closeAuth}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-sm bg-cloud border border-line rounded-[24px] p-7 shadow-zy-lg" onClick={(e) => e.stopPropagation()}>
             <button onClick={closeAuth} className="absolute top-4 right-4 text-slate hover:text-ink transition-colors">
@@ -204,3 +204,4 @@ export default function SiteNav() {
     </>
   );
 }
+
