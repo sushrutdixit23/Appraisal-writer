@@ -55,11 +55,13 @@ export default function Dashboard() {
   const [classFilter, setClassFilter] = useState<string>("all");
 
   const loadItems = async (clientId: string) => {
-    const { data } = await supabase
-      .from("interactions")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+  const { data } = await supa
+    .select("*")
+    .eq("client_idbase
+    .from("interactions")", clientId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
 
     if (data) {
       setItems(data as Interaction[]);
