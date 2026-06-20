@@ -1,77 +1,88 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import SiteNav from "../components/SiteNav";
+import { supabase } from "../lib/supabase";
 
 declare global {
   interface Window { Razorpay: any; }
 }
 
-const STEPS = ["Your details", "Your voice", "Payment"];
-
-const TONES = [
-  "Warm and friendly",
-  "Professional and formal",
-  "Direct and concise",
-  "Casual and conversational",
+const TIERS = [
+  {
+    id: "tier3",
+    name: "Tier 3",
+    price: 6999,
+    cap: 60,
+    features: ["Up to 60 replies/day", "DMs + Comments monitored", "Basic voice setup", "Email support"],
+  },
+  {
+    id: "tier2",
+    name: "Tier 2",
+    price: 9999,
+    cap: 120,
+    features: ["Up to 120 replies/day", "DMs + Comments monitored", "Standard voice setup", "Email support"],
+    popular: true,
+  },
+  {
+    id: "tier1",
+    name: "Tier 1",
+    price: 13999,
+    cap: null,
+    features: ["Custom daily limit", "DMs + Comments monitored", "Deep voice tuning", "Direct support"],
+  },
 ];
 
 export default function OnboardPage() {
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [selectedTier, setSelectedTier] = useState("tier2");
+  const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    linkedin_url: "",
-    company_role: "",
-    voice_tone: TONES[0],
-    voice_signoff: "",
-    voice_rules: "",
-    daily_cap: "100",
-  });
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/");
+        return;
+      }
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("auth_user_id", session.user.id)
+        .maybeSingle();
 
-  const validateStep = () => {
-    if (step === 0) {
-      if (!form.full_name.trim()) return "Full name is required.";
-      if (!form.email.trim() || !form.email.includes("@")) return "Valid email is required.";
-      if (!form.linkedin_url.trim() || !form.linkedin_url.includes("linkedin.com")) return "Valid LinkedIn URL is required.";
-      if (!form.company_role.trim()) return "Company / Role is required.";
-    }
-    if (step === 1) {
-      if (!form.voice_signoff.trim()) return "Sign-off is required (e.g. — John).";
-    }
-    return "";
-  };
+      if (!profileData) {
+        router.replace("/setup");
+        return;
+      }
 
-  const next = () => {
-    const err = validateStep();
-    if (err) { setError(err); return; }
-    setError("");
-    setStep((s) => s + 1);
-  };
+      setProfile(profileData);
+      setLoading(false);
+    };
+    init();
+  }, [router]);
 
   const handlePayment = async () => {
-    const err = validateStep();
-    if (err) { setError(err); return; }
     setError("");
-    setLoading(true);
+    setPaying(true);
+
+    const tier = TIERS.find((t) => t.id === selectedTier)!;
 
     try {
-      // 1. Create Razorpay order
       const orderRes = await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 4900000 }), // ₹49,000 in paise
+        body: JSON.stringify({ amount: tier.price * 100 }),
       });
       const order = await orderRes.json();
       if (!orderRes.ok) throw new Error(order.error || "Order creation failed.");
 
-      // 2. Load Razorpay script
       await new Promise<void>((resolve, reject) => {
         if (window.Razorpay) { resolve(); return; }
         const s = document.createElement("script");
@@ -81,25 +92,28 @@ export default function OnboardPage() {
         document.body.appendChild(s);
       });
 
-      // 3. Open Razorpay checkout
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount: order.amount,
           currency: order.currency,
           name: "Zyntask",
-          description: "Engage — Setup Fee",
+          description: `Engage — ${tier.name}`,
           order_id: order.id,
-          prefill: { name: form.full_name, email: form.email },
+          prefill: { name: profile.full_name },
           theme: { color: "#5B4BFF" },
           handler: async (response: any) => {
             try {
-              // 4. Verify payment + create client
+              const { data: { session } } = await supabase.auth.getSession();
               const res = await fetch("/api/onboard", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${session?.access_token}`,
+                },
                 body: JSON.stringify({
-                  ...form,
+                  tier: selectedTier,
+                  daily_cap: tier.cap || 100,
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
@@ -120,9 +134,17 @@ export default function OnboardPage() {
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
     } finally {
-      setLoading(false);
+      setPaying(false);
     }
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-ink flex items-center justify-center">
+        <p className="text-slate-light text-sm">Loading...</p>
+      </main>
+    );
+  }
 
   if (done) {
     return (
@@ -135,7 +157,7 @@ export default function OnboardPage() {
           </div>
           <h1 className="font-serif font-semibold text-3xl text-white mb-3">You are in.</h1>
           <p className="text-slate-light text-[15px] leading-relaxed max-w-[38ch] mx-auto">
-            Check your email — we have sent you a sign-in link to access your dashboard. Your LinkedIn connection setup will follow shortly.
+            Thanks, {profile.full_name}. We will reach out shortly to connect your LinkedIn account and get Engage live for you.
           </p>
         </div>
       </main>
@@ -145,160 +167,58 @@ export default function OnboardPage() {
   return (
     <main className="min-h-screen bg-ink overflow-x-hidden">
       <SiteNav />
-      <div className="max-w-lg mx-auto px-6 pt-32 pb-20">
+      <div className="max-w-3xl mx-auto px-6 pt-28 pb-20">
+        <div className="text-center mb-12">
+          <h1 className="font-serif font-semibold text-3xl text-white mb-3">
+            Choose your plan, {profile.full_name.split(" ")[0]}.
+          </h1>
+          <p className="text-slate-light text-[15px]">
+            Your voice profile is already set up. Pick a tier and you are ready to go.
+          </p>
+        </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-10">
-          {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-                  style={i <= step ? { background: "linear-gradient(115deg,#0A66C2,#5B4BFF)", color: "#fff" } : { background: "rgba(255,255,255,0.1)", color: "#9b95a8" }}
-                >
-                  {i < step ? "✓" : i + 1}
-                </div>
-                <span className={`text-[12px] font-medium ${i === step ? "text-white" : "text-slate-light"}`}>{s}</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          {TIERS.map((tier) => (
+            <button
+              key={tier.id}
+              onClick={() => setSelectedTier(tier.id)}
+              className={`text-left rounded-2xl p-6 border-2 transition-all relative ${
+                selectedTier === tier.id
+                  ? "border-indigo bg-white/[0.06]"
+                  : "border-white/10 bg-white/[0.02] hover:border-white/20"
+              }`}
+            >
+              {tier.popular && (
+                <span className="absolute -top-3 left-6 bg-indigo text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                  Most popular
+                </span>
+              )}
+              <h3 className="font-display font-semibold text-lg text-white mb-1">{tier.name}</h3>
+              <div className="font-serif font-semibold text-2xl text-white mb-4">
+                Rs {tier.price.toLocaleString("en-IN")}<span className="text-sm text-slate-light">/mo</span>
               </div>
-              {i < STEPS.length - 1 && <div className="flex-1 h-px bg-white/10 w-8" />}
-            </div>
+              <ul className="space-y-2">
+                {tier.features.map((f) => (
+                  <li key={f} className="text-[12.5px] text-slate-light flex items-start gap-2">
+                    <span className="text-indigo mt-0.5">+</span>{f}
+                  </li>
+                ))}
+              </ul>
+            </button>
           ))}
         </div>
 
-        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
+        {error && <p className="text-rose text-[13px] text-center mb-4">{error}</p>}
 
-          {/* Step 0 — Details */}
-          {step === 0 && (
-            <div className="space-y-5">
-              <h2 className="font-serif font-semibold text-2xl text-white mb-6">Your details</h2>
-              {[
-                { label: "Full name", key: "full_name", placeholder: "Sushrut Dixit", type: "text" },
-                { label: "Email address", key: "email", placeholder: "you@example.com", type: "email" },
-                { label: "LinkedIn profile URL", key: "linkedin_url", placeholder: "https://linkedin.com/in/yourname", type: "url" },
-                { label: "Company / Role", key: "company_role", placeholder: "Founder at Zyntask", type: "text" },
-              ].map(({ label, key, placeholder, type }) => (
-                <div key={key}>
-                  <label className="block text-[12.5px] text-slate-light mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    value={form[key as keyof typeof form]}
-                    onChange={(e) => set(key, e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-light/40 focus:outline-none focus:border-indigo"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Step 1 — Voice */}
-          {step === 1 && (
-            <div className="space-y-5">
-              <h2 className="font-serif font-semibold text-2xl text-white mb-6">Your voice</h2>
-              <div>
-                <label className="block text-[12.5px] text-slate-light mb-1.5">Tone</label>
-                <select
-                  value={form.voice_tone}
-                  onChange={(e) => set("voice_tone", e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo"
-                >
-                  {TONES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[12.5px] text-slate-light mb-1.5">Sign-off</label>
-                <input
-                  type="text"
-                  value={form.voice_signoff}
-                  onChange={(e) => set("voice_signoff", e.target.value)}
-                  placeholder="— John"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-light/40 focus:outline-none focus:border-indigo"
-                />
-              </div>
-              <div>
-                <label className="block text-[12.5px] text-slate-light mb-1.5">
-                  Voice rules <span className="text-slate-light/50">(optional)</span>
-                </label>
-                <textarea
-                  value={form.voice_rules}
-                  onChange={(e) => set("voice_rules", e.target.value)}
-                  placeholder="Keep replies under 3 sentences. Never discuss pricing. Always be warm."
-                  rows={3}
-                  className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-light/40 focus:outline-none focus:border-indigo resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[12.5px] text-slate-light mb-1.5">Daily send limit</label>
-                <input
-                  type="number"
-                  value={form.daily_cap}
-                  onChange={(e) => set("daily_cap", e.target.value)}
-                  min="10"
-                  max="200"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 2 — Payment */}
-          {step === 2 && (
-            <div>
-              <h2 className="font-serif font-semibold text-2xl text-white mb-2">Payment</h2>
-              <p className="text-slate-light text-sm mb-8">One-time setup fee. Monthly retainer billed separately.</p>
-              <div className="bg-black/30 border border-white/10 rounded-xl p-6 mb-6">
-                <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                  <span className="text-white font-medium">Engage — Setup</span>
-                  <span className="font-serif font-semibold text-2xl text-white">₹49,000</span>
-                </div>
-                <ul className="space-y-2">
-                  {[
-                    "Full setup and LinkedIn connection",
-                    "Voice tuning using your examples",
-                    "Approval dashboard access",
-                    "Founding client pricing locked in",
-                    "Direct access — not a support queue",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-[13px] text-slate-light">
-                      <span className="text-indigo mt-0.5">+</span>{item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-black/20 border border-white/10 rounded-xl px-5 py-4 mb-6">
-                <p className="text-[13px] text-slate-light"><b className="text-white">Reviewing for:</b> {form.full_name} · {form.email}</p>
-              </div>
-            </div>
-          )}
-
-          {error && <p className="text-rose text-[13px] mt-4">{error}</p>}
-
-          <div className="flex justify-between mt-8">
-            {step > 0 ? (
-              <button onClick={() => { setStep(s => s - 1); setError(""); }} className="text-slate-light text-sm hover:text-white transition-colors">
-                ← Back
-              </button>
-            ) : <div />}
-
-            {step < 2 ? (
-              <button
-                onClick={next}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium text-white"
-                style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}
-              >
-                Continue →
-              </button>
-            ) : (
-              <button
-                onClick={handlePayment}
-                disabled={loading}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}
-              >
-                {loading ? "Processing..." : "Pay ₹49,000 →"}
-              </button>
-            )}
-          </div>
+        <div className="text-center">
+          <button
+            onClick={handlePayment}
+            disabled={paying}
+            className="px-8 py-3.5 rounded-xl text-base font-medium text-white disabled:opacity-50"
+            style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
+          >
+            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")} →`}
+          </button>
         </div>
       </div>
     </main>

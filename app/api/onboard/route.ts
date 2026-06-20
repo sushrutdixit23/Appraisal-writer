@@ -8,13 +8,14 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_KEY!
   );
 
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+
   const {
-    full_name, email, linkedin_url, company_role,
-    voice_tone, voice_signoff, voice_rules, daily_cap,
+    tier, daily_cap,
     razorpay_order_id, razorpay_payment_id, razorpay_signature,
   } = await req.json();
 
-  // 1. Verify Razorpay signature
   const body = razorpay_order_id + "|" + razorpay_payment_id;
   const expected = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -25,21 +26,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payment verification failed." }, { status: 400 });
   }
 
-  // 2. Insert client into Supabase
+  const { data: { user } } = await supabase.auth.getUser(token);
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+  }
+
   const { data: client, error: clientError } = await supabase
     .from("clients")
     .insert({
-      business_name: full_name,
-      linkedin_url,
-      company_role,
-      voice_name: full_name,
-      voice_role: company_role,
-      voice_tone,
-      voice_signoff,
-      voice_rules: voice_rules || "",
-      daily_cap: parseInt(daily_cap) || 100,
-      razorpay_payment_id,
-      is_active: true,
+      auth_user_id: user.id,
+      profile_id: profile.id,
+      business_name: profile.full_name,
+      agent: "engage",
+      tier,
+      daily_cap,
+      voice_name: profile.full_name,
+      voice_role: profile.role,
+      voice_tone: profile.voice_tone,
+      voice_signoff: profile.voice_signoff,
+      voice_rules: profile.voice_rules,
     })
     .select()
     .single();
