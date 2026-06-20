@@ -174,7 +174,7 @@ export default function SetupPage() {
               type="text"
               value={form.voice_signoff}
               onChange={(e) => set("voice_signoff", e.target.value)}
-              placeholder="e.g. — Priya
+              placeholder="e.g. - Priya"
               className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-light/40 focus:outline-none focus:border-indigo"
             />
           </div>
