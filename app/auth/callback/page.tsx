@@ -33,6 +33,17 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuth = async () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (data?.session) {
+          await routeUser(data.session, router);
+          return;
+        }
+      }
+
       const sessionResult = await supabase.auth.getSession();
       const session = sessionResult.data.session;
 
