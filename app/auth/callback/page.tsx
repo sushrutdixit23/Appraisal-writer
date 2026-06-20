@@ -4,6 +4,15 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+async function findProfile(userId: string) {
+  const result = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+  return result.data;
+}
+
 async function findClient(userId: string) {
   const result = await supabase
     .from("clients")
@@ -14,12 +23,19 @@ async function findClient(userId: string) {
 }
 
 async function routeUser(session: any, router: any) {
-  let client = null;
+  let profile = null;
   for (let attempt = 0; attempt < 4; attempt++) {
-    client = await findClient(session.user.id);
-    if (client) break;
+    profile = await findProfile(session.user.id);
+    if (profile) break;
     await new Promise((r) => setTimeout(r, 700));
   }
+
+  if (!profile) {
+    router.replace("/setup");
+    return;
+  }
+
+  const client = await findClient(session.user.id);
 
   if (client) {
     router.replace("/dashboard");
