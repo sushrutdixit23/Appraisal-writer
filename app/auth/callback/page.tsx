@@ -5,18 +5,15 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 async function findClient(userId: string) {
-  const { data } = await supabase
+  const result = await supabase
     .from("clients")
     .select("id")
     .eq("auth_user_id", userId)
     .maybeSingle();
-  return data;
+  return result.data;
 }
 
 async function routeUser(session: any, router: any) {
-  // Retry loop — the JWT can take a moment to attach after a fresh sign-in,
-  // so a single immediate query can come back empty due to RLS even when
-  // the row genuinely exists. Try a few times before giving up.
   let client = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     client = await findClient(session.user.id);
@@ -36,26 +33,25 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const sessionResult = await supabase.auth.getSession();
+      const session = sessionResult.data.session;
 
       if (session) {
         await routeUser(session, router);
         return;
       }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      const authListener = supabase.auth.onAuthStateChange(
         async (event, session) => {
           if (event === "SIGNED_IN" && session) {
-            subscription.unsubscribe();
+            authListener.data.subscription.unsubscribe();
             await routeUser(session, router);
           }
         }
       );
 
-      // Generous timeout — covers slow mobile networks and the
-      // app-picker redirect delay (Gmail -> browser -> zyntask.in)
       setTimeout(() => {
-        subscription.unsubscribe();
+        authListener.data.subscription.unsubscribe();
         router.replace("/");
       }, 12000);
     };
