@@ -134,7 +134,7 @@ export default function EngagePage() {
           <div className="max-w-[640px] mx-auto mb-14 text-center">
             <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Pricing</span>
             <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] mb-5">Start free. Stay only if it's working.</h2>
-            <p className="text-slate-light text-[16px] leading-relaxed max-w-[50ch] mx-auto">Try Engage free for up to a week, no card required. If it's saving you real time, we'll talk through the plan that fits how you work.</p>
+            <p className="text-slate-light text-[16px] leading-relaxed max-w-[50ch] mx-auto">Try Engage free for a week, no card required. If it's saving you real time, we'll talk through the plan that fits how you work.</p>
           </div>
 
           <div className="relative overflow-hidden rounded-[28px] p-9 md:p-10 mb-6 text-center" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
@@ -142,7 +142,7 @@ export default function EngagePage() {
             <div className="relative z-10">
               <span className="inline-block font-mono text-[11px] tracking-[0.12em] uppercase bg-white/20 px-3 py-1 rounded-full mb-4">Start here</span>
               <h3 className="font-serif font-semibold text-[34px] mb-2">Free trial</h3>
-              <p className="text-white/85 text-[15px] mb-7">3–7 days · up to 50 replies a day · full access, no payment</p>
+              <p className="text-white/85 text-[15px] mb-7">A week, free · up to 50 replies a day · full access, no payment</p>
               <a href="mailto:hello@zyntask.in" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base bg-white text-indigo-deep hover:-translate-y-0.5 ${btn}`}>
                 Start free trial →
               </a>
@@ -162,7 +162,7 @@ export default function EngagePage() {
             <div className="bg-white/5 border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
               <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">6 months</p>
               <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1">Rs 52,999</div>
-              <p className="text-[13px] text-slate-light mb-6">Rs 995 less than paying monthly</p>
+              <p className="text-[13px] text-slate-light mb-6">Includes infrastructure and maintenance</p>
               <a href="mailto:hello@zyntask.in" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/15 text-white hover:border-white/30 ${btn}`}>
                 Talk to us
               </a>
@@ -171,7 +171,7 @@ export default function EngagePage() {
             <div className="bg-white/5 border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
               <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">One-time</p>
               <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1">Rs 50,000</div>
-              <p className="text-[13px] text-slate-light mb-6">+ Rs 5,499/mo from month 3 -- first 2 months free. ~Rs 8,749/mo effective in year one.</p>
+              <p className="text-[13px] text-slate-light mb-6">+ Rs 5,499/mo from month 3 -- first 2 months free.</p>
               <a href="mailto:hello@zyntask.in" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/15 text-white hover:border-white/30 ${btn}`}>
                 Talk to us
               </a>
