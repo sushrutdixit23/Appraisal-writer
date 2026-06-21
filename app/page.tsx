@@ -1,39 +1,94 @@
-import SiteNav from "./components/SiteNav";
+﻿import SiteNav from "./components/SiteNav";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-mist overflow-x-hidden">
+      <style jsx global>{`
+        @keyframes auroraDriftA {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(40px, 30px) scale(1.08); }
+        }
+        @keyframes auroraDriftB {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-30px, -40px) scale(1.05); }
+        }
+        @keyframes auroraDriftC {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(20px, -20px) scale(1.1); }
+        }
+      `}</style>
+
       <SiteNav />
 
       <header className="relative pt-[70px] pb-24">
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-[200px] -right-[120px] w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.16),transparent_62%)] blur-[20px]" />
-          <div className="absolute -bottom-[260px] -left-[160px] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(41,211,240,0.16),transparent_62%)] blur-[20px]" />
+          <div
+            className="absolute -top-[200px] -right-[120px] w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.18),transparent_62%)] blur-[20px]"
+            style={{ animation: "auroraDriftA 18s ease-in-out infinite" }}
+          />
+          <div
+            className="absolute -bottom-[260px] -left-[160px] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(41,211,240,0.16),transparent_62%)] blur-[20px]"
+            style={{ animation: "auroraDriftB 22s ease-in-out infinite" }}
+          />
+          <div
+            className="absolute top-[20%] left-[35%] w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(138,111,240,0.14),transparent_62%)] blur-[24px]"
+            style={{ animation: "auroraDriftC 26s ease-in-out infinite" }}
+          />
         </div>
 
         <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
           <span className="inline-flex items-center gap-2 bg-cloud border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
-            Built by Zyntask · Live, working agents
+            Supervised AI · Built around you
           </span>
 
-          <h1 className="font-display font-bold tracking-tight leading-[1.02] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
-            Agents that work<br /><span className="text-grad">with you.</span>
+          <h1 className="font-serif font-semibold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
+            Zyntask <span className="text-grad">— your professional co-pilot.</span>
           </h1>
 
           <p className="text-[19px] text-slate max-w-[42ch] mx-auto mb-9 leading-relaxed">
-            Calm, in sync, and always moving toward done.
+            AI that drafts the work. You make every call.
           </p>
 
           <div className="flex gap-3.5 flex-wrap items-center justify-center">
-            <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
+            <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
               See Engage in action
             </a>
-            <a href="#how" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium text-ink hover:text-indigo transition-colors">
+            <a href="#how" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold text-ink hover:text-indigo transition-colors">
               How it works ↓
             </a>
           </div>
         </div>
       </header>
+
+      <section className="py-24">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-[640px] mx-auto mb-14 text-center">
+            <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
+              The difference
+            </span>
+            <h2 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(28px,3.5vw,42px)] text-ink">
+              Most AI tools want full control. We don't think that's right.
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              { title: "Drafts, never decides", body: "Every output is prepared, not sent. You review before anything goes out — human-in-the-loop, not best-effort automation." },
+              { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
+              { title: "Visible, not a black box", body: "See exactly what's queued, what's pending, and what's been sent — structured and always in view." },
+            ].map((item) => (
+              <div key={item.title} className="bg-cloud border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                <h3 className="font-display font-semibold text-[17px] tracking-tight mb-2 text-ink">
+                  {item.title}
+                </h3>
+                <p className="text-[14.5px] text-slate leading-relaxed">
+                  {item.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section id="how" className="py-24">
         <div className="max-w-6xl mx-auto px-6">
@@ -45,7 +100,7 @@ export default function Home() {
               Four steps. One of them is yours.
             </h2>
             <p className="text-slate text-lg mt-4">
-              Every Zyntask agent is built around the same promise — automation that knows exactly where to stop.
+              Every Zyntask agent is built around the same promise — review before anything reaches anyone.
             </p>
           </div>
 
@@ -83,7 +138,7 @@ export default function Home() {
               The flagship
             </span>
             <h2 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(30px,3.8vw,46px)] text-ink">
-              <span className="font-serif italic">Engage.</span> Your LinkedIn voice, on time — every time.
+              <span className="font-serif italic">Engage.</span> Never miss a warm lead on LinkedIn again.
             </h2>
             <p className="text-slate text-lg mt-4">
               Reads your DMs and comments, drafts replies in your voice, and waits for your yes before anything is sent.
@@ -131,7 +186,7 @@ export default function Home() {
                 Drafting is automatic. Sending never is.
               </h3>
               <p className="text-[14.5px] text-slate-light leading-relaxed">
-                Every reply is read and approved by a real person before it reaches anyone. There is no setting that changes that.
+                Every reply is read and approved by a real person before it reaches anyone — human-in-the-loop, always. There is no setting that changes that.
               </p>
             </div>
 
@@ -161,7 +216,7 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-10">
-            <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-medium bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
+            <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
               See the full Engage guide →
             </a>
           </div>
@@ -179,7 +234,7 @@ export default function Home() {
               <p className="text-white/85 text-lg mb-8">
                 Tell us what's eating your time — there's probably an agent for that.
               </p>
-              <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-white text-indigo-deep hover:-translate-y-0.5 transition-all">
+              <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-white text-indigo-deep hover:-translate-y-0.5 hover:scale-[1.03] transition-all">
                 Talk to us →
               </a>
             </div>
@@ -200,7 +255,7 @@ export default function Home() {
                 Zyntask
               </a>
               <p className="text-slate text-sm max-w-[30ch]">
-                Agents that work with you — calm, in sync, and always moving toward done.
+                Your professional co-pilot — AI that drafts the work, you make every call.
               </p>
             </div>
             <div>
