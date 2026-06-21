@@ -3,21 +3,6 @@
 export default function Home() {
   return (
     <main className="min-h-screen bg-mist overflow-x-hidden">
-      <style jsx global>{`
-        @keyframes auroraDriftA {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(40px, 30px) scale(1.08); }
-        }
-        @keyframes auroraDriftB {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(-30px, -40px) scale(1.05); }
-        }
-        @keyframes auroraDriftC {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(20px, -20px) scale(1.1); }
-        }
-      `}</style>
-
       <SiteNav />
 
       <header className="relative pt-[70px] pb-24">

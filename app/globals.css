@@ -46,3 +46,15 @@ body {
 .shadow-zy-sm { box-shadow: var(--shadow-sm); }
 .shadow-zy-md { box-shadow: var(--shadow-md); }
 .shadow-zy-lg { box-shadow: var(--shadow-lg); }
+@keyframes auroraDriftA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 30px) scale(1.08); }
+}
+@keyframes auroraDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-30px, -40px) scale(1.05); }
+}
+@keyframes auroraDriftC {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -20px) scale(1.1); }
+}
