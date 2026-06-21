@@ -22,6 +22,7 @@ type Interaction = {
 };
 
 type FilterType = "all" | "dm" | "comment";
+type ViewTab = "pending" | "sent" | "skipped";
 
 const ACCENT = "linear-gradient(115deg,#0A66C2,#5B4BFF,#8a6ff0)";
 
@@ -40,6 +41,18 @@ function formatTime(iso: string) {
   return `${diffDays}d ago`;
 }
 
+const TAB_LABELS: Record<ViewTab, string> = {
+  pending: "Pending",
+  sent: "Sent",
+  skipped: "Skipped",
+};
+
+const EMPTY_COPY: Record<ViewTab, { title: string; body: string }> = {
+  pending: { title: "Queue clear.", body: "Nothing pending review right now." },
+  sent: { title: "Nothing sent yet.", body: "Replies you approve will show up here." },
+  skipped: { title: "Nothing skipped.", body: "Messages you skip will show up here." },
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -53,31 +66,20 @@ export default function Dashboard() {
   const [myClientId, setMyClientId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
+  const [view, setView] = useState<ViewTab>("pending");
+  const [linkedinConnected, setLinkedinConnected] = useState(true);
 
-  const loadItems = async (clientId: string) => {
-    const { data } = await supabase
-      .from("interactions")
-      .select("*")
-      .eq("client_id", clientId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-
-    if (data) {
-      setItems(data as Interaction[]);
-      const initialDrafts: Record<string, string> = {};
-      data.forEach((item: Interaction) => {
-        initialDrafts[item.id] = item.reply || "";
-      });
-      setDrafts(initialDrafts);
-      setSelectedId((prev) => (data.find((i) => i.id === prev) ? prev : data[0]?.id ?? null));
-    }
-
+  const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
       .from("clients")
-      .select("daily_cap")
+      .select("daily_cap, unipile_account_id")
       .eq("id", clientId)
       .single();
-    if (clientRow) setDailyCap(clientRow.daily_cap);
+
+    if (clientRow) {
+      setDailyCap(clientRow.daily_cap);
+      setLinkedinConnected(Boolean(clientRow.unipile_account_id));
+    }
 
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
@@ -89,11 +91,33 @@ export default function Dashboard() {
     setSentToday(count ?? 0);
   };
 
+  const loadQueue = async (clientId: string, status: ViewTab) => {
+    const { data } = await supabase
+      .from("interactions")
+      .select("*")
+      .eq("client_id", clientId)
+      .eq("status", status)
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setItems(data as Interaction[]);
+      const initialDrafts: Record<string, string> = {};
+      data.forEach((item: Interaction) => {
+        initialDrafts[item.id] = item.reply || "";
+      });
+      setDrafts((prev) => ({ ...prev, ...initialDrafts }));
+      setSelectedId((prev) => (data.find((i) => i.id === prev) ? prev : data[0]?.id ?? null));
+    } else {
+      setItems([]);
+      setSelectedId(null);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
       const { data: clientRow } = await supabase
@@ -104,16 +128,23 @@ export default function Dashboard() {
 
       if (clientRow) {
         setMyClientId(clientRow.id);
-        await loadItems(clientRow.id);
+        await loadMeta(clientRow.id);
+        await loadQueue(clientRow.id, "pending");
       }
       setLoading(false);
     };
     load();
   }, [router]);
 
+  const handleTabChange = async (tab: ViewTab) => {
+    setView(tab);
+    setClassFilter("all");
+    if (myClientId) await loadQueue(myClientId, tab);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace("/");
   };
 
   const showToast = (msg: string) => {
@@ -140,7 +171,10 @@ export default function Dashboard() {
         return;
       }
       showToast("Sent.");
-      if (myClientId) await loadItems(myClientId);
+      if (myClientId) {
+        await loadMeta(myClientId);
+        await loadQueue(myClientId, view);
+      }
     } catch {
       showToast("Could not reach the server.");
     } finally {
@@ -161,7 +195,10 @@ export default function Dashboard() {
         return;
       }
       showToast("Skipped.");
-      if (myClientId) await loadItems(myClientId);
+      if (myClientId) {
+        await loadMeta(myClientId);
+        await loadQueue(myClientId, view);
+      }
     } catch {
       showToast("Could not reach the server.");
     } finally {
@@ -187,13 +224,13 @@ export default function Dashboard() {
     visibleItems = visibleItems.filter((i) => i.classification === classFilter);
   }
 
-  // Always show newest first — no sort toggle
   visibleItems = [...visibleItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
   const selected = items.find((i) => i.id === selectedId);
   const capPct = Math.min(100, (sentToday / dailyCap) * 100);
+  const emptyCopy = EMPTY_COPY[view];
 
   return (
     <main className="min-h-screen bg-ink">
@@ -225,18 +262,38 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-6xl mx-auto px-7 py-10">
-        {items.length === 0 ? (
+        {!linkedinConnected ? (
           <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center">
-            <p className="font-serif text-2xl text-white mb-2">Queue clear.</p>
-            <p className="text-slate-light text-sm">Nothing pending review right now.</p>
+            <p className="font-serif text-2xl text-white mb-2">Setting up your LinkedIn connection.</p>
+            <p className="text-slate-light text-sm max-w-md mx-auto leading-relaxed">
+              We are finishing setup on our end. This usually takes under 24 hours. You will
+              see your first replies here as soon as it is live.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-[320px_1fr] gap-6">
             <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/10 space-y-3">
+                <div className="flex gap-1 bg-black/30 rounded-lg p-1">
+                  {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => handleTabChange(tab)}
+                      className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
+                      style={
+                        view === tab
+                          ? { background: ACCENT, color: "#fff" }
+                          : { color: "#9b95a8" }
+                      }
+                    >
+                      {TAB_LABELS[tab]}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-light">
-                    Pending
+                    {TAB_LABELS[view]}
                   </span>
                   <span className="text-[11px] font-mono text-slate-light">
                     {visibleItems.length} of {items.length}
@@ -260,28 +317,30 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <select
-                      value={classFilter}
-                      onChange={(e) => setClassFilter(e.target.value)}
-                      className="w-full appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white focus:outline-none focus:border-indigo cursor-pointer"
-                    >
-                      <option value="all">All types</option>
-                      {classifications.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                {classifications.length > 0 && (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <select
+                        value={classFilter}
+                        onChange={(e) => setClassFilter(e.target.value)}
+                        className="w-full appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white focus:outline-none focus:border-indigo cursor-pointer"
+                      >
+                        <option value="all">All types</option>
+                        {classifications.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {visibleItems.length === 0 ? (
                 <div className="px-5 py-8 text-center text-[13px] text-slate-light">
-                  Nothing matches this filter.
+                  {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
                 </div>
               ) : (
                 visibleItems.map((item) => (
@@ -310,7 +369,12 @@ export default function Dashboard() {
               )}
             </div>
 
-            {selected && (
+            {items.length === 0 ? (
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center self-start">
+                <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
+                <p className="text-slate-light text-sm">{emptyCopy.body}</p>
+              </div>
+            ) : selected && (
               <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-3.5">
@@ -345,11 +409,11 @@ export default function Dashboard() {
                   </div>
                   <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
-                    <p className="text-[13px] font-medium text-white truncate">{selected.intent || "—"}</p>
+                    <p className="text-[13px] font-medium text-white truncate">{selected.intent || "-"}</p>
                   </div>
                   <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
-                    <p className="text-[13px] font-mono text-white">{selected.confidence != null ? `${selected.confidence}%` : "—"}</p>
+                    <p className="text-[13px] font-mono text-white">{selected.confidence != null ? `${selected.confidence}%` : "-"}</p>
                   </div>
                   <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
@@ -359,31 +423,57 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply</p>
-                <textarea
-                  value={drafts[selected.id] ?? ""}
-                  onChange={(e) => setDrafts({ ...drafts, [selected.id]: e.target.value })}
-                  rows={4}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:border-indigo leading-relaxed mb-5"
-                />
+                {view === "pending" && (
+                  <>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply</p>
+                    <textarea
+                      value={drafts[selected.id] ?? ""}
+                      onChange={(e) => setDrafts({ ...drafts, [selected.id]: e.target.value })}
+                      rows={4}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:border-indigo leading-relaxed mb-5"
+                    />
 
-                <div className="flex justify-end gap-2.5">
-                  <button
-                    onClick={() => handleSkip(selected)}
-                    disabled={busyId === selected.id}
-                    className="px-5 py-2.5 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50 transition-colors"
-                  >
-                    Skip
-                  </button>
-                  <button
-                    onClick={() => handleApprove(selected)}
-                    disabled={busyId === selected.id}
-                    className="px-5 py-2.5 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(10,102,194,0.45)] disabled:opacity-50 disabled:translate-y-0 transition-all"
-                    style={{ background: ACCENT }}
-                  >
-                    {busyId === selected.id ? "Sending..." : "Approve & send →"}
-                  </button>
-                </div>
+                    <div className="flex justify-end gap-2.5">
+                      <button
+                        onClick={() => handleSkip(selected)}
+                        disabled={busyId === selected.id}
+                        className="px-5 py-2.5 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50 transition-colors"
+                      >
+                        Skip
+                      </button>
+                      <button
+                        onClick={() => handleApprove(selected)}
+                        disabled={busyId === selected.id}
+                        className="px-5 py-2.5 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(10,102,194,0.45)] disabled:opacity-50 disabled:translate-y-0 transition-all"
+                        style={{ background: ACCENT }}
+                      >
+                        {busyId === selected.id ? "Sending..." : "Approve & send ->"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {view === "sent" && (
+                  <>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
+                    <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
+                      {selected.reply || "-"}
+                    </div>
+                  </>
+                )}
+
+                {view === "skipped" && (
+                  <>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
+                    <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
+                    {selected.reply && (
+                      <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
+                        {selected.reply}
+                        <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -398,4 +488,3 @@ export default function Dashboard() {
     </main>
   );
 }
-
