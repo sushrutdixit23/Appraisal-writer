@@ -2,25 +2,29 @@
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-mist overflow-x-hidden">
+    <main className="relative min-h-screen bg-mist overflow-x-hidden">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute top-[-160px] right-[-100px] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.16),transparent_62%)] blur-[20px]"
+          style={{ animation: "auroraDriftA 18s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute top-[420px] left-[-140px] w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(41,211,240,0.12),transparent_62%)] blur-[22px]"
+          style={{ animation: "auroraDriftB 24s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute top-[900px] right-[-60px] w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(138,111,240,0.12),transparent_62%)] blur-[22px]"
+          style={{ animation: "auroraDriftC 26s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute top-[1500px] left-[10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.10),transparent_62%)] blur-[24px]"
+          style={{ animation: "auroraDriftA 30s ease-in-out infinite" }}
+        />
+      </div>
+
       <SiteNav />
 
       <header className="relative pt-[70px] pb-24">
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          <div
-            className="absolute -top-[200px] -right-[120px] w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(91,75,255,0.18),transparent_62%)] blur-[20px]"
-            style={{ animation: "auroraDriftA 18s ease-in-out infinite" }}
-          />
-          <div
-            className="absolute -bottom-[260px] -left-[160px] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(41,211,240,0.16),transparent_62%)] blur-[20px]"
-            style={{ animation: "auroraDriftB 22s ease-in-out infinite" }}
-          />
-          <div
-            className="absolute top-[20%] left-[35%] w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(138,111,240,0.14),transparent_62%)] blur-[24px]"
-            style={{ animation: "auroraDriftC 26s ease-in-out infinite" }}
-          />
-        </div>
-
         <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
           <span className="inline-flex items-center gap-2 bg-cloud border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
             Supervised AI · Built around you
@@ -45,7 +49,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="py-24">
+      <section className="relative z-10 py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="max-w-[640px] mx-auto mb-14 text-center">
             <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
@@ -62,7 +66,7 @@ export default function Home() {
               { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
               { title: "Visible, not a black box", body: "See exactly what's queued, what's pending, and what's been sent — structured and always in view." },
             ].map((item) => (
-              <div key={item.title} className="bg-cloud border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+              <div key={item.title} className="bg-cloud/90 backdrop-blur-sm border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                 <h3 className="font-display font-semibold text-[17px] tracking-tight mb-2 text-ink">
                   {item.title}
                 </h3>
@@ -75,7 +79,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="how" className="py-24">
+      <section id="how" className="relative z-10 py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="max-w-[660px] mx-auto mb-14 text-center">
             <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
@@ -96,7 +100,7 @@ export default function Home() {
               { n: "03", icon: "✅", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
               { n: "04", icon: "🔁", title: "Repeat", body: "It keeps running, quietly, in the background — building a queue, never a backlog." },
             ].map((step) => (
-              <div key={step.n} className="bg-cloud border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+              <div key={step.n} className="bg-cloud/90 backdrop-blur-sm border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                 <div className="flex items-center gap-2 text-indigo font-mono text-xs tracking-wide mb-4">
                   <span>{step.n}</span>
                   <span className="flex-1 h-px bg-line" />
@@ -116,7 +120,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="engage" className="py-24 pt-0">
+      <section id="engage" className="relative z-10 py-24 pt-0">
         <div className="max-w-6xl mx-auto px-6">
           <div className="max-w-[660px] mx-auto mb-14 text-center">
             <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
@@ -131,7 +135,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4.5">
-            <div className="md:col-span-4 bg-cloud border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            <div className="md:col-span-4 bg-cloud/90 backdrop-blur-sm border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
               <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                 ● Your approval queue
               </span>
@@ -175,7 +179,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="md:col-span-3 bg-cloud border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            <div className="md:col-span-3 bg-cloud/90 backdrop-blur-sm border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
               <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                 ● Account safety
               </span>
@@ -187,7 +191,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="md:col-span-3 bg-cloud border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            <div className="md:col-span-3 bg-cloud/90 backdrop-blur-sm border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
               <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                 ● Sounds like you
               </span>
@@ -208,7 +212,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 pb-24">
+      <section className="relative z-10 px-6 pb-24">
         <div className="max-w-6xl mx-auto">
           <div className="relative overflow-hidden rounded-[32px] bg-grad text-white text-center px-8 py-16 md:py-20">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.18),transparent_40%),radial-gradient(circle_at_90%_90%,rgba(0,0,0,0.12),transparent_45%)]" />
@@ -227,7 +231,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="pt-0 pb-10">
+      <footer className="relative z-10 pt-0 pb-10">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pb-11 border-b border-line">
             <div className="col-span-2">
