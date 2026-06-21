@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -94,8 +94,7 @@ export default function SiteNav() {
               </svg>
               Sign in
             </button>
-            
-              href="/engage"
+            <a href="/engage"
               className={`hidden md:inline-flex px-5 py-2.5 rounded-[11px] text-[15px] bg-ink text-white shadow-zy-sm hover:-translate-y-0.5 hover:shadow-zy-md ${btn}`}
             >
               See Engage
