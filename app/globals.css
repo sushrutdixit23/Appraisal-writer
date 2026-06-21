@@ -179,3 +179,31 @@ body {
   -webkit-mask-image: radial-gradient(ellipse 90% 90% at 65% 55%, black 25%, transparent 73%);
   mask-image: radial-gradient(ellipse 90% 90% at 65% 55%, black 25%, transparent 73%);
 }
+
+/* full-page aurora for an all-dark immersive page */
+.aurora-page-dark {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora-page-dark::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background-image: repeating-linear-gradient(100deg, #5B4BFF 8%, #8a6ff0 14%, #29D3F0 20%, #0A66C2 26%, #5B4BFF 32%);
+  background-size: 240% 240%;
+  filter: blur(72px);
+  opacity: 0.30;
+  animation: auroraFlow 30s linear infinite;
+}
+.aurora-page-dark::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background-image: repeating-linear-gradient(78deg, #29D3F0 6%, #5B4BFF 13%, #8a6ff0 19%, #29D3F0 26%);
+  background-size: 220% 220%;
+  filter: blur(82px);
+  opacity: 0.20;
+  animation: auroraFlow 44s linear infinite reverse;
+}
