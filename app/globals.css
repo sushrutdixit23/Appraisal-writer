@@ -58,3 +58,59 @@ body {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50% { transform: translate(20px, -20px) scale(1.1); }
 }
+
+@keyframes auroraFlow {
+  0% { background-position: 50% 50%, 50% 50%; }
+  100% { background-position: 350% 50%, 350% 50%; }
+}
+
+.aurora-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aurora-field::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      #5B4BFF 8%,
+      #8a6ff0 14%,
+      #29D3F0 20%,
+      #0A66C2 26%,
+      #5B4BFF 32%
+    );
+  background-size: 280% 220%;
+  background-position: 50% 50%;
+  filter: blur(64px);
+  opacity: 0.42;
+  animation: auroraFlow 28s linear infinite;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 25%, black 35%, transparent 78%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 25%, black 35%, transparent 78%);
+}
+
+.aurora-field::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background-image:
+    repeating-linear-gradient(
+      78deg,
+      #29D3F0 6%,
+      #5B4BFF 13%,
+      #8a6ff0 19%,
+      #29D3F0 26%
+    );
+  background-size: 260% 200%;
+  background-position: 50% 50%;
+  filter: blur(72px);
+  opacity: 0.28;
+  animation: auroraFlow 40s linear infinite reverse;
+  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 70% 60%, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 90% at 70% 60%, black 30%, transparent 75%);
+}
