@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 export default function SiteNav() {
@@ -10,6 +10,14 @@ export default function SiteNav() {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const links = [
     { href: "/engage", label: "Engage" },
@@ -47,12 +55,21 @@ export default function SiteNav() {
     setErrorMsg("");
   };
 
+  const btn = "font-semibold transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]";
+
   return (
     <>
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-mist/80 border-b border-line">
+      <nav
+        className={`sticky top-0 z-50 transition-all duration-300 relative ${
+          scrolled
+            ? "backdrop-blur-xl bg-white/70 shadow-[0_8px_28px_rgba(13,13,13,0.08)]"
+            : "backdrop-blur-md bg-white/45"
+        }`}
+      >
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo/35 to-transparent pointer-events-none" />
         <div className="max-w-6xl mx-auto px-6 h-[70px] flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2.5 font-display font-bold text-xl text-ink">
-            <span className="w-7.5 h-7.5 rounded-[9px] bg-grad flex items-center justify-center shadow-zy-sm">
+          <a href="/" className="group flex items-center gap-2.5 font-display font-bold text-xl text-ink">
+            <span className="w-7.5 h-7.5 rounded-[9px] bg-grad flex items-center justify-center shadow-zy-sm transition-shadow duration-300 group-hover:shadow-[0_0_18px_rgba(91,75,255,0.55)]">
               <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-white stroke-[2.6] fill-none" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 10.5 8.5 15 16 5.5" />
               </svg>
@@ -61,7 +78,7 @@ export default function SiteNav() {
           </a>
           <div className="hidden md:flex items-center gap-8">
             {links.map((l) => (
-              <a key={l.href} href={l.href} className="text-[15px] text-ink-soft hover:text-indigo transition-colors">
+              <a key={l.href} href={l.href} className="text-[15px] font-medium text-ink-soft hover:text-indigo transition-colors">
                 {l.label}
               </a>
             ))}
@@ -69,7 +86,7 @@ export default function SiteNav() {
           <div className="flex items-center gap-3.5">
             <button
               onClick={() => { setAuthOpen(true); setTab("signup"); }}
-              className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-[11px] text-[14px] font-medium text-ink-soft border border-line hover:text-indigo hover:border-indigo transition-colors"
+              className={`hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-[11px] text-[14px] text-ink-soft border border-line hover:text-indigo hover:border-indigo ${btn}`}
             >
               <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="10" cy="7" r="3.5" />
@@ -77,7 +94,10 @@ export default function SiteNav() {
               </svg>
               Sign in
             </button>
-            <a href="/engage" className="hidden md:inline-flex px-5 py-2.5 rounded-[11px] text-[15px] font-medium bg-ink text-white shadow-zy-sm hover:-translate-y-0.5 hover:shadow-zy-md transition-all">
+            
+              href="/engage"
+              className={`hidden md:inline-flex px-5 py-2.5 rounded-[11px] text-[15px] bg-ink text-white shadow-zy-sm hover:-translate-y-0.5 hover:shadow-zy-md ${btn}`}
+            >
               See Engage
             </a>
             <button onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open} className="md:hidden flex flex-col gap-[5px] p-2">
@@ -87,24 +107,23 @@ export default function SiteNav() {
             </button>
           </div>
         </div>
-        <div className={`md:hidden border-t border-line bg-mist overflow-hidden transition-all duration-300 ${open ? "max-h-[400px]" : "max-h-0"}`}>
+        <div className={`md:hidden border-t border-line bg-white/80 backdrop-blur-xl overflow-hidden transition-all duration-300 ${open ? "max-h-[400px]" : "max-h-0"}`}>
           <div className="px-6 py-5 flex flex-col gap-1">
             {links.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="py-3 text-[16px] text-ink-soft hover:text-indigo transition-colors border-b border-line-soft last:border-0">
+              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="py-3 text-[16px] font-medium text-ink-soft hover:text-indigo transition-colors border-b border-line-soft last:border-0">
                 {l.label}
               </a>
             ))}
-            <button onClick={() => { setOpen(false); setAuthOpen(true); setTab("signup"); }} className="mt-4 inline-flex justify-center items-center gap-2 px-5 py-3 rounded-[11px] text-[15px] font-medium text-ink border border-line">
+            <button onClick={() => { setOpen(false); setAuthOpen(true); setTab("signup"); }} className={`mt-4 inline-flex justify-center items-center gap-2 px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>
               Sign in
             </button>
-            <a href="/engage" onClick={() => setOpen(false)} className="mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] font-medium bg-ink text-white">
+            <a href="/engage" onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] bg-ink text-white ${btn}`}>
               See Engage
             </a>
           </div>
         </div>
       </nav>
 
-      {/* Auth popup */}
       {authOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-end px-4 pt-[72px]" onClick={closeAuth}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -119,13 +138,12 @@ export default function SiteNav() {
               <span className="font-display font-bold text-xl text-ink">Zyntask</span>
             </div>
 
-            {/* Tabs */}
             <div className="flex bg-mist border border-line rounded-xl p-1 mb-6">
               {(["signup", "signin"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => { setTab(t); setStatus("idle"); setErrorMsg(""); }}
-                  className="flex-1 py-2 text-[13px] font-medium rounded-lg transition-all"
+                  className="flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all"
                   style={tab === t ? { background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)", color: "#fff" } : { color: "#6b6880" }}
                 >
                   {t === "signup" ? "Create account" : "Sign in"}
@@ -140,10 +158,9 @@ export default function SiteNav() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Google */}
                 <button
                   onClick={handleGoogle}
-                  className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-line bg-white hover:bg-mist transition-colors text-[14px] font-medium text-ink"
+                  className={`w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-line bg-white hover:bg-mist text-[14px] text-ink ${btn}`}
                 >
                   <svg viewBox="0 0 24 24" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -184,7 +201,7 @@ export default function SiteNav() {
                 <button
                   onClick={handleEmailAuth}
                   disabled={status === "sending"}
-                  className="w-full py-3 rounded-xl text-[14px] font-medium text-white disabled:opacity-50 transition-opacity"
+                  className={`w-full py-3 rounded-xl text-[14px] text-white disabled:opacity-50 disabled:hover:scale-100 ${btn}`}
                   style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
                 >
                   {status === "sending" ? "Sending..." : tab === "signup" ? "Create account" : "Send sign-in link"}
@@ -193,7 +210,7 @@ export default function SiteNav() {
                 {tab === "signup" && (
                   <p className="text-[11.5px] text-slate text-center leading-relaxed">
                     Already have an account?{" "}
-                    <button onClick={() => setTab("signin")} className="text-indigo hover:underline">Sign in</button>
+                    <button onClick={() => setTab("signin")} className="text-indigo hover:underline font-medium">Sign in</button>
                   </p>
                 )}
               </div>
@@ -204,4 +221,3 @@ export default function SiteNav() {
     </>
   );
 }
-
