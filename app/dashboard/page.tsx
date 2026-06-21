@@ -14,8 +14,10 @@ type Interaction = {
   text: string;
   classification: string;
   intent: string;
+  reasoning: string | null;
   confidence: number;
   requires_human: boolean;
+  suggested_action: string | null;
   reply: string;
   status: string;
   created_at: string;
@@ -402,7 +404,7 @@ export default function Dashboard() {
                   {selected.text}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 mb-5">
+                <div className="grid grid-cols-2 gap-2.5 mb-3">
                   <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
                     <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{selected.classification}</p>
@@ -422,6 +424,25 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </div>
+
+                {selected.reasoning && (
+                  <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3 mb-2.5">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
+                    <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.reasoning}</p>
+                  </div>
+                )}
+
+                {selected.suggested_action && (
+                  <div
+                    className="rounded-lg px-3.5 py-3 mb-5 border"
+                    style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
+                    <p className="text-[12.5px] text-white/85 leading-relaxed">{selected.suggested_action}</p>
+                  </div>
+                )}
+
+                {!selected.reasoning && !selected.suggested_action && <div className="mb-5" />}
 
                 {view === "pending" && (
                   <>
