@@ -1,4 +1,5 @@
-Ôªøimport SiteNav from "./components/SiteNav";
+export const dynamic = 'force-dynamic';
+import SiteNav from "./components/SiteNav";
 import Reveal from "./components/Reveal";
 
 export default function Home() {
@@ -13,11 +14,11 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_55%_at_50%_42%,rgba(247,246,242,0.78),transparent_72%)] pointer-events-none" />
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
             <span className="inline-flex items-center gap-2 bg-cloud/80 backdrop-blur-sm border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
-              Supervised AI ¬∑ Built around you
+              Supervised AI ∑ Built around you
             </span>
 
             <h1 className="font-serif font-semibold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
-              Zyntask <span className="text-grad">‚Äî your professional co-pilot.</span>
+              Zyntask <span className="text-grad">ó your professional co-pilot.</span>
             </h1>
 
             <p className="text-[19px] text-slate max-w-[42ch] mx-auto mb-9 leading-relaxed">
@@ -29,7 +30,7 @@ export default function Home() {
                 See Engage in action
               </a>
               <a href="#how" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold text-ink hover:text-indigo transition-colors">
-                How it works ‚Üì
+                How it works ?
               </a>
             </div>
           </div>
@@ -49,9 +50,9 @@ export default function Home() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {[
-                  { title: "Drafts, never decides", body: "Every output is prepared, not sent. You review before anything goes out ‚Äî human-in-the-loop, not best-effort automation." },
+                  { title: "Drafts, never decides", body: "Every output is prepared, not sent. You review before anything goes out ó human-in-the-loop, not best-effort automation." },
                   { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
-                  { title: "Visible, not a black box", body: "See exactly what's queued, what's pending, and what's been sent ‚Äî structured and always in view." },
+                  { title: "Visible, not a black box", body: "See exactly what's queued, what's pending, and what's been sent ó structured and always in view." },
                 ].map((item) => (
                   <div key={item.title} className="bg-cloud/85 backdrop-blur-md border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <h3 className="font-display font-semibold text-[17px] tracking-tight mb-2 text-ink">
@@ -78,16 +79,16 @@ export default function Home() {
                   Four steps. One of them is yours.
                 </h2>
                 <p className="text-slate text-lg mt-4">
-                  Every Zyntask agent is built around the same promise ‚Äî review before anything reaches anyone.
+                  Every Zyntask agent is built around the same promise ó review before anything reaches anyone.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 {[
-                  { n: "01", icon: "üëÄ", title: "Watch", body: "The agent quietly keeps an eye on the work ‚Äî messages, comments, whatever it's built to catch. Nothing slips through." },
-                  { n: "02", icon: "‚úçÔ∏è", title: "Draft", body: "It works out what's needed and prepares a response in your voice ‚Äî ready to go, never sent on its own." },
-                  { n: "03", icon: "‚úÖ", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
-                  { n: "04", icon: "üîÅ", title: "Repeat", body: "It keeps running, quietly, in the background ‚Äî building a queue, never a backlog." },
+                  { n: "01", icon: "??", title: "Watch", body: "The agent quietly keeps an eye on the work ó messages, comments, whatever it's built to catch. Nothing slips through." },
+                  { n: "02", icon: "??", title: "Draft", body: "It works out what's needed and prepares a response in your voice ó ready to go, never sent on its own." },
+                  { n: "03", icon: "?", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
+                  { n: "04", icon: "??", title: "Repeat", body: "It keeps running, quietly, in the background ó building a queue, never a backlog." },
                 ].map((step) => (
                   <div key={step.n} className="bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <div className="flex items-center gap-2 text-indigo font-mono text-xs tracking-wide mb-4">
@@ -128,13 +129,13 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-6 gap-4.5">
                 <div className="md:col-span-4 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    ‚óè Your approval queue
+                    ? Your approval queue
                   </span>
                   <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5 text-ink">
                     One screen. A few minutes. Done.
                   </h3>
                   <p className="text-[15px] text-slate leading-relaxed mb-5">
-                    Everything waiting for you, with the message, the classification, and the drafted reply ‚Äî ready to approve or skip.
+                    Everything waiting for you, with the message, the classification, and the drafted reply ó ready to approve or skip.
                   </p>
 
                   <div className="rounded-2xl border border-line bg-mist overflow-hidden">
@@ -146,13 +147,13 @@ export default function Home() {
                       <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;6 / 100</span>
                     </div>
                     <div className="p-4">
-                      <div className="text-xs text-slate-light mb-1">Amrish Kumar Choubey ¬∑ Comment</div>
+                      <div className="text-xs text-slate-light mb-1">Amrish Kumar Choubey ∑ Comment</div>
                       <div className="text-[13px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3">
-                        Keep learning. Proud of you üôè
+                        Keep learning. Proud of you ??
                       </div>
                       <div className="text-[9px] uppercase tracking-wide text-slate-light mb-1.5">Reply prepared for you</div>
                       <div className="text-[13px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed">
-                        Thank you so much, Amrish sir ‚Äî that truly means a lot coming from you. Your encouragement keeps me pushing further. üôè
+                        Thank you so much, Amrish sir ó that truly means a lot coming from you. Your encouragement keeps me pushing further. ??
                       </div>
                     </div>
                   </div>
@@ -160,44 +161,44 @@ export default function Home() {
 
                 <div className="md:col-span-2 bg-ink text-white rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-sky font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    ‚óè The one rule
+                    ? The one rule
                   </span>
                   <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5">
                     Drafting is automatic. Sending never is.
                   </h3>
                   <p className="text-[14.5px] text-slate-light leading-relaxed">
-                    Every reply is read and approved by a real person before it reaches anyone ‚Äî human-in-the-loop, always. There is no setting that changes that.
+                    Every reply is read and approved by a real person before it reaches anyone ó human-in-the-loop, always. There is no setting that changes that.
                   </p>
                 </div>
 
                 <div className="md:col-span-3 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    ‚óè Account safety
+                    ? Account safety
                   </span>
                   <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">
                     A daily limit, always on.
                   </h3>
                   <p className="text-[14.5px] text-slate leading-relaxed">
-                    Sending stays well inside what LinkedIn considers normal activity ‚Äî no matter how full the queue gets.
+                    Sending stays well inside what LinkedIn considers normal activity ó no matter how full the queue gets.
                   </p>
                 </div>
 
                 <div className="md:col-span-3 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    ‚óè Sounds like you
+                    ? Sounds like you
                   </span>
                   <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">
                     Tuned to your voice, not a template.
                   </h3>
                   <p className="text-[14.5px] text-slate leading-relaxed">
-                    Set up using real examples of how you actually write ‚Äî then refined every time you edit a draft.
+                    Set up using real examples of how you actually write ó then refined every time you edit a draft.
                   </p>
                 </div>
               </div>
 
               <div className="text-center mt-10">
                 <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
-                  See the full Engage guide ‚Üí
+                  See the full Engage guide ?
                 </a>
               </div>
             </div>
@@ -214,10 +215,10 @@ export default function Home() {
                     Stay calm. Stay in sync. Get it done.
                   </h2>
                   <p className="text-white/85 text-lg mb-8">
-                    Tell us what's eating your time ‚Äî there's probably an agent for that.
+                    Tell us what's eating your time ó there's probably an agent for that.
                   </p>
                   <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-white text-indigo-deep hover:-translate-y-0.5 hover:scale-[1.03] transition-all">
-                    Talk to us ‚Üí
+                    Talk to us ?
                   </a>
                 </div>
               </div>
@@ -238,7 +239,7 @@ export default function Home() {
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-                  Your professional co-pilot ‚Äî AI that drafts the work, you make every call.
+                  Your professional co-pilot ó AI that drafts the work, you make every call.
                 </p>
               </div>
               <div>
@@ -253,7 +254,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center justify-between flex-wrap gap-3.5 pt-6">
-              <small className="text-slate text-[13px]">¬© 2026 Zyntask</small>
+              <small className="text-slate text-[13px]">© 2026 Zyntask</small>
             </div>
           </div>
         </footer>
