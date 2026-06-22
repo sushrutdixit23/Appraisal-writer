@@ -276,11 +276,11 @@ export default function AppraisalWriter() {
                   disabled={loading || (credits !== null && credits < CREDIT_COST)}
                   className="w-full text-white py-3.5 rounded-[12px] text-sm font-medium bg-grad shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all disabled:opacity-50 disabled:translate-y-0"
                 >
-                  {loading
-                    ? "Generating your appraisal..."
-                    : credits !== null && credits < CREDIT_COST
-                    ? "Not enough credits"
-                    : "Generate (" + CREDIT_COST + ")"
+                  {loading ? "Generating..." : credits !== null && credits < CREDIT_COST ? "Not enough credits" : "Generate (" + CREDIT_COST + ")"}
+
+
+
+
                 </button>
                 {credits !== null && credits < CREDIT_COST && (
                   <p className="text-xs text-slate-light text-center mt-2">
