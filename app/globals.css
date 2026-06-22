@@ -207,3 +207,33 @@ body {
   opacity: 0.20;
   animation: auroraFlow 44s linear infinite reverse;
 }
+
+/* perf: GPU-composite the aurora so scrolling stays smooth */
+@keyframes auroraShift {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-6%, 3%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.aurora-field::before,
+.aurora-field::after,
+.aurora-page-dark::before,
+.aurora-page-dark::after,
+.aurora-dark::before,
+.aurora-dark::after {
+  animation: auroraShift 32s ease-in-out infinite !important;
+  background-position: 50% 50% !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.aurora-field::before { filter: blur(56px) !important; }
+.aurora-field::after { filter: blur(60px) !important; }
+.aurora-page-dark::before { filter: blur(54px) !important; }
+.aurora-page-dark::after { filter: blur(60px) !important; }
+
+.aurora-field, .aurora-page-dark, .aurora-dark {
+  transform: translateZ(0);
+  will-change: transform;
+}
