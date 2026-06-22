@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import PageTransition from "./components/PageTransition";
 
 export const metadata: Metadata = {
-  title: "Zyntask — Agents that work with you",
+  title: "Zyntask - Agents that work with you",
   description: "Zyntask builds AI agents that handle the work, while you keep the final call. Calm, in sync, and always moving toward done.",
 };
 
@@ -19,7 +18,7 @@ export default function RootLayout({
         <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </head>
       <body>
-        <PageTransition>{children}</PageTransition>
+        {children}
       </body>
     </html>
   );

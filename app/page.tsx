@@ -13,7 +13,7 @@ export default function Home() {
         <header className="relative pt-[70px] pb-24">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_55%_at_50%_42%,rgba(247,246,242,0.78),transparent_72%)] pointer-events-none" />
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
-            <span className="inline-flex items-center gap-2 bg-cloud/80 backdrop-blur-sm border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
+            <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
               Supervised AI Â· Built around you
             </span>
 
@@ -54,7 +54,7 @@ export default function Home() {
                   { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
                   { title: "Visible, not a black box", body: "See exactly what's queued, what's pending, and what's been sent â€” structured and always in view." },
                 ].map((item) => (
-                  <div key={item.title} className="bg-cloud/85 backdrop-blur-md border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                  <div key={item.title} className="bg-cloud/85 border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <h3 className="font-display font-semibold text-[17px] tracking-tight mb-2 text-ink">
                       {item.title}
                     </h3>
@@ -90,7 +90,7 @@ export default function Home() {
                   { n: "03", icon: "?", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
                   { n: "04", icon: "??", title: "Repeat", body: "It keeps running, quietly, in the background â€” building a queue, never a backlog." },
                 ].map((step) => (
-                  <div key={step.n} className="bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                  <div key={step.n} className="bg-cloud/85 border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <div className="flex items-center gap-2 text-indigo font-mono text-xs tracking-wide mb-4">
                       <span>{step.n}</span>
                       <span className="flex-1 h-px bg-line" />
@@ -127,7 +127,7 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-6 gap-4.5">
-                <div className="md:col-span-4 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                <div className="md:col-span-4 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     ? Your approval queue
                   </span>
@@ -171,7 +171,7 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="md:col-span-3 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                <div className="md:col-span-3 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     ? Account safety
                   </span>
@@ -183,7 +183,7 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="md:col-span-3 bg-cloud/85 backdrop-blur-md border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                <div className="md:col-span-3 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     ? Sounds like you
                   </span>

@@ -29,7 +29,7 @@ export default function EngagePage() {
             <a href="#pricing" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg ${btn}`}>Get started</a>
 
             <div className="relative z-10 max-w-md mx-auto mt-16 text-left">
-              <div className="bg-white/[0.06] border border-white/10 rounded-[20px] p-5 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+              <div className="bg-white/[0.06] border border-white/10 rounded-[20px] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
                 <div className="flex items-center gap-2.5 mb-3.5">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-[13px] text-white flex-shrink-0" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}>R</div>
                   <div>
@@ -82,7 +82,7 @@ export default function EngagePage() {
                   { n: "ii", title: "It drafts", body: "For each new message, it works out what the person needs and writes a reply in your tone, ready to send. Spam and bulk promotions are set aside automatically." },
                   { n: "iii", title: "You approve", body: "Every draft waits for you in one simple screen. Read it, send it as-is, adjust a word, or skip it. Nothing leaves your account until you say so." },
                 ].map((step) => (
-                  <div key={step.n} className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-white/20 hover:bg-white/[0.08]">
+                  <div key={step.n} className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 transition-all duration-300 hover:-translate-y-1.5 hover:border-white/20 hover:bg-white/[0.08]">
                     <div className="font-serif italic text-[#8a6ff0] text-4xl mb-3">{step.n}</div>
                     <h3 className="font-semibold text-xl mb-2 text-white">{step.title}</h3>
                     <p className="text-[15px] text-slate-light leading-relaxed">{step.body}</p>
@@ -122,14 +122,14 @@ export default function EngagePage() {
                   { title: "Spam stays out", body: "Promotional blasts, cold sales pitches, and messages from company pages are filtered out and never get an automatic reply in your name." },
                   { title: "Big moments come to you", body: "Any message about a call, a meeting, or working together is always set aside for your personal attention." },
                 ].map((g) => (
-                  <div key={g.title} className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
+                  <div key={g.title} className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
                     <h3 className="font-semibold text-[16px] mb-2 text-white">{g.title}</h3>
                     <p className="text-[14px] text-slate-light leading-relaxed">{g.body}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 mt-5 backdrop-blur-md">
+              <div className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 mt-5">
                 <h3 className="font-semibold text-[17px] mb-2 text-white">It sounds like you - because it learns from you</h3>
                 <p className="text-[14.5px] text-slate-light leading-relaxed">Before it writes a word, Engage is tuned using real examples of how you actually reply. The result reads like you on a good day, not like a robot. And since you approve everything, you always have the final edit.</p>
               </div>
@@ -159,7 +159,7 @@ export default function EngagePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
+                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Monthly</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 8,999<span className="text-base text-slate-light font-sans">/mo</span></div>
                   <p className="text-[13px] text-slate-light mb-6">100 replies/day default, cancel anytime</p>
@@ -168,7 +168,7 @@ export default function EngagePage() {
                   </a>
                 </div>
 
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
+                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">6 months</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 52,999</div>
                   <p className="text-[13px] text-slate-light mb-6">Includes infrastructure and maintenance</p>
@@ -177,7 +177,7 @@ export default function EngagePage() {
                   </a>
                 </div>
 
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
+                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20">
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">One-time</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 50,000</div>
                   <p className="text-[13px] text-slate-light mb-6">+ Rs 5,499/mo from month 3, first 2 months free.</p>
