@@ -4,14 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=3072 next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
     "@supabase/supabase-js": "^2.108.1",
-    "cross-env": "^7.0.3",
     "framer-motion": "^12.40.0",
     "next": "16.2.9",
     "razorpay": "^2.9.6",

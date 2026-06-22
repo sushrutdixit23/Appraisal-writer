@@ -1,5 +1,4 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -66,7 +65,7 @@ export default function SetupPage() {
   const validate = () => {
     if (!form.full_name.trim()) return "Full name is required.";
     if (!form.role.trim()) return "Role is required.";
-    if (!form.voice_signoff.trim()) return "Sign-off is required (e.g. â€” John).";
+    if (!form.voice_signoff.trim()) return "Sign-off is required (e.g. — John).";
     return "";
   };
 
@@ -117,7 +116,7 @@ export default function SetupPage() {
             Set up your profile.
           </h1>
           <p className="text-slate-light text-[15px] leading-relaxed max-w-[40ch] mx-auto">
-            This is the foundation for everything in Zyntask. Set it once â€” every tool and agent
+            This is the foundation for everything in Zyntask. Set it once — every tool and agent
             you use will already sound like you.
           </p>
         </div>
@@ -198,7 +197,7 @@ export default function SetupPage() {
               Sample replies <span className="text-slate-light/50">(optional, but recommended)</span>
             </p>
             <p className="text-[11.5px] text-slate-light/60 mb-3 leading-relaxed">
-              Paste 1-3 examples of how you actually write â€” a LinkedIn reply, a DM, an email.
+              Paste 1-3 examples of how you actually write — a LinkedIn reply, a DM, an email.
               This is the single best way to make your agents sound like you.
             </p>
             {[1, 2, 3].map((n) => (
@@ -221,7 +220,7 @@ export default function SetupPage() {
             className="w-full py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-opacity"
             style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
           >
-            {saving ? "Saving..." : "Complete setup â†’"}
+            {saving ? "Saving..." : "Complete setup →"}
           </button>
         </div>
       </div>
