@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState, useRef, useEffect } from "react";
 import { CreditsIcon } from "../components/CreditsIcon";
 import SiteNav from "../components/SiteNav";
