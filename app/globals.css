@@ -237,3 +237,8 @@ body {
   transform: translateZ(0);
   will-change: transform;
 }
+
+@keyframes creditsPop {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(91,75,255,0.75)) drop-shadow(0 0 10px rgba(74,158,255,0.45)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 10px rgba(91,75,255,0.95)) drop-shadow(0 0 20px rgba(74,158,255,0.65)); transform: scale(1.08); }
+}

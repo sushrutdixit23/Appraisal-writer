@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { CreditsIcon } from "../components/CreditsIcon";
 import SiteNav from "../components/SiteNav";
 import { supabase } from "../lib/supabase";
 
@@ -201,13 +202,11 @@ export default function AppraisalWriter() {
             You did the work. The hard part is saying so without sounding arrogant or making excuses. We handle that.
           </p>
           {isLoggedIn && credits !== null && (
-            <div className="inline-flex items-center gap-2 mt-5 bg-cloud border border-line px-4 py-2 rounded-full">
-              <div className="w-2 h-2 rounded-full bg-indigo" />
-              <span className="text-[13px] font-medium text-ink-soft">
-                {credits} credits remaining
-              </span>
-              <span className="text-[11px] text-slate-light">
-                ({Math.floor(credits / CREDIT_COST)} generation{Math.floor(credits / CREDIT_COST) !== 1 ? "s" : ""} left)
+            <div className="inline-flex items-center gap-2 mt-5 bg-cloud border border-indigo/20 px-4 py-2 rounded-full shadow-[0_0_12px_rgba(91,75,255,0.12)]">
+              <CreditsIcon size={18} glow={true} />
+              <span className="font-serif font-semibold text-[18px] tracking-tight text-ink">{credits}</span>
+              <span className="text-[12px] text-slate-light">
+                · {Math.floor(credits / CREDIT_COST)} gen{Math.floor(credits / CREDIT_COST) !== 1 ? "s" : ""} left
               </span>
             </div>
           )}
@@ -281,7 +280,7 @@ export default function AppraisalWriter() {
                     ? "Generating your appraisal..."
                     : credits !== null && credits < CREDIT_COST
                     ? "Not enough credits"
-                    : `Generate (${CREDIT_COST} credits)`}
+                    : `Generate (${CREDIT_COST})`
                 </button>
                 {credits !== null && credits < CREDIT_COST && (
                   <p className="text-xs text-slate-light text-center mt-2">
@@ -351,7 +350,7 @@ export default function AppraisalWriter() {
 
             {creditsUsed && credits !== null && (
               <p className="text-xs text-slate-light mt-5 pt-5 border-t border-line">
-                {credits} credits remaining after this generation.
+                <span className="inline-flex items-center gap-1.5"><CreditsIcon size={14} glow={false} /><span>{credits} remaining</span></span>
               </p>
             )}
 
