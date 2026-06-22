@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useRef, useEffect } from "react";
 import { CreditsIcon } from "../components/CreditsIcon";
 import SiteNav from "../components/SiteNav";
@@ -206,7 +206,7 @@ export default function AppraisalWriter() {
               <CreditsIcon size={18} glow={true} />
               <span className="font-serif font-semibold text-[18px] tracking-tight text-ink">{credits}</span>
               <span className="text-[12px] text-slate-light">
-                · {Math.floor(credits / CREDIT_COST)} gen{Math.floor(credits / CREDIT_COST) !== 1 ? "s" : ""} left
+                Â· {Math.floor(credits / CREDIT_COST)} gen{Math.floor(credits / CREDIT_COST) !== 1 ? "s" : ""} left
               </span>
             </div>
           )}
@@ -280,7 +280,7 @@ export default function AppraisalWriter() {
                     ? "Generating your appraisal..."
                     : credits !== null && credits < CREDIT_COST
                     ? "Not enough credits"
-                    : `Generate (${CREDIT_COST})`
+                    : "Generate (" + CREDIT_COST + ")"
                 </button>
                 {credits !== null && credits < CREDIT_COST && (
                   <p className="text-xs text-slate-light text-center mt-2">
