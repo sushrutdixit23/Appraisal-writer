@@ -8,19 +8,13 @@ export const metadata: Metadata = {
   description: "Zyntask builds AI agents that handle the work, while you keep the final call.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
       </head>
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

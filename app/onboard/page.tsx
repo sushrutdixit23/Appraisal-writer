@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -98,7 +99,7 @@ export default function OnboardPage() {
           amount: order.amount,
           currency: order.currency,
           name: "Zyntask",
-          description: `Engage — ${tier.name}`,
+          description: `Engage â€” ${tier.name}`,
           order_id: order.id,
           prefill: { name: profile.full_name },
           theme: { color: "#5B4BFF" },
@@ -217,7 +218,7 @@ export default function OnboardPage() {
             className="px-8 py-3.5 rounded-xl text-base font-medium text-white disabled:opacity-50"
             style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
           >
-            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")} →`}
+            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")} â†’`}
           </button>
         </div>
       </div>
