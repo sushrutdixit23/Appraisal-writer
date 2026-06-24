@@ -5,20 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 async function findProfile(userId: string) {
-  const result = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
+  const result = await supabase.from("profiles").select("id").eq("auth_user_id", userId).maybeSingle();
   return result.data;
 }
 
 async function findClient(userId: string) {
-  const result = await supabase
-    .from("clients")
-    .select("id")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
+  const result = await supabase.from("clients").select("id").eq("auth_user_id", userId).maybeSingle();
   return result.data;
 }
 
@@ -29,16 +21,19 @@ async function routeUser(session: any, router: any) {
     if (profile) break;
     await new Promise((r) => setTimeout(r, 700));
   }
+  // No profile yet — go to setup
   if (!profile) {
     router.replace("/setup");
     return;
   }
+  // Has client — go to dashboard directly
   const client = await findClient(session.user.id);
   if (client) {
     router.replace("/dashboard");
-  } else {
-    router.replace("/account");
+    return;
   }
+  // Has profile but no client — go to welcome
+  router.replace("/welcome");
 }
 
 export default function AuthCallback() {
@@ -46,10 +41,9 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      // Try PKCE code exchange first (magic link on mobile)
+      // PKCE code exchange (magic link on mobile)
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
-
       if (code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (!error && data.session) {
@@ -58,7 +52,7 @@ export default function AuthCallback() {
         }
       }
 
-      // Try hash-based token (some OAuth flows)
+      // Hash-based token (some OAuth flows)
       const hash = window.location.hash;
       if (hash && hash.includes("access_token")) {
         const hashParams = new URLSearchParams(hash.replace("#", ""));
@@ -76,22 +70,20 @@ export default function AuthCallback() {
         }
       }
 
-      // Fallback: check existing session
+      // Existing session
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         await routeUser(session, router);
         return;
       }
 
-      // Last resort: wait for auth state change
-      const authListener = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (event === "SIGNED_IN" && session) {
-            authListener.data.subscription.unsubscribe();
-            await routeUser(session, router);
-          }
+      // Wait for auth state change
+      const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          authListener.data.subscription.unsubscribe();
+          await routeUser(session, router);
         }
-      );
+      });
 
       setTimeout(() => {
         authListener.data.subscription.unsubscribe();

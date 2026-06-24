@@ -1,57 +1,94 @@
+"use client";
 export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import SiteNav from "../components/SiteNav";
+import { supabase } from "../lib/supabase";
 
 export default function WelcomePage() {
+  const router = useRouter();
+  const [hasClient, setHasClient] = useState(false);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.replace("/"); return; }
+      const [{ data: prof }, { data: cl }] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("auth_user_id", session.user.id).maybeSingle(),
+        supabase.from("clients").select("id").eq("auth_user_id", session.user.id).maybeSingle(),
+      ]);
+      if (prof?.full_name) setName(prof.full_name.split(" ")[0]);
+      if (cl) setHasClient(true);
+      setLoading(false);
+    };
+    init();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-mist">
+        <SiteNav />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-6 h-6 border-2 border-indigo border-t-transparent rounded-full animate-spin" />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-mist overflow-x-hidden">
-      <SiteNav />
-      <div className="max-w-4xl mx-auto px-6 pt-32 pb-20 text-center">
-        <span className="inline-flex items-center gap-2 bg-cloud border border-line px-4 py-1.5 rounded-full text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
-          Welcome to Zyntask
-        </span>
-        <h1 className="font-display font-bold tracking-tight text-[clamp(36px,5vw,58px)] mb-5 text-ink leading-tight">
-          What would you like<br />to automate?
-        </h1>
-        <p className="text-slate text-lg max-w-[44ch] mx-auto mb-14 leading-relaxed">
-          Each agent handles one thing â€” quietly, in the background, always with your approval.
-        </p>
+      <div className="aurora-field" />
+      <div className="relative z-10">
+        <SiteNav />
+        <div className="max-w-lg mx-auto px-6 pt-28 pb-20 text-center">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
-          <a href="/onboard" className="bg-ink text-white rounded-[24px] p-8 hover:-translate-y-1 hover:shadow-zy-lg transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-5 text-xl">ðŸ’¬</div>
-            <h2 className="font-display font-semibold text-[22px] tracking-tight mb-2">Engage</h2>
-            <p className="text-[14.5px] text-white/70 leading-relaxed mb-5">
-              Watches your LinkedIn comments and DMs, drafts replies in your voice, and waits for your yes before sending anything.
-            </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-white font-serif font-semibold text-xl">â‚¹49,000</span>
-                <span className="text-white/50 text-sm ml-1">setup</span>
-                <span className="text-white/50 text-sm ml-2">+ â‚¹7,500/mo</span>
-              </div>
-              <span className="text-white/60 group-hover:text-white transition-colors text-sm">Get started â†’</span>
-            </div>
-          </a>
+          <div className="w-16 h-16 rounded-[20px] bg-grad flex items-center justify-center mx-auto mb-7 shadow-[0_8px_28px_rgba(91,75,255,0.35)]">
+            <svg viewBox="0 0 20 20" className="w-8 h-8 stroke-white stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 10.5 8.5 15 16 5.5" />
+            </svg>
+          </div>
 
-          <a href="/appraisal-writer" className="bg-cloud border border-line rounded-[24px] p-8 hover:-translate-y-1 hover:shadow-zy-md transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center mb-5 text-xl">ðŸ“</div>
-            <h2 className="font-display font-semibold text-[22px] tracking-tight mb-2 text-ink">Appraisal Writer</h2>
-            <p className="text-[14.5px] text-slate leading-relaxed mb-5">
-              Converts your raw work notes into polished self-appraisal bullets and summaries â€” ready for your performance review form.
-            </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-ink font-serif font-semibold text-xl">â‚¹149</span>
-                <span className="text-slate text-sm ml-1">one-time</span>
-              </div>
-              <span className="text-slate group-hover:text-indigo transition-colors text-sm">Try it â†’</span>
-            </div>
-          </a>
+          <h1 className="font-display font-bold text-[clamp(28px,5vw,40px)] text-ink tracking-tight mb-3">
+            {name ? `Welcome, ${name}.` : "Welcome to Zyntask."}
+          </h1>
+          <p className="text-slate text-[16px] max-w-[38ch] mx-auto mb-10 leading-relaxed">
+            You are in. Set up Engage to start monitoring your LinkedIn - or head straight to the dashboard if you are already set up.
+          </p>
+
+          <div className="flex flex-col gap-3">
+            {hasClient && (
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="w-full px-8 py-3.5 rounded-[13px] text-[15px] font-semibold text-white bg-grad shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 transition-all"
+              >
+                Go to dashboard
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/account")}
+              className={`w-full px-8 py-3.5 rounded-[13px] text-[15px] font-semibold transition-all ${
+                hasClient
+                  ? "border border-line text-ink hover:border-indigo hover:text-indigo"
+                  : "text-white bg-grad shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5"
+              }`}
+            >
+              {hasClient ? "Account settings" : "Set up Engage"}
+            </button>
+            <button
+              onClick={() => router.push("/")}
+              className="w-full px-8 py-3.5 rounded-[13px] text-[15px] text-slate hover:text-ink transition-colors"
+            >
+              Back to home
+            </button>
+          </div>
+
+          <p className="text-[12px] text-slate-light mt-8">
+            Sign out is available in account settings.
+          </p>
         </div>
-
-        <p className="text-slate text-sm mt-10">
-          More agents coming. <a href="mailto:hello@zyntask.in" className="text-indigo hover:underline">Tell us what to build next â†’</a>
-        </p>
       </div>
     </main>
   );
