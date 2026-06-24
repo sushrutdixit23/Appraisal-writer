@@ -73,5 +73,14 @@ export async function POST(req: NextRequest) {
   await supabase.from("interactions").update({ status: "sent" }).eq("id", id).eq("client_id", client_id);
   await supabase.from("send_log").insert({ client_id });
 
+  // Log response time
+  await supabase.from("response_times").insert({
+    client_id,
+    auth_user_id: interaction.auth_user_id,
+    interaction_id: interaction.id,
+    arrived_at: interaction.created_at,
+    approved_at: new Date().toISOString(),
+  });
+
   return NextResponse.json({ status: "sent" });
 }
