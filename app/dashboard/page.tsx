@@ -22,6 +22,8 @@ type Interaction = {
   reply: string;
   status: string;
   created_at: string;
+  temperature: string | null;
+  temperature_reason: string | null;
 };
 
 type FilterType = "all" | "dm" | "comment";
@@ -226,6 +228,13 @@ export default function Dashboard() {
   if (classFilter !== "all") {
     visibleItems = visibleItems.filter((i) => i.classification === classFilter);
   }
+  const tempOrder: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
+  visibleItems = [...visibleItems].sort((a, b) => {
+    if (view !== "pending") return 0;
+    return (tempOrder[a.temperature ?? "cold"] ?? 2) - (tempOrder[b.temperature ?? "cold"] ?? 2);
+  });
+  if (false) {
+  }
 
   visibleItems = [...visibleItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -362,7 +371,10 @@ export default function Dashboard() {
                         <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
                           {item.type === "dm" ? "DM" : "Comment"}
                         </span>
-                        <span className="text-[14px] font-semibold text-white truncate">{item.name}</span>
+                        <span className="text-[14px] font-semibold text-white truncate">{item.temperature === "hot" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#FF4444", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
+                        {item.temperature === "warm" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#F5A623", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
+                        {item.temperature === "cold" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#4A9EFF", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
+                        {item.name}</span>
                       </div>
                       <span className="text-[10.5px] text-slate-light flex-shrink-0">{formatTime(item.created_at)}</span>
                     </div>
@@ -430,6 +442,15 @@ export default function Dashboard() {
                   <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3 mb-2.5">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
                     <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.reasoning}</p>
+                  </div>
+                )}
+
+                {selected.temperature && (
+                  <div className="rounded-lg px-3.5 py-3 mb-4 border" style={{ background: selected.temperature === "hot" ? "rgba(255,68,68,0.08)" : selected.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)", borderColor: selected.temperature === "hot" ? "rgba(255,68,68,0.25)" : selected.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)" }}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: selected.temperature === "hot" ? "#FF4444" : selected.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
+                      {selected.temperature === "hot" ? "Hot lead" : selected.temperature === "warm" ? "Warm lead" : "Cold"} Â· Lead temperature
+                    </p>
+                    <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.temperature_reason}</p>
                   </div>
                 )}
 
