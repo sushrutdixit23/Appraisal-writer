@@ -55,7 +55,7 @@ export default function WelcomePage() {
             {name ? `Welcome, ${name}.` : "Welcome to Zyntask."}
           </h1>
           <p className="text-slate text-[16px] max-w-[38ch] mx-auto mb-10 leading-relaxed">
-            You are in. Set up Engage to start monitoring your LinkedIn - or head straight to the dashboard if you are already set up.
+            Your account is ready. Complete your profile to make every Zyntask tool sound like you - or jump straight in.
           </p>
 
           <div className="flex flex-col gap-3">
@@ -75,7 +75,7 @@ export default function WelcomePage() {
                   : "text-white bg-grad shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5"
               }`}
             >
-              {hasClient ? "Account settings" : "Set up Engage"}
+              {hasClient ? "Account settings" : "Complete your profile"}
             </button>
             <button
               onClick={() => router.push("/")}
