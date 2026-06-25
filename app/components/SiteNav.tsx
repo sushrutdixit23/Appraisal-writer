@@ -35,6 +35,7 @@ export default function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const [session, setSession] = useState<{ user: { id: string } } | null>(null);
+  const [hasClient, setHasClient] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -51,6 +52,8 @@ export default function SiteNav() {
       if (!active) return;
       if (!s) { setCredits(null); setSession(null); return; }
       setSession(s);
+      const { data: cl } = await supabase.from("clients").select("id").eq("auth_user_id", s.user.id).maybeSingle();
+      setHasClient(!!cl);
       try {
         const { data } = await supabase.from("profiles").select("credits").eq("auth_user_id", s.user.id).single();
         if (active && data) setCredits(data.credits);
@@ -119,6 +122,11 @@ export default function SiteNav() {
           </div>
           <div className="flex items-center gap-3">
             {session && credits !== null && <CreditsChip credits={credits} />}
+            {session && (
+              <a href={dashboardHref} className={`hidden md:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[11px] text-[14px] font-semibold text-white transition-all hover:-translate-y-0.5 ${btn}`} style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
+                Dashboard
+              </a>
+            )}
             {!session && (
               <button onClick={() => { setAuthOpen(true); setTab("signup"); }} className={`hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-[11px] text-[14px] text-ink-soft border border-line hover:text-indigo hover:border-indigo ${btn}`}>
                 <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none" strokeLinecap="round" strokeLinejoin="round">

@@ -23,7 +23,6 @@ async function routeUser(session: any, router: any) {
   }
   if (!profile) { router.replace("/setup"); return; }
   const client = await findClient(session.user.id);
-  if (client) { router.replace("/dashboard"); return; }
   router.replace("/welcome");
 }
 
