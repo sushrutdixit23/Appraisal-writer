@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SiteNav from "../components/SiteNav";
 import { supabase } from "../lib/supabase";
 
@@ -215,6 +215,8 @@ export default function AccountPage() {
   const [startingTrial, setStartingTrial] = useState(false);
   const [trialError, setTrialError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const linkedinJustConnected = searchParams.get("linkedin") === "connected";
   const [saveToast, setSaveToast] = useState(false);
 
   useEffect(() => {
@@ -241,7 +243,7 @@ export default function AccountPage() {
       setLoading(false);
     };
     init();
-  }, [router]);
+  }, [router, linkedinJustConnected]);
 
   const handleStartTrial = async () => {
     setStartingTrial(true);
@@ -332,6 +334,18 @@ export default function AccountPage() {
             onClick={hasPlan ? () => router.push("/onboard") : handleStartTrial}
           />
         </div>
+
+        {setupComplete && linkedinConnected && hasPlan && (
+          <div className="rounded-[20px] border border-indigo/30 bg-indigo/5 p-6 mb-6 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-display font-semibold text-[16px] text-ink mb-1">You are all set.</p>
+              <p className="text-[13.5px] text-slate">Engage is monitoring your LinkedIn. Head to your dashboard to start approving replies.</p>
+            </div>
+            <button onClick={() => router.push("/dashboard")} className="flex-shrink-0 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white bg-grad shadow-[0_4px_14px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 transition-all">
+              Go to dashboard
+            </button>
+          </div>
+        )}
 
         {trialError && <p className="text-rose text-[13px] text-center mb-6">{trialError}</p>}
         {startingTrial && (
