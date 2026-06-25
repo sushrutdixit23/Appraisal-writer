@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
-  const dsn = process.env.UNIPILE_DSN!;
+  const dsnRaw = process.env.UNIPILE_DSN!;
+  const dsn = dsnRaw.replace(/^https?:\/\//, "");
   const apiKey = process.env.UNIPILE_API_KEY!;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zyntask.in";
 
