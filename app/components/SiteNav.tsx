@@ -136,11 +136,6 @@ export default function SiteNav() {
                 </svg>
                 Sign in
               </button>
-            )}
-            {session && (
-              <button onClick={() => supabase.auth.signOut()} className={`hidden md:inline-flex px-4 py-2.5 rounded-[11px] text-[14px] text-ink-soft border border-line hover:text-indigo hover:border-indigo ${btn}`}>Sign out</button>
-            )}
-            <a href="/engage" className={`hidden md:inline-flex px-5 py-2.5 rounded-[11px] text-[15px] bg-ink text-white shadow-zy-sm hover:-translate-y-0.5 hover:shadow-zy-md ${btn}`}>See Engage</a>
             <button onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open} className="md:hidden flex flex-col gap-[5px] p-2">
               <span className={`w-[22px] h-[2px] bg-ink rounded-full transition-transform ${open ? "translate-y-[7px] rotate-45" : ""}`} />
               <span className={`w-[22px] h-[2px] bg-ink rounded-full transition-opacity ${open ? "opacity-0" : ""}`} />
@@ -156,7 +151,12 @@ export default function SiteNav() {
             {!session && (
               <button onClick={() => { setOpen(false); setAuthOpen(true); setTab("signup"); }} className={`mt-4 inline-flex justify-center items-center gap-2 px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Sign in</button>
             )}
-            <a href="/engage" onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] bg-ink text-white ${btn}`}>See Engage</a>
+            {session && (
+              <a href="/account" onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Account</a>
+            )}
+            {session && (
+              <a href={dashboardHref} onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] bg-ink text-white ${btn}`}>Dashboard</a>
+            )}
           </div>
         </div>
       </nav>
