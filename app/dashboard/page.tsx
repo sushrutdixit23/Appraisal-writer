@@ -266,9 +266,9 @@ export default function Dashboard() {
               </div>
               <span className="font-mono text-white">{sentToday} / {dailyCap}</span>
             </div>
-            <button onClick={handleLogout} className="text-[12.5px] text-slate-light hover:text-white transition-colors">
-              Sign out
-            </button>
+              <a href="/welcome" className="text-[12.5px] text-slate-light hover:text-white transition-colors">
+                Back to home
+              </a>
           </div>
         </div>
       </div>
@@ -448,7 +448,7 @@ export default function Dashboard() {
                 {selected.temperature && (
                   <div className="rounded-lg px-3.5 py-3 mb-4 border" style={{ background: selected.temperature === "hot" ? "rgba(255,68,68,0.08)" : selected.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)", borderColor: selected.temperature === "hot" ? "rgba(255,68,68,0.25)" : selected.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)" }}>
                     <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: selected.temperature === "hot" ? "#FF4444" : selected.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
-                      {selected.temperature === "hot" ? "Hot lead" : selected.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
+                      {selected.temperature === "hot" ? "Hot lead" : selected.temperature === "warm" ? "Warm lead" : "Cold"} Â· Lead temperature
                     </p>
                     <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.temperature_reason}</p>
                   </div>
