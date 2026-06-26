@@ -38,7 +38,6 @@ function formatTime(iso: string) {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
-
   if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
@@ -58,6 +57,12 @@ const EMPTY_COPY: Record<ViewTab, { title: string; body: string }> = {
   skipped: { title: "Nothing skipped.", body: "Messages you skip will show up here." },
 };
 
+function TempDot({ temperature }: { temperature: string | null }) {
+  if (!temperature) return null;
+  const color = temperature === "hot" ? "#FF4444" : temperature === "warm" ? "#F5A623" : "#4A9EFF";
+  return <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: color, marginRight: 5, flexShrink: 0, marginTop: 3 }} />;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -73,6 +78,7 @@ export default function Dashboard() {
   const [classFilter, setClassFilter] = useState<string>("all");
   const [view, setView] = useState<ViewTab>("pending");
   const [linkedinConnected, setLinkedinConnected] = useState(true);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
@@ -80,12 +86,10 @@ export default function Dashboard() {
       .select("daily_cap, unipile_account_id")
       .eq("id", clientId)
       .single();
-
     if (clientRow) {
       setDailyCap(clientRow.daily_cap);
       setLinkedinConnected(Boolean(clientRow.unipile_account_id));
     }
-
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
     const { count } = await supabase
@@ -103,13 +107,10 @@ export default function Dashboard() {
       .eq("client_id", clientId)
       .eq("status", status)
       .order("created_at", { ascending: false });
-
     if (data) {
       setItems(data as Interaction[]);
       const initialDrafts: Record<string, string> = {};
-      data.forEach((item: Interaction) => {
-        initialDrafts[item.id] = item.reply || "";
-      });
+      data.forEach((item: Interaction) => { initialDrafts[item.id] = item.reply || ""; });
       setDrafts((prev) => ({ ...prev, ...initialDrafts }));
       setSelectedId((prev) => (data.find((i) => i.id === prev) ? prev : data[0]?.id ?? null));
     } else {
@@ -121,16 +122,12 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        router.replace("/");
-        return;
-      }
+      if (!sessionData.session) { router.replace("/"); return; }
       const { data: clientRow } = await supabase
         .from("clients")
         .select("id")
         .eq("auth_user_id", sessionData.session.user.id)
         .single();
-
       if (clientRow) {
         setMyClientId(clientRow.id);
         await loadMeta(clientRow.id);
@@ -147,11 +144,6 @@ export default function Dashboard() {
     if (myClientId) await loadQueue(myClientId, tab);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace("/");
-  };
-
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2500);
@@ -159,10 +151,7 @@ export default function Dashboard() {
 
   const handleApprove = async (item: Interaction) => {
     const text = drafts[item.id]?.trim();
-    if (!text) {
-      showToast("Write a reply before approving.");
-      return;
-    }
+    if (!text) { showToast("Write a reply before approving."); return; }
     setBusyId(item.id);
     try {
       const res = await fetch("/api/approve", {
@@ -171,20 +160,12 @@ export default function Dashboard() {
         body: JSON.stringify({ id: item.id, client_id: item.client_id, text }),
       });
       const result = await res.json();
-      if (!res.ok) {
-        showToast(result.error || "Failed to send.");
-        return;
-      }
+      if (!res.ok) { showToast(result.error || "Failed to send."); return; }
       showToast("Sent.");
-      if (myClientId) {
-        await loadMeta(myClientId);
-        await loadQueue(myClientId, view);
-      }
-    } catch {
-      showToast("Could not reach the server.");
-    } finally {
-      setBusyId(null);
-    }
+      setMobileDetailOpen(false);
+      if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
+    } catch { showToast("Could not reach the server."); }
+    finally { setBusyId(null); }
   };
 
   const handleSkip = async (item: Interaction) => {
@@ -195,20 +176,12 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id, client_id: item.client_id }),
       });
-      if (!res.ok) {
-        showToast("Failed to skip.");
-        return;
-      }
+      if (!res.ok) { showToast("Failed to skip."); return; }
       showToast("Skipped.");
-      if (myClientId) {
-        await loadMeta(myClientId);
-        await loadQueue(myClientId, view);
-      }
-    } catch {
-      showToast("Could not reach the server.");
-    } finally {
-      setBusyId(null);
-    }
+      setMobileDetailOpen(false);
+      if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
+    } catch { showToast("Could not reach the server."); }
+    finally { setBusyId(null); }
   };
 
   if (loading) {
@@ -220,22 +193,14 @@ export default function Dashboard() {
   }
 
   const classifications = Array.from(new Set(items.map((i) => i.classification).filter(Boolean)));
-
   let visibleItems = items;
-  if (filter !== "all") {
-    visibleItems = visibleItems.filter((i) => i.type === filter);
-  }
-  if (classFilter !== "all") {
-    visibleItems = visibleItems.filter((i) => i.classification === classFilter);
-  }
+  if (filter !== "all") visibleItems = visibleItems.filter((i) => i.type === filter);
+  if (classFilter !== "all") visibleItems = visibleItems.filter((i) => i.classification === classFilter);
   const tempOrder: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
   visibleItems = [...visibleItems].sort((a, b) => {
     if (view !== "pending") return 0;
     return (tempOrder[a.temperature ?? "cold"] ?? 2) - (tempOrder[b.temperature ?? "cold"] ?? 2);
   });
-  if (false) {
-  }
-
   visibleItems = [...visibleItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
@@ -244,287 +209,349 @@ export default function Dashboard() {
   const capPct = Math.min(100, (sentToday / dailyCap) * 100);
   const emptyCopy = EMPTY_COPY[view];
 
+  const DetailPanel = ({ item }: { item: Interaction }) => (
+    <div className="h-full overflow-y-auto p-5 md:p-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white" style={{ background: ACCENT }}>
+            {item.name?.[0]?.toUpperCase() ?? "?"}
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold text-white">{item.name}</p>
+            <p className="text-[12.5px] text-slate-light">{item.role}</p>
+          </div>
+        </div>
+        <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
+      </div>
+
+      {item.post && (
+        <div className="text-[12.5px] text-slate-light mb-3 bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
+          On: {item.post}
+        </div>
+      )}
+
+      <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 mb-5 leading-relaxed">
+        {item.text}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 mb-3">
+        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
+          <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
+        </div>
+        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
+          <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
+        </div>
+        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
+          <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
+        </div>
+        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
+          <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber-400" : "text-green-400"}`}>
+            {item.requires_human ? "Needs you" : "Safe to auto"}
+          </span>
+        </div>
+      </div>
+
+      {item.reasoning && (
+        <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3 mb-2.5">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
+          <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
+        </div>
+      )}
+
+      {item.temperature && (
+        <div className="rounded-lg px-3.5 py-3 mb-4 border" style={{
+          background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
+          borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
+        }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
+            {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
+          </p>
+          <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
+        </div>
+      )}
+
+      {item.suggested_action && (
+        <div className="rounded-lg px-3.5 py-3 mb-5 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
+          <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
+        </div>
+      )}
+
+      {!item.reasoning && !item.suggested_action && <div className="mb-5" />}
+
+      {view === "pending" && (
+        <>
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply</p>
+          <textarea
+            value={drafts[item.id] ?? ""}
+            onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
+            rows={4}
+            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:ring-1 focus:ring-indigo mb-4"
+          />
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => handleSkip(item)}
+              disabled={busyId === item.id}
+              className="flex-1 py-3.5 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-40 transition-all"
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => handleApprove(item)}
+              disabled={busyId === item.id}
+              className="flex-[2] py-3.5 text-[14px] font-semibold text-white rounded-xl disabled:opacity-40 transition-all"
+              style={{ background: ACCENT }}
+            >
+              {busyId === item.id ? "Sending..." : "Approve & send"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {view === "sent" && (
+        <>
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
+          <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
+            {item.reply || "-"}
+          </div>
+        </>
+      )}
+
+      {view === "skipped" && (
+        <>
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
+          <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
+          {item.reply && (
+            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
+              {item.reply}
+              <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <main className="min-h-screen bg-ink">
       <style jsx global>{`
-        select option {
-          background-color: #1a1d29;
-          color: #ffffff;
-        }
+        select option { background-color: #1a1d29; color: #ffffff; }
       `}</style>
 
-      <div className="bg-ink border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-7 h-[68px] flex items-center justify-between">
-          <span className="font-serif font-semibold text-2xl text-white tracking-tight">
+      {/* Header */}
+      <div className="bg-ink border-b border-white/10 sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-4 md:px-7 h-[60px] md:h-[68px] flex items-center justify-between">
+          <span className="font-serif font-semibold text-xl md:text-2xl text-white tracking-tight">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3 text-[12.5px] text-slate-light">
-              <span>Sent today</span>
-              <div className="w-24 h-[6px] bg-white/10 rounded-full overflow-hidden">
+          <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex items-center gap-2 text-[11px] md:text-[12.5px] text-slate-light">
+              <span className="hidden sm:inline">Sent today</span>
+              <div className="w-16 md:w-24 h-[5px] md:h-[6px] bg-white/10 rounded-full overflow-hidden">
                 <div className="h-full" style={{ width: `${capPct}%`, background: ACCENT }} />
               </div>
-              <span className="font-mono text-white">{sentToday} / {dailyCap}</span>
+              <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
-              <a href="/welcome" className="text-[12.5px] text-slate-light hover:text-white transition-colors">
-                Back to home
-              </a>
+            <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors">
+              Home
+            </a>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-7 py-10">
+      <div className="max-w-6xl mx-auto px-4 md:px-7 py-6 md:py-10">
         {!linkedinConnected ? (
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8 md:p-12 text-center">
             <p className="font-serif text-2xl text-white mb-2">Setting up your LinkedIn connection.</p>
             <p className="text-slate-light text-sm max-w-md mx-auto leading-relaxed">
-              We are finishing setup on our end. This usually takes under 24 hours. You will
-              see your first replies here as soon as it is live.
+              We are finishing setup on our end. This usually takes under 24 hours. You will see your first replies here as soon as it is live.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-[320px_1fr] gap-6">
-            <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/10 space-y-3">
-                <div className="flex gap-1 bg-black/30 rounded-lg p-1">
-                  {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => handleTabChange(tab)}
-                      className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
-                      style={
-                        view === tab
-                          ? { background: ACCENT, color: "#fff" }
-                          : { color: "#9b95a8" }
-                      }
-                    >
-                      {TAB_LABELS[tab]}
-                    </button>
-                  ))}
-                </div>
+          <>
+            {/* Filters row */}
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 mb-4 space-y-3">
+              {/* Tab switcher */}
+              <div className="flex gap-1 bg-black/30 rounded-lg p-1">
+                {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => handleTabChange(tab)}
+                    className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
+                    style={view === tab ? { background: ACCENT, color: "#fff" } : { color: "#9b95a8" }}
+                  >
+                    {TAB_LABELS[tab]}
+                  </button>
+                ))}
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-light">
-                    {TAB_LABELS[view]}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-light">
-                    {visibleItems.length} of {items.length}
-                  </span>
-                </div>
-
-                <div className="flex gap-1 bg-black/30 rounded-lg p-1">
+              <div className="flex gap-2 items-center">
+                {/* Type filter */}
+                <div className="flex gap-1 bg-black/30 rounded-lg p-1 flex-1">
                   {(["all", "dm", "comment"] as FilterType[]).map((f) => (
                     <button
                       key={f}
                       onClick={() => setFilter(f)}
                       className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
-                      style={
-                        filter === f
-                          ? { background: ACCENT, color: "#fff" }
-                          : { color: "#9b95a8" }
-                      }
+                      style={filter === f ? { background: ACCENT, color: "#fff" } : { color: "#9b95a8" }}
                     >
                       {f === "all" ? "All" : f === "dm" ? "DMs" : "Comments"}
                     </button>
                   ))}
                 </div>
 
+                {/* Class filter */}
                 {classifications.length > 0 && (
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <select
-                        value={classFilter}
-                        onChange={(e) => setClassFilter(e.target.value)}
-                        className="w-full appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white focus:outline-none focus:border-indigo cursor-pointer"
-                      >
-                        <option value="all">All types</option>
-                        {classifications.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                      <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
+                  <div className="relative">
+                    <select
+                      value={classFilter}
+                      onChange={(e) => setClassFilter(e.target.value)}
+                      className="appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white focus:outline-none"
+                    >
+                      <option value="all">All types</option>
+                      {classifications.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                 )}
-              </div>
 
-              {visibleItems.length === 0 ? (
-                <div className="px-5 py-8 text-center text-[13px] text-slate-light">
-                  {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
-                </div>
-              ) : (
-                visibleItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedId(item.id)}
-                    className="w-full text-left px-5 py-4 border-b border-white/10 last:border-0 transition-colors"
-                    style={
-                      item.id === selectedId
-                        ? { background: "rgba(255,255,255,0.06)", borderLeft: "3px solid #5B4BFF" }
-                        : { borderLeft: "3px solid transparent" }
-                    }
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
-                          {item.type === "dm" ? "DM" : "Comment"}
-                        </span>
-                        <span className="text-[14px] font-semibold text-white truncate">{item.temperature === "hot" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#FF4444", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
-                        {item.temperature === "warm" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#F5A623", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
-                        {item.temperature === "cold" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#4A9EFF", marginRight: 5, flexShrink: 0, marginTop: 3 }} />}
-                        {item.name}</span>
-                      </div>
-                      <span className="text-[10.5px] text-slate-light flex-shrink-0">{formatTime(item.created_at)}</span>
-                    </div>
-                    <p className="text-[13px] text-slate-light leading-relaxed truncate">{item.text}</p>
-                  </button>
-                ))
-              )}
+                <span className="text-[11px] font-mono text-slate-light whitespace-nowrap">
+                  {visibleItems.length}/{items.length}
+                </span>
+              </div>
             </div>
 
-            {items.length === 0 ? (
-              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center self-start">
-                <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
-                <p className="text-slate-light text-sm">{emptyCopy.body}</p>
-              </div>
-            ) : selected && (
-              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-                <div className="flex items-start justify-between mb-1">
-                  <div className="flex items-center gap-3.5">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white"
-                      style={{ background: ACCENT }}
+            {/* Desktop: two-column | Mobile: list only */}
+            <div className="hidden md:grid md:grid-cols-[320px_1fr] gap-6">
+              {/* List panel */}
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                {visibleItems.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-[13px] text-slate-light">
+                    {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
+                  </div>
+                ) : (
+                  visibleItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelectedId(item.id)}
+                      className="w-full text-left px-5 py-4 border-b border-white/10 last:border-0 transition-colors"
+                      style={item.id === selectedId ? { background: "rgba(255,255,255,0.06)", borderLeft: "3px solid #5B4BFF" } : { borderLeft: "3px solid transparent" }}
                     >
-                      {selected.name?.[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div>
-                      <p className="text-[15px] font-semibold text-white">{selected.name}</p>
-                      <p className="text-[12.5px] text-slate-light">{selected.role}</p>
-                    </div>
-                  </div>
-                  <span className="text-[12px] text-slate-light pt-1">{formatTime(selected.created_at)}</span>
-                </div>
-
-                {selected.post && (
-                  <div className="text-[12.5px] text-slate-light mt-5 mb-3 bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
-                    On: {selected.post}
-                  </div>
-                )}
-
-                <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 mt-3 mb-5 leading-relaxed">
-                  {selected.text}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5 mb-3">
-                  <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
-                    <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{selected.classification}</p>
-                  </div>
-                  <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
-                    <p className="text-[13px] font-medium text-white truncate">{selected.intent || "-"}</p>
-                  </div>
-                  <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
-                    <p className="text-[13px] font-mono text-white">{selected.confidence != null ? `${selected.confidence}%` : "-"}</p>
-                  </div>
-                  <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
-                    <span className={`text-[11px] font-bold uppercase tracking-wide ${selected.requires_human ? "text-amber" : "text-grass"}`}>
-                      {selected.requires_human ? "Needs you" : "Safe to auto"}
-                    </span>
-                  </div>
-                </div>
-
-                {selected.reasoning && (
-                  <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3 mb-2.5">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
-                    <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.reasoning}</p>
-                  </div>
-                )}
-
-                {selected.temperature && (
-                  <div className="rounded-lg px-3.5 py-3 mb-4 border" style={{ background: selected.temperature === "hot" ? "rgba(255,68,68,0.08)" : selected.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)", borderColor: selected.temperature === "hot" ? "rgba(255,68,68,0.25)" : selected.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)" }}>
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: selected.temperature === "hot" ? "#FF4444" : selected.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
-                      {selected.temperature === "hot" ? "Hot lead" : selected.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
-                    </p>
-                    <p className="text-[12.5px] text-white/80 leading-relaxed">{selected.temperature_reason}</p>
-                  </div>
-                )}
-
-                {selected.suggested_action && (
-                  <div
-                    className="rounded-lg px-3.5 py-3 mb-5 border"
-                    style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}
-                  >
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
-                    <p className="text-[12.5px] text-white/85 leading-relaxed">{selected.suggested_action}</p>
-                  </div>
-                )}
-
-                {!selected.reasoning && !selected.suggested_action && <div className="mb-5" />}
-
-                {view === "pending" && (
-                  <>
-                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply</p>
-                    <textarea
-                      value={drafts[selected.id] ?? ""}
-                      onChange={(e) => setDrafts({ ...drafts, [selected.id]: e.target.value })}
-                      rows={4}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:border-indigo leading-relaxed mb-5"
-                    />
-
-                    <div className="flex justify-end gap-2.5">
-                      <button
-                        onClick={() => handleSkip(selected)}
-                        disabled={busyId === selected.id}
-                        className="px-5 py-2.5 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50 transition-colors"
-                      >
-                        Skip
-                      </button>
-                      <button
-                        onClick={() => handleApprove(selected)}
-                        disabled={busyId === selected.id}
-                        className="px-5 py-2.5 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(10,102,194,0.45)] disabled:opacity-50 disabled:translate-y-0 transition-all"
-                        style={{ background: ACCENT }}
-                      >
-                        {busyId === selected.id ? "Sending..." : "Approve & send ->"}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {view === "sent" && (
-                  <>
-                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
-                    <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
-                      {selected.reply || "-"}
-                    </div>
-                  </>
-                )}
-
-                {view === "skipped" && (
-                  <>
-                    <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
-                    <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
-                    {selected.reply && (
-                      <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
-                        {selected.reply}
-                        <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
+                            {item.type === "dm" ? "DM" : "Comment"}
+                          </span>
+                          <span className="text-[14px] font-semibold text-white truncate flex items-center">
+                            <TempDot temperature={item.temperature} />
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-[10.5px] text-slate-light flex-shrink-0">{formatTime(item.created_at)}</span>
                       </div>
-                    )}
-                  </>
+                      <p className="text-[13px] text-slate-light leading-relaxed truncate">{item.text}</p>
+                    </button>
+                  ))
                 )}
               </div>
-            )}
-          </div>
+
+              {/* Detail panel desktop */}
+              {items.length === 0 ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center self-start">
+                  <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
+                  <p className="text-slate-light text-sm">{emptyCopy.body}</p>
+                </div>
+              ) : selected ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                  <DetailPanel item={selected} />
+                </div>
+              ) : null}
+            </div>
+
+            {/* Mobile: list only, tap opens sheet */}
+            <div className="md:hidden">
+              {visibleItems.length === 0 ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl px-5 py-10 text-center">
+                  <p className="font-serif text-xl text-white mb-2">{emptyCopy.title}</p>
+                  <p className="text-slate-light text-sm">{emptyCopy.body}</p>
+                </div>
+              ) : (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                  {visibleItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => { setSelectedId(item.id); setMobileDetailOpen(true); }}
+                      className="w-full text-left px-4 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/[0.06]"
+                      style={{ borderLeft: "3px solid transparent" }}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
+                            {item.type === "dm" ? "DM" : "Cmt"}
+                          </span>
+                          <span className="text-[14px] font-semibold text-white truncate flex items-center">
+                            <TempDot temperature={item.temperature} />
+                            {item.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[10.5px] text-slate-light">{formatTime(item.created_at)}</span>
+                          <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-slate-400 stroke-[1.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M8 5l5 5-5 5" />
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="text-[13px] text-slate-light leading-relaxed truncate pl-[2px]">{item.text}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
 
+      {/* Mobile slide-up detail sheet */}
+      {mobileDetailOpen && selected && (
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col">
+          {/* Backdrop */}
+          <div
+            className="flex-1 bg-black/60"
+            onClick={() => setMobileDetailOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="bg-[#13151f] border-t border-white/10 rounded-t-[24px] max-h-[88vh] flex flex-col">
+            {/* Drag handle + close */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
+              <span className="text-[13px] font-semibold text-white">{selected.name}</span>
+              <button
+                onClick={() => setMobileDetailOpen(false)}
+                className="text-slate-light hover:text-white transition-colors p-1"
+              >
+                <svg viewBox="0 0 20 20" className="w-5 h-5 stroke-current stroke-[2] fill-none" strokeLinecap="round">
+                  <path d="M5 5l10 10M15 5l-10 10" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 pb-6">
+              <DetailPanel item={selected} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-zy-lg border border-white/10">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-lg z-[60]">
           {toast}
         </div>
       )}
