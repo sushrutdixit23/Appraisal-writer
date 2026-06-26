@@ -136,6 +136,7 @@ export default function SiteNav() {
                 </svg>
                 Sign in
               </button>
+            )}
             <button onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open} className="md:hidden flex flex-col gap-[5px] p-2">
               <span className={`w-[22px] h-[2px] bg-ink rounded-full transition-transform ${open ? "translate-y-[7px] rotate-45" : ""}`} />
               <span className={`w-[22px] h-[2px] bg-ink rounded-full transition-opacity ${open ? "opacity-0" : ""}`} />
