@@ -36,6 +36,7 @@ export default function SiteNav() {
   const [credits, setCredits] = useState<number | null>(null);
   const [session, setSession] = useState<{ user: { id: string } } | null>(null);
   const [hasClient, setHasClient] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -153,10 +154,13 @@ export default function SiteNav() {
               <button onClick={() => { setOpen(false); setAuthOpen(true); setTab("signup"); }} className={`mt-4 inline-flex justify-center items-center gap-2 px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Sign in</button>
             )}
             {session && (
-              <a href="/account" onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Account</a>
+              <a href="/account" onClick={() => setOpen(false)} className={`mt-4 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Profile settings</a>
             )}
             {session && (
               <a href={dashboardHref} onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] bg-ink text-white ${btn}`}>Dashboard</a>
+            )}
+            {session && (
+              <button onClick={() => supabase.auth.signOut().then(() => window.location.href = "/")} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-rose border border-line ${btn}`}>Sign out</button>
             )}
           </div>
         </div>
