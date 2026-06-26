@@ -69,6 +69,7 @@ export default function SiteNav() {
     { href: "/#agents", label: "Agents" },
     { href: "/appraisal-writer", label: "Appraisal Writer" },
   ];
+  const dashboardHref = hasClient ? "/dashboard" : "/onboard";
 
   const handleEmailAuth = async () => {
     if (!email.trim()) return;
