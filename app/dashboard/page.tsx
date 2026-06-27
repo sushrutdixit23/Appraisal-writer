@@ -125,10 +125,18 @@ export default function Dashboard() {
       if (!sessionData.session) { router.replace("/"); return; }
       const { data: clientRow } = await supabase
         .from("clients")
-        .select("id")
+        .select("id, status, trial_ends_at")
         .eq("auth_user_id", sessionData.session.user.id)
         .single();
       if (clientRow) {
+        // Check if trial has expired
+        if (clientRow.status === "trial" && clientRow.trial_ends_at) {
+          const expired = new Date(clientRow.trial_ends_at) < new Date();
+          if (expired) {
+            router.replace("/onboard?expired=1");
+            return;
+          }
+        }
         setMyClientId(clientRow.id);
         await loadMeta(clientRow.id);
         await loadQueue(clientRow.id, "pending");

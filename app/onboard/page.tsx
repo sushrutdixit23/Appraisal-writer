@@ -43,6 +43,8 @@ export default function OnboardPage() {
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const trialExpired = searchParams.get("expired") === "1";
 
   useEffect(() => {
     const init = async () => {
@@ -158,7 +160,7 @@ export default function OnboardPage() {
           </div>
           <h1 className="font-serif font-semibold text-3xl text-white mb-3">You are in.</h1>
           <p className="text-slate-light text-[15px] leading-relaxed max-w-[38ch] mx-auto">
-            Thanks, {profile.full_name}. We will reach out shortly to connect your LinkedIn account and get Engage live for you.
+            You are all set, {profile.full_name}. Your subscription is active. Head to your dashboard to start approving repliesr you.
           </p>
         </div>
       </main>
@@ -169,9 +171,15 @@ export default function OnboardPage() {
     <main className="min-h-screen bg-ink overflow-x-hidden">
       <SiteNav />
       <div className="max-w-3xl mx-auto px-6 pt-28 pb-20">
+        {trialExpired && (
+          <div className="mb-8 rounded-2xl border px-6 py-5 text-center" style={{ background: "rgba(255,68,68,0.06)", borderColor: "rgba(255,68,68,0.2)" }}>
+            <p className="text-[13px] font-bold uppercase tracking-wider mb-1" style={{ color: "#FF6B6B" }}>Your free trial has ended</p>
+            <p className="text-[14px] text-white/80">Choose a plan below to keep Engage running. Your voice profile and history are saved.</p>
+          </div>
+        )}
         <div className="text-center mb-12">
           <h1 className="font-serif font-semibold text-3xl text-white mb-3">
-            Choose your plan, {profile.full_name.split(" ")[0]}.
+            {trialExpired ? "Upgrade to continue." : `Choose your plan, ${profile.full_name.split(" ")[0]}.`}
           </h1>
           <p className="text-slate-light text-[15px]">
             Your voice profile is already set up. Pick a tier and you are ready to go.
