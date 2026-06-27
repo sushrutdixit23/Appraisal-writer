@@ -57,9 +57,9 @@ const EMPTY_COPY: Record<ViewTab, { title: string; body: string }> = {
   skipped: { title: "Nothing skipped.", body: "Messages you skip will show up here." },
 };
 
-function TempDot({ temperature }: { temperature: string | null }) {
-  if (!temperature) return null;
-  const color = temperature === "hot" ? "#FF4444" : temperature === "warm" ? "#F5A623" : "#4A9EFF";
+function TempDot({ temp }: { temp: string | null }) {
+  if (!temp) return null;
+  const color = temp === "hot" ? "#FF4444" : temp === "warm" ? "#F5A623" : "#4A9EFF";
   return <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: color, marginRight: 5, flexShrink: 0, marginTop: 3 }} />;
 }
 
@@ -78,7 +78,7 @@ export default function Dashboard() {
   const [classFilter, setClassFilter] = useState<string>("all");
   const [view, setView] = useState<ViewTab>("pending");
   const [linkedinConnected, setLinkedinConnected] = useState(true);
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
@@ -162,10 +162,13 @@ export default function Dashboard() {
       const result = await res.json();
       if (!res.ok) { showToast(result.error || "Failed to send."); return; }
       showToast("Sent.");
-      setMobileDetailOpen(false);
+      setSheetOpen(false);
       if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
-    } catch { showToast("Could not reach the server."); }
-    finally { setBusyId(null); }
+    } catch {
+      showToast("Could not reach the server.");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleSkip = async (item: Interaction) => {
@@ -178,10 +181,18 @@ export default function Dashboard() {
       });
       if (!res.ok) { showToast("Failed to skip."); return; }
       showToast("Skipped.");
-      setMobileDetailOpen(false);
+      setSheetOpen(false);
       if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
-    } catch { showToast("Could not reach the server."); }
-    finally { setBusyId(null); }
+    } catch {
+      showToast("Could not reach the server.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    setSelectedId(id);
+    setSheetOpen(true);
   };
 
   if (loading) {
@@ -210,11 +221,14 @@ export default function Dashboard() {
   const emptyCopy = EMPTY_COPY[view];
 
   const DetailPanel = ({ item }: { item: Interaction }) => (
-    <div className="h-full overflow-y-auto p-5 md:p-8">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white" style={{ background: ACCENT }}>
+        <div className="flex items-center gap-3.5">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white"
+            style={{ background: ACCENT }}
+          >
             {item.name?.[0]?.toUpperCase() ?? "?"}
           </div>
           <div>
@@ -225,114 +239,116 @@ export default function Dashboard() {
         <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
       </div>
 
-      {item.post && (
-        <div className="text-[12.5px] text-slate-light mb-3 bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
-          On: {item.post}
-        </div>
-      )}
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+        {item.post && (
+          <div className="text-[12.5px] text-slate-light bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
+            On: {item.post}
+          </div>
+        )}
 
-      <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 mb-5 leading-relaxed">
-        {item.text}
+        <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 leading-relaxed">
+          {item.text}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
+            <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
+            <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
+            <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
+            <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`}>
+              {item.requires_human ? "Needs you" : "Safe to auto"}
+            </span>
+          </div>
+        </div>
+
+        {item.reasoning && (
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
+            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
+          </div>
+        )}
+
+        {item.temperature && (
+          <div className="rounded-lg px-3.5 py-3 border" style={{
+            background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
+            borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
+          }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
+              {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
+            </p>
+            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
+          </div>
+        )}
+
+        {item.suggested_action && (
+          <div className="rounded-lg px-3.5 py-3 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
+            <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
+          </div>
+        )}
+
+        {view === "sent" && (
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
+            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
+              {item.reply || "-"}
+            </div>
+          </div>
+        )}
+
+        {view === "skipped" && (
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
+            <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
+            {item.reply && (
+              <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
+                {item.reply}
+                <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 mb-3">
-        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
-          <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
-        </div>
-        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
-          <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
-        </div>
-        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
-          <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
-        </div>
-        <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
-          <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber-400" : "text-green-400"}`}>
-            {item.requires_human ? "Needs you" : "Safe to auto"}
-          </span>
-        </div>
-      </div>
-
-      {item.reasoning && (
-        <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3 mb-2.5">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
-          <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
-        </div>
-      )}
-
-      {item.temperature && (
-        <div className="rounded-lg px-3.5 py-3 mb-4 border" style={{
-          background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
-          borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
-        }}>
-          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
-            {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
-          </p>
-          <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
-        </div>
-      )}
-
-      {item.suggested_action && (
-        <div className="rounded-lg px-3.5 py-3 mb-5 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
-          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
-          <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
-        </div>
-      )}
-
-      {!item.reasoning && !item.suggested_action && <div className="mb-5" />}
-
+      {/* Actions — sticky at bottom */}
       {view === "pending" && (
-        <>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply</p>
+        <div className="pt-3 border-t border-white/10 mt-3 space-y-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light">Reply</p>
           <textarea
             value={drafts[item.id] ?? ""}
             onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
             rows={4}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:ring-1 focus:ring-indigo mb-4"
+            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:border-white/25"
           />
           <div className="flex gap-2.5">
             <button
               onClick={() => handleSkip(item)}
               disabled={busyId === item.id}
-              className="flex-1 py-3.5 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-40 transition-all"
+              className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50"
             >
               Skip
             </button>
             <button
               onClick={() => handleApprove(item)}
               disabled={busyId === item.id}
-              className="flex-[2] py-3.5 text-[14px] font-semibold text-white rounded-xl disabled:opacity-40 transition-all"
+              className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:opacity-90 disabled:opacity-50"
               style={{ background: ACCENT }}
             >
               {busyId === item.id ? "Sending..." : "Approve & send"}
             </button>
           </div>
-        </>
-      )}
-
-      {view === "sent" && (
-        <>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
-          <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
-            {item.reply || "-"}
-          </div>
-        </>
-      )}
-
-      {view === "skipped" && (
-        <>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
-          <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
-          {item.reply && (
-            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
-              {item.reply}
-              <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -345,7 +361,7 @@ export default function Dashboard() {
 
       {/* Header */}
       <div className="bg-ink border-b border-white/10 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 md:px-7 h-[60px] md:h-[68px] flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-7 h-[60px] md:h-[68px] flex items-center justify-between gap-4">
           <span className="font-serif font-semibold text-xl md:text-2xl text-white tracking-tight">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
@@ -357,42 +373,49 @@ export default function Dashboard() {
               </div>
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
-            <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors">
-              Home
+            <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">
+              Back to home
             </a>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 md:px-7 py-6 md:py-10">
+      <div className="max-w-6xl mx-auto px-4 md:px-7 py-5 md:py-10">
         {!linkedinConnected ? (
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8 md:p-12 text-center">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center">
             <p className="font-serif text-2xl text-white mb-2">Setting up your LinkedIn connection.</p>
             <p className="text-slate-light text-sm max-w-md mx-auto leading-relaxed">
               We are finishing setup on our end. This usually takes under 24 hours. You will see your first replies here as soon as it is live.
             </p>
           </div>
         ) : (
-          <>
-            {/* Filters row */}
-            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 mb-4 space-y-3">
-              {/* Tab switcher */}
-              <div className="flex gap-1 bg-black/30 rounded-lg p-1">
-                {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabChange(tab)}
-                    className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
-                    style={view === tab ? { background: ACCENT, color: "#fff" } : { color: "#9b95a8" }}
-                  >
-                    {TAB_LABELS[tab]}
-                  </button>
-                ))}
-              </div>
+          /* Main layout: mobile=single col, desktop=two col */
+          <div className="md:grid md:grid-cols-[320px_1fr] md:gap-6">
 
-              <div className="flex gap-2 items-center">
+            {/* Left panel — list */}
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-4 md:px-5 py-4 border-b border-white/10 space-y-3">
+                {/* View tabs */}
+                <div className="flex gap-1 bg-black/30 rounded-lg p-1">
+                  {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => handleTabChange(tab)}
+                      className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-all"
+                      style={view === tab ? { background: ACCENT, color: "#fff" } : { color: "#9b95a8" }}
+                    >
+                      {TAB_LABELS[tab]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-light">{TAB_LABELS[view]}</span>
+                  <span className="text-[11px] font-mono text-slate-light">{visibleItems.length} of {items.length}</span>
+                </div>
+
                 {/* Type filter */}
-                <div className="flex gap-1 bg-black/30 rounded-lg p-1 flex-1">
+                <div className="flex gap-1 bg-black/30 rounded-lg p-1">
                   {(["all", "dm", "comment"] as FilterType[]).map((f) => (
                     <button
                       key={f}
@@ -405,13 +428,13 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Class filter */}
+                {/* Classification filter */}
                 {classifications.length > 0 && (
                   <div className="relative">
                     <select
                       value={classFilter}
                       onChange={(e) => setClassFilter(e.target.value)}
-                      className="appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white focus:outline-none"
+                      className="w-full appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white"
                     >
                       <option value="all">All types</option>
                       {classifications.map((c) => (
@@ -423,135 +446,100 @@ export default function Dashboard() {
                     </svg>
                   </div>
                 )}
-
-                <span className="text-[11px] font-mono text-slate-light whitespace-nowrap">
-                  {visibleItems.length}/{items.length}
-                </span>
               </div>
+
+              {/* Item list */}
+              {visibleItems.length === 0 ? (
+                <div className="px-5 py-8 text-center text-[13px] text-slate-light">
+                  {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
+                </div>
+              ) : (
+                visibleItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectItem(item.id)}
+                    className="w-full text-left px-4 md:px-5 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/5"
+                    style={
+                      item.id === selectedId
+                        ? { background: "rgba(255,255,255,0.06)", borderLeft: "3px solid #5B4BFF" }
+                        : { borderLeft: "3px solid transparent" }
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
+                          {item.type === "dm" ? "DM" : "Comment"}
+                        </span>
+                        <span className="text-[14px] font-semibold text-white truncate flex items-center">
+                          <TempDot temp={item.temperature} />
+                          {item.name}
+                        </span>
+                      </div>
+                      <span className="text-[10.5px] text-slate-light flex-shrink-0">{formatTime(item.created_at)}</span>
+                    </div>
+                    <p className="text-[13px] text-slate-light leading-relaxed truncate">{item.text}</p>
+                    {/* Mobile: show chevron hint */}
+                    <div className="flex items-center justify-between mt-1.5 md:hidden">
+                      <span className="text-[10px] text-slate-light uppercase tracking-wide">
+                        {item.temperature ? (item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold") : ""}
+                      </span>
+                      <svg className="w-4 h-4 text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M7.5 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
 
-            {/* Desktop: two-column | Mobile: list only */}
-            <div className="hidden md:grid md:grid-cols-[320px_1fr] gap-6">
-              {/* List panel */}
-              <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
-                {visibleItems.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-[13px] text-slate-light">
-                    {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
-                  </div>
-                ) : (
-                  visibleItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedId(item.id)}
-                      className="w-full text-left px-5 py-4 border-b border-white/10 last:border-0 transition-colors"
-                      style={item.id === selectedId ? { background: "rgba(255,255,255,0.06)", borderLeft: "3px solid #5B4BFF" } : { borderLeft: "3px solid transparent" }}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
-                            {item.type === "dm" ? "DM" : "Comment"}
-                          </span>
-                          <span className="text-[14px] font-semibold text-white truncate flex items-center">
-                            <TempDot temperature={item.temperature} />
-                            {item.name}
-                          </span>
-                        </div>
-                        <span className="text-[10.5px] text-slate-light flex-shrink-0">{formatTime(item.created_at)}</span>
-                      </div>
-                      <p className="text-[13px] text-slate-light leading-relaxed truncate">{item.text}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {/* Detail panel desktop */}
+            {/* Right panel — desktop detail */}
+            <div className="hidden md:block">
               {items.length === 0 ? (
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center self-start">
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
                   <p className="text-slate-light text-sm">{emptyCopy.body}</p>
                 </div>
               ) : selected ? (
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
                   <DetailPanel item={selected} />
                 </div>
               ) : null}
             </div>
-
-            {/* Mobile: list only, tap opens sheet */}
-            <div className="md:hidden">
-              {visibleItems.length === 0 ? (
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl px-5 py-10 text-center">
-                  <p className="font-serif text-xl text-white mb-2">{emptyCopy.title}</p>
-                  <p className="text-slate-light text-sm">{emptyCopy.body}</p>
-                </div>
-              ) : (
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
-                  {visibleItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => { setSelectedId(item.id); setMobileDetailOpen(true); }}
-                      className="w-full text-left px-4 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/[0.06]"
-                      style={{ borderLeft: "3px solid transparent" }}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
-                            {item.type === "dm" ? "DM" : "Cmt"}
-                          </span>
-                          <span className="text-[14px] font-semibold text-white truncate flex items-center">
-                            <TempDot temperature={item.temperature} />
-                            {item.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[10.5px] text-slate-light">{formatTime(item.created_at)}</span>
-                          <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-slate-400 stroke-[1.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M8 5l5 5-5 5" />
-                          </svg>
-                        </div>
-                      </div>
-                      <p className="text-[13px] text-slate-light leading-relaxed truncate pl-[2px]">{item.text}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
+          </div>
         )}
       </div>
 
-      {/* Mobile slide-up detail sheet */}
-      {mobileDetailOpen && selected && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col">
+      {/* Mobile bottom sheet */}
+      {sheetOpen && selected && (
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}
           <div
-            className="flex-1 bg-black/60"
-            onClick={() => setMobileDetailOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSheetOpen(false)}
           />
           {/* Sheet */}
-          <div className="bg-[#13151f] border-t border-white/10 rounded-t-[24px] max-h-[88vh] flex flex-col">
-            {/* Drag handle + close */}
-            <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
-              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
-              <span className="text-[13px] font-semibold text-white">{selected.name}</span>
-              <button
-                onClick={() => setMobileDetailOpen(false)}
-                className="text-slate-light hover:text-white transition-colors p-1"
-              >
-                <svg viewBox="0 0 20 20" className="w-5 h-5 stroke-current stroke-[2] fill-none" strokeLinecap="round">
-                  <path d="M5 5l10 10M15 5l-10 10" />
-                </svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1 pb-6">
+          <div className="relative bg-[#13151f] border-t border-white/10 rounded-t-[24px] max-h-[90vh] flex flex-col px-5 pt-4 pb-8">
+            {/* Drag handle */}
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+            {/* Close button */}
+            <button
+              onClick={() => setSheetOpen(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white"
+            >
+              <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none" strokeLinecap="round">
+                <path d="M5 5l10 10M15 5l-10 10" />
+              </svg>
+            </button>
+            <div className="flex-1 overflow-y-auto">
               <DetailPanel item={selected} />
             </div>
           </div>
         </div>
       )}
 
+      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-lg z-[60]">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-xl z-[60]">
           {toast}
         </div>
       )}
