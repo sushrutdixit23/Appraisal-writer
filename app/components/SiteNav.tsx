@@ -125,6 +125,38 @@ export default function SiteNav() {
           <div className="flex items-center gap-3">
             {session && credits !== null && <CreditsChip credits={credits} />}
             {session && (
+              <div className="relative hidden md:block">
+                <button onClick={() => setSettingsOpen(!settingsOpen)} className={`flex items-center gap-1.5 px-4 py-2.5 rounded-[11px] text-[14px] text-ink-soft border border-line hover:text-indigo hover:border-indigo ${btn}`}>
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="10" cy="7" r="3.5" />
+                    <path d="M2.5 17.5c0-3.314 3.358-6 7.5-6s7.5 2.686 7.5 6" />
+                  </svg>
+                  Settings
+                  <svg viewBox="0 0 20 20" className={`w-3.5 h-3.5 stroke-current stroke-[2] fill-none transition-transform ${settingsOpen ? "rotate-180" : ""}`} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 8l5 5 5-5" />
+                  </svg>
+                </button>
+                {settingsOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-cloud border border-line rounded-[14px] shadow-zy-lg overflow-hidden z-50" onClick={() => setSettingsOpen(false)}>
+                    <a href="/account" className="flex items-center gap-2.5 px-4 py-3 text-[14px] text-ink hover:bg-mist transition-colors">
+                      <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="10" cy="7" r="3.5" />
+                        <path d="M2.5 17.5c0-3.314 3.358-6 7.5-6s7.5 2.686 7.5 6" />
+                      </svg>
+                      Profile settings
+                    </a>
+                    <div className="h-px bg-line mx-3" />
+                    <button onClick={() => supabase.auth.signOut().then(() => window.location.href = "/")} className="w-full flex items-center gap-2.5 px-4 py-3 text-[14px] text-rose hover:bg-mist transition-colors">
+                      <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 3h4v14h-4M8 14l4-4-4-4M12 10H3" />
+                      </svg>
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {session && (
               <a href={dashboardHref} className={`hidden md:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[11px] text-[14px] font-semibold text-white transition-all hover:-translate-y-0.5 ${btn}`} style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
                 Dashboard
               </a>
