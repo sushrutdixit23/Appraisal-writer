@@ -43,11 +43,13 @@ export default function OnboardPage() {
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
-  const searchParams = useSearchParams();
-  const trialExpired = searchParams.get("expired") === "1";
+  const [trialExpired, setTrialExpired] = useState(false);
 
   useEffect(() => {
     const init = async () => {
+      if (typeof window !== "undefined") {
+        setTrialExpired(new URLSearchParams(window.location.search).get("expired") === "1");
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.replace("/");
