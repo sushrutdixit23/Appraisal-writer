@@ -26,7 +26,7 @@ export default function Home() {
               Supervised AI · Built around you
             </span>
             <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
-              Zyntask <span className="text-grad">— your professional co-pilot.</span>
+              <span className="text-grad">Zyntask</span> — your professional copilot.
             </h1>
             <p className="text-[19px] text-slate max-w-[42ch] mx-auto mb-9 leading-relaxed">
               AI that drafts the work. You make every call.
@@ -236,7 +236,7 @@ export default function Home() {
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-              Zyntask <span className="text-grad">— your professional co-pilot.</span>
+              <span className="text-grad">Zyntask</span> — your professional copilot.
                 </p>
               </div>
               <div>

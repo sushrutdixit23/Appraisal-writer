@@ -220,6 +220,7 @@ export default function OnboardPage() {
         </div>
 
         {error && <p className="text-rose text-[13px] text-center mb-4">{error}</p>}
+        <p className="text-center text-[12px] text-slate-light mt-4">Running multiple LinkedIn profiles? <a href="mailto:hello@zyntask.in" className="text-indigo hover:underline">Talk to us</a> about agency pricing.</p>
 
         <div className="text-center">
           <button
@@ -228,7 +229,7 @@ export default function OnboardPage() {
             className="px-8 py-3.5 rounded-xl text-base font-medium text-white disabled:opacity-50"
             style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
           >
-            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")} â†’`}
+            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")}${TIERS.find((t) => t.id === selectedTier)!.billingLabel} â†’`}
           </button>
         </div>
       </div>

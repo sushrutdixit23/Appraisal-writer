@@ -222,30 +222,35 @@ export default function EngagePage() {
                 <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Monthly</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 8,999<span className="text-[15px] text-slate-light font-sans">/mo</span></div>
-                  <p className="text-[13px] text-slate-light mb-6">100 replies/day default, cancel anytime.</p>
+                  <p className="text-[13px] text-slate-light mb-1">100 replies/day. Cancel anytime.</p>
+                  <p className="text-[11px] text-slate-light mb-6 italic">Best for: trying it properly</p>
                   <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/20 text-white hover:border-white/40 ${btn}`}>
                     Choose monthly
                   </a>
                 </div>
 
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">6 months</p>
-                  <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 52,999</div>
-                  <p className="text-[13px] text-slate-light mb-6">Includes infrastructure and maintenance.</p>
-                  <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/20 text-white hover:border-white/40 ${btn}`}>
-                    Choose 6 months
+                <div className="relative bg-white/[0.08] border border-indigo/40 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-indigo text-white text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-wide">Most popular</span>
+                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Annual</p>
+                  <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 89,990<span className="text-[15px] text-slate-light font-sans">/yr</span></div>
+                  <p className="text-[13px] text-slate-light mb-1">Rs 7,499/mo effective — 2 months free.</p>
+                  <p className="text-[11px] text-slate-light mb-6 italic">Best for: committed solo users</p>
+                  <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] text-white hover:opacity-90 ${btn}`} style={{background:"linear-gradient(115deg,#5B4BFF,#8a6ff0)"}}>
+                    Choose annual
                   </a>
                 </div>
 
                 <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">One-time</p>
-                  <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 50,000</div>
-                  <p className="text-[13px] text-slate-light mb-6">+ Rs 5,499/mo from month 3, first 2 months free.</p>
+                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Founder rate</p>
+                  <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 50,000<span className="text-[15px] text-slate-light font-sans"> setup</span></div>
+                  <p className="text-[13px] text-slate-light mb-1">Then Rs 5,499/mo — the lowest rate, locked.</p>
+                  <p className="text-[11px] text-slate-light mb-6 italic">Best for: in it for the long haul</p>
                   <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/20 text-white hover:border-white/40 ${btn}`}>
-                    Choose one-time
+                    Choose founder rate
                   </a>
                 </div>
               </div>
+              <p className="text-center text-[13px] text-slate-light mt-6">Running multiple LinkedIn profiles? <a href="mailto:hello@zyntask.in" className="text-indigo hover:underline font-medium">Talk to us</a> about per-seat agency pricing.</p>
             </div>
           </section>
         </Reveal>
