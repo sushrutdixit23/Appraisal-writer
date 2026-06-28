@@ -607,7 +607,6 @@ export default function Dashboard() {
             </button>
             <div className="flex-1 overflow-y-auto">
               <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} />
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} />
           </div>
         </div>
       )}
