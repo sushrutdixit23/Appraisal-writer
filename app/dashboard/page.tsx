@@ -449,23 +449,6 @@ export default function Dashboard() {
     finally { setSchedulingPost(false); }
   };
 
-  const handleSchedulePost = async (id: string, scheduledAt: string) => {
-    setSchedulingPost(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch("/api/schedule-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ id, scheduled_at: scheduledAt }),
-      });
-      if (!res.ok) { showToast("Failed to schedule."); return; }
-      showToast("Post scheduled.");
-      setSchedulePostId(null);
-      if (myClientId) await loadQueue(myClientId, "posts");
-    } catch { showToast("Could not reach the server."); }
-    finally { setSchedulingPost(false); }
-  };
-
   const handleDraftPost = async () => {
     if (!postTopic.trim()) { showToast("Enter a topic first."); return; }
     setDraftingPost(true);
