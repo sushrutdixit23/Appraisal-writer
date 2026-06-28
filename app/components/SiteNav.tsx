@@ -61,6 +61,13 @@ export default function SiteNav() {
       } catch { /* ignore */ }
     };
     supabase.auth.getSession().then(({ data: { session: s } }) => loadCredits(s));
+    // Auto-open signup modal if redirected from a protected page
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("signup") === "1") {
+      setAuthOpen(true);
+      setTab("signup");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => loadCredits(s));
     return () => { active = false; subscription.unsubscribe(); };
   }, []);

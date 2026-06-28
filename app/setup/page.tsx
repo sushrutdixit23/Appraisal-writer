@@ -37,7 +37,7 @@ export default function SetupPage() {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.replace("/");
+        router.replace("/?signup=1");
         return;
       }
       setUserId(session.user.id);
