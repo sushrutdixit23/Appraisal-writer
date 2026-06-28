@@ -68,7 +68,6 @@ Return ONLY the post text. No commentary, no preamble, no quotes around it.`;
     .from("interactions")
     .insert({
       client_id: client.id,
-      auth_user_id: user.id,
       type: "post_draft",
       name: client.voice_name,
       role: client.voice_role,
