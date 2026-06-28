@@ -31,7 +31,7 @@ BULLETS
 - [5 to 7 polished appraisal bullet points]
 
 SUMMARY
-[2âï¿½“3 sentence overall self-assessment paragraph suitable for the "summary" box in an appraisal form]
+[2ï¿½ï¿½â€œ3 sentence overall self-assessment paragraph suitable for the "summary" box in an appraisal form]
 
 WRITING RULES:
 1. Never invent metrics, outcomes, specific projects, or ownership. Only use what the user has explicitly stated.
