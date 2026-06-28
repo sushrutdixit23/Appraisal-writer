@@ -67,7 +67,6 @@ export default function SiteNav() {
       setTab("signup");
       window.history.replaceState({}, "", window.location.pathname);
     }
-    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => loadCredits(s));
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
