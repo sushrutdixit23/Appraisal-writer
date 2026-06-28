@@ -27,7 +27,7 @@ type Interaction = {
 };
 
 type FilterType = "all" | "dm" | "comment";
-type ViewTab = "pending" | "sent" | "skipped";
+type ViewTab = "pending" | "sent" | "skipped" | "posts";
 
 const ACCENT = "linear-gradient(115deg,#0A66C2,#5B4BFF,#8a6ff0)";
 
@@ -49,12 +49,15 @@ const TAB_LABELS: Record<ViewTab, string> = {
   pending: "Pending",
   sent: "Sent",
   skipped: "Skipped",
+  posts: "Posts",
 };
 
 const EMPTY_COPY: Record<ViewTab, { title: string; body: string }> = {
   pending: { title: "Queue clear.", body: "Nothing pending review right now." },
   sent: { title: "Nothing sent yet.", body: "Replies you approve will show up here." },
   skipped: { title: "Nothing skipped.", body: "Messages you skip will show up here." },
+  posts: { title: "No posts yet.", body: "Draft your first LinkedIn post using the button above." },
+  posts: { title: "No posts yet.", body: "Draft your first LinkedIn post using the button above." },
 };
 
 function TempDot({ temp }: { temp: string | null }) {
@@ -70,6 +73,10 @@ export default function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [postTopic, setPostTopic] = useState("");
+  const [postNotes, setPostNotes] = useState("");
+  const [draftingPost, setDraftingPost] = useState(false);
   const [toast, setToast] = useState("");
   const [sentToday, setSentToday] = useState(0);
   const [dailyCap, setDailyCap] = useState(100);
@@ -157,6 +164,28 @@ export default function Dashboard() {
     setTimeout(() => setToast(""), 2500);
   };
 
+  const handleDraftPost = async () => {
+    if (!postTopic.trim()) { showToast("Enter a topic first."); return; }
+    setDraftingPost(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/draft-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ topic: postTopic, notes: postNotes }),
+      });
+      const result = await res.json();
+      if (!res.ok) { showToast(result.error || "Failed to draft post."); return; }
+      showToast("Post drafted and added to queue.");
+      setDraftModalOpen(false);
+      setPostTopic("");
+      setPostNotes("");
+      setView("posts");
+      if (myClientId) await loadQueue(myClientId, "posts");
+    } catch { showToast("Could not reach the server."); }
+    finally { setDraftingPost(false); }
+  };
+
   const handleApprove = async (item: Interaction) => {
     const text = drafts[item.id]?.trim();
     if (!text) { showToast("Write a reply before approving."); return; }
@@ -177,6 +206,26 @@ export default function Dashboard() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const handlePublishPost = async (item: Interaction) => {
+    const text = drafts[item.id]?.trim();
+    if (!text) { showToast("Write something before publishing."); return; }
+    setBusyId(item.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/create-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ id: item.id, text }),
+      });
+      const result = await res.json();
+      if (!res.ok) { showToast(result.error || "Failed to publish."); return; }
+      showToast("Published to LinkedIn.");
+      setSheetOpen(false);
+      if (myClientId) { await loadQueue(myClientId, "posts"); }
+    } catch { showToast("Could not reach the server."); }
+    finally { setBusyId(null); }
   };
 
   const handleSkip = async (item: Interaction) => {
@@ -405,7 +454,7 @@ export default function Dashboard() {
               <div className="px-4 md:px-5 py-4 border-b border-white/10 space-y-3">
                 {/* View tabs */}
                 <div className="flex gap-1 bg-black/30 rounded-lg p-1">
-                  {(["pending", "sent", "skipped"] as ViewTab[]).map((tab) => (
+                  {(["pending", "sent", "skipped", "posts"] as ViewTab[]).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => handleTabChange(tab)}
@@ -546,6 +595,45 @@ export default function Dashboard() {
       )}
 
       {/* Toast */}
+      {/* Draft Post Modal */}
+      {draftModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDraftModalOpen(false)} />
+          <div className="relative bg-[#13151f] border border-white/10 rounded-[24px] p-7 w-full max-w-lg">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-light mb-1">Draft a LinkedIn post</p>
+            <h3 className="font-serif font-semibold text-[22px] text-white mb-5">What do you want to post about?</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Topic</p>
+                <input
+                  type="text"
+                  value={postTopic}
+                  onChange={e => setPostTopic(e.target.value)}
+                  placeholder="e.g. What I learned building Zyntask in 2 weeks"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light focus:outline-none focus:border-white/25"
+                />
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Key points <span className="normal-case">(optional)</span></p>
+                <textarea
+                  value={postNotes}
+                  onChange={e => setPostNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Any specific points, angles, or details to include..."
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light resize-none focus:outline-none focus:border-white/25"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
+              <button onClick={handleDraftPost} disabled={draftingPost} className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl disabled:opacity-50" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
+                {draftingPost ? "Drafting..." : "Draft post"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-xl z-[60]">
           {toast}
