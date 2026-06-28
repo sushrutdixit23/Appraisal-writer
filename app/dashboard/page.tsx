@@ -76,6 +76,7 @@ function DetailPanel({
   handleApprove: (item: Interaction) => void;
   handleSkip: (item: Interaction) => void;
   handlePublishPost: (item: Interaction) => void;
+  handleSchedulePost: (id: string, scheduledAt: string) => void;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
