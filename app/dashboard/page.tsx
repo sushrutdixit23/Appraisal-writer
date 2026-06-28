@@ -465,6 +465,17 @@ export default function Dashboard() {
                   ))}
                 </div>
 
+                {view === "posts" && (
+                  <button
+                    onClick={() => setDraftModalOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 text-[12px] font-semibold py-2.5 rounded-lg text-white hover:opacity-90 transition-all"
+                    style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
+                  >
+                    <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 4v12M4 10h12"/></svg>
+                    Draft a post
+                  </button>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-light">{TAB_LABELS[view]}</span>
                   <span className="text-[11px] font-mono text-slate-light">{visibleItems.length} of {items.length}</span>
