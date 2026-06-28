@@ -171,7 +171,7 @@ function DetailPanel({
         )}
       </div>
 
-      {view === "pending" && (
+      {(view === "pending" || view === "posts") && (
         <div className="pt-3 border-t border-white/10 mt-3 space-y-3">
           <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light">
             {isPost ? "Review your draft" : "Reply"}
