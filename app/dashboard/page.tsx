@@ -183,6 +183,40 @@ function DetailPanel({
             rows={isPost ? 10 : 4}
             className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none focus:border-white/25"
           />
+          {isPost && view === "posts" && (
+            <div className="flex gap-2 mb-2">
+              <a href="/calendar" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/30 transition-colors">
+                View calendar
+              </a>
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  const best = [1,2,3,4,5,6,7].map(d => { const t = new Date(now); t.setDate(now.getDate()+d); t.setHours(d%2===0?8:17,30,0,0); return t; }).find(t => t > now);
+                  if (best) handleSchedulePost(item.id, best.toISOString());
+                }}
+                disabled={schedulingPost}
+                className="flex-1 py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors disabled:opacity-50"
+              >
+                Schedule for best time
+              </button>
+            </div>
+          )}
+          {isPost && view === "posts" && (
+            <div className="flex gap-2 mb-2">
+              <a href="/calendar" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/30 transition-colors">
+                View calendar
+              </a>
+              <button
+                onClick={() => {
+                  const best = [1,2,3,4].map(d => { const t = new Date(); t.setDate(t.getDate()+d); t.setHours(d%2===0?8:17,30,0,0); return t; }).find(t => t > new Date());
+                  if (best) handleSchedulePost(item.id, best.toISOString());
+                }}
+                className="flex-1 py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors"
+              >
+                Schedule for best time
+              </button>
+            </div>
+          )}
           <div className="flex gap-2.5">
             {!isPost && (
               <button
@@ -229,6 +263,8 @@ export default function Dashboard() {
   const [loadingIdeas, setLoadingIdeas] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [schedulePostId, setSchedulePostId] = useState<string | null>(null);
+  const [schedulingPost, setSchedulingPost] = useState(false);
   const [postTopic, setPostTopic] = useState("");
   const [postNotes, setPostNotes] = useState("");
   const [draftingPost, setDraftingPost] = useState(false);
@@ -396,6 +432,40 @@ export default function Dashboard() {
     } catch { showToast("Could not reach the server."); }
   };
 
+  const handleSchedulePost = async (id: string, scheduledAt: string) => {
+    setSchedulingPost(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/schedule-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ id, scheduled_at: scheduledAt }),
+      });
+      if (!res.ok) { showToast("Failed to schedule."); return; }
+      showToast("Post scheduled.");
+      setSchedulePostId(null);
+      if (myClientId) await loadQueue(myClientId, "posts");
+    } catch { showToast("Could not reach the server."); }
+    finally { setSchedulingPost(false); }
+  };
+
+  const handleSchedulePost = async (id: string, scheduledAt: string) => {
+    setSchedulingPost(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/schedule-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ id, scheduled_at: scheduledAt }),
+      });
+      if (!res.ok) { showToast("Failed to schedule."); return; }
+      showToast("Post scheduled.");
+      setSchedulePostId(null);
+      if (myClientId) await loadQueue(myClientId, "posts");
+    } catch { showToast("Could not reach the server."); }
+    finally { setSchedulingPost(false); }
+  };
+
   const handleDraftPost = async () => {
     if (!postTopic.trim()) { showToast("Enter a topic first."); return; }
     setDraftingPost(true);
@@ -465,6 +535,8 @@ export default function Dashboard() {
               </div>
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
+            <a href="/calendar" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
+            <a href="/calendar" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
             <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
           </div>
         </div>
