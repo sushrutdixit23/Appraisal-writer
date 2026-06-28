@@ -1,4 +1,4 @@
-﻿import Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -132,3 +132,4 @@ ${rawInput}`;
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
 }
+
