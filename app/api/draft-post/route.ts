@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // Also fetch profile samples
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules")
+    .select("voice_tone, voice_rules, voice_signoff, sample1, sample2, sample3")
     .eq("auth_user_id", user.id)
     .single();
 
