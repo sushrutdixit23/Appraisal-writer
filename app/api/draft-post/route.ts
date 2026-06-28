@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { randomUUID } from "crypto";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -67,6 +68,7 @@ Return ONLY the post text. No commentary, no preamble, no quotes around it.`;
   const { data: interaction, error: saveError } = await supabase
     .from("interactions")
     .insert({
+      id: randomUUID(),
       client_id: client.id,
       type: "post_draft",
       name: client.voice_name,
