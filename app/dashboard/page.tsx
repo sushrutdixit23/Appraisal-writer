@@ -67,7 +67,7 @@ function TempDot({ temp }: { temp: string | null }) {
 
 // DetailPanel defined OUTSIDE Dashboard to prevent re-mount on every render
 function DetailPanel({
-  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, view
+  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, view
 }: {
   item: Interaction;
   drafts: Record<string, string>;
@@ -77,6 +77,7 @@ function DetailPanel({
   handleSkip: (item: Interaction) => void;
   handlePublishPost: (item: Interaction) => void;
   handleSchedulePost: (id: string, scheduledAt: string) => void;
+  schedulingPost: boolean;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
@@ -661,7 +662,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} view={view} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} view={view} />
                 </div>
               ) : null}
             </div>
@@ -681,7 +682,7 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} view={view} />
             </div>
           </div>
         </div>
