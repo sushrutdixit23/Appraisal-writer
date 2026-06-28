@@ -187,7 +187,7 @@ function DetailPanel({
           />
           {isPost && view === "posts" && (
             <div className="flex gap-2 mb-2">
-              <a href="/calendar" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/30 transition-colors">
+              <a href="/calendar" target="_blank" rel="noopener noreferrer" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/30 transition-colors">
                 View calendar
               </a>
               <button
@@ -198,22 +198,6 @@ function DetailPanel({
                 }}
                 disabled={schedulingPost}
                 className="flex-1 py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors disabled:opacity-50"
-              >
-                Schedule for best time
-              </button>
-            </div>
-          )}
-          {isPost && view === "posts" && (
-            <div className="flex gap-2 mb-2">
-              <a href="/calendar" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/30 transition-colors">
-                View calendar
-              </a>
-              <button
-                onClick={() => {
-                  const best = [1,2,3,4].map(d => { const t = new Date(); t.setDate(t.getDate()+d); t.setHours(d%2===0?8:17,30,0,0); return t; }).find(t => t > new Date());
-                  if (best) handleSchedulePost(item.id, best.toISOString());
-                }}
-                className="flex-1 py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors"
               >
                 Schedule for best time
               </button>
@@ -520,8 +504,8 @@ export default function Dashboard() {
               </div>
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
-            <a href="/calendar" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
-            <a href="/calendar" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
+            <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
+            <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
             <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
           </div>
         </div>
