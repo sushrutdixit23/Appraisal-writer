@@ -69,3 +69,4 @@ export async function POST(req: NextRequest) {
     trial_ends_at: client.trial_ends_at,
   });
 }
+

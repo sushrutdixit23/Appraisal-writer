@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState, ReactNode } from "react";
 
@@ -42,3 +42,4 @@ export default function Reveal({
     </div>
   );
 }
+
