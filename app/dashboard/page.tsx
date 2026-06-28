@@ -225,6 +225,10 @@ export default function Dashboard() {
   const [linkedinConnected, setLinkedinConnected] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [ideas, setIdeas] = useState<{hook: string; prompt: string}[]>([]);
+  const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [postTopic, setPostTopic] = useState("");
   const [postNotes, setPostNotes] = useState("");
   const [draftingPost, setDraftingPost] = useState(false);
@@ -358,6 +362,38 @@ export default function Dashboard() {
       if (myClientId) await loadQueue(myClientId, "posts");
     } catch { showToast("Could not reach the server."); }
     finally { setBusyId(null); }
+  };
+
+  const handleGetIdeas = async () => {
+    setLoadingIdeas(true);
+    setIdeasOpen(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/post-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({}),
+      });
+      const result = await res.json();
+      if (!res.ok) { showToast(result.error || "Failed to get ideas."); return; }
+      setIdeas(result.ideas || []);
+    } catch { showToast("Could not reach the server."); }
+    finally { setLoadingIdeas(false); }
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/delete-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) { showToast("Failed to delete."); return; }
+      showToast("Draft deleted.");
+      setConfirmDeleteId(null);
+      if (myClientId) await loadQueue(myClientId, "posts");
+    } catch { showToast("Could not reach the server."); }
   };
 
   const handleDraftPost = async () => {
@@ -542,6 +578,19 @@ export default function Dashboard() {
                     <p className="text-[13px] text-slate-light leading-relaxed truncate">
                       {item.type === "post_draft" ? item.reply?.slice(0, 80) + "..." : item.text}
                     </p>
+                    {item.type === "post_draft" && (
+                      <div className="flex justify-end mt-2" onClick={e => e.stopPropagation()}>
+                        {confirmDeleteId === item.id ? (
+                          <div className="flex gap-2 items-center">
+                            <span className="text-[10px] text-slate-light">Delete this draft?</span>
+                            <button onClick={() => handleDeleteDraft(item.id)} className="text-[10px] text-rose font-semibold hover:underline">Yes</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-slate-light hover:underline">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteId(item.id)} className="text-[10px] text-slate-light hover:text-rose transition-colors">Delete draft</button>
+                        )}
+                      </div>
+                    )}
                   </button>
                 ))
               )}
@@ -613,6 +662,32 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex gap-3 mt-6">
+              {/* Get ideas section */}
+              <div className="mt-2">
+                <button
+                  onClick={handleGetIdeas}
+                  disabled={loadingIdeas}
+                  className="w-full flex items-center justify-center gap-2 text-[12px] font-medium py-2 rounded-lg border border-white/15 text-slate-light hover:text-white hover:border-white/30 transition-all disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 4h.01"/></svg>
+                  {loadingIdeas ? "Getting ideas..." : "Get post ideas for me"}
+                </button>
+                {ideasOpen && ideas.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] text-slate-light uppercase tracking-wider font-semibold">Pick an idea to draft</p>
+                    {ideas.map((idea, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setPostTopic(idea.hook); setPostNotes(idea.prompt); setIdeasOpen(false); }}
+                        className="w-full text-left px-3.5 py-3 rounded-xl border border-white/10 bg-black/20 hover:border-indigo/40 hover:bg-white/5 transition-all"
+                      >
+                        <p className="text-[13px] font-semibold text-white mb-0.5">{idea.hook}</p>
+                        <p className="text-[11px] text-slate-light leading-relaxed">{idea.prompt}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
               <button onClick={handleDraftPost} disabled={draftingPost} className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl disabled:opacity-50" style={{ background: ACCENT }}>
                 {draftingPost ? "Drafting..." : "Draft post"}
