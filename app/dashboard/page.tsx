@@ -57,7 +57,6 @@ const EMPTY_COPY: Record<ViewTab, { title: string; body: string }> = {
   sent: { title: "Nothing sent yet.", body: "Replies you approve will show up here." },
   skipped: { title: "Nothing skipped.", body: "Messages you skip will show up here." },
   posts: { title: "No posts yet.", body: "Draft your first LinkedIn post using the button above." },
-  posts: { title: "No posts yet.", body: "Draft your first LinkedIn post using the button above." },
 };
 
 function TempDot({ temp }: { temp: string | null }) {
