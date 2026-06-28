@@ -22,13 +22,14 @@ export default function Home() {
         <header className="relative pt-[60px] pb-20">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_55%_at_50%_42%,rgba(247,246,242,0.78),transparent_72%)] pointer-events-none" />
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-12">
-            <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
-              Supervised AI Â· Built around you
+              <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-[12.5px] font-medium text-slate tracking-wide mb-7">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }} />
+                Supervised AI · Built around you
             </span>
-            <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
-            Zyntask — your professional copilot.
+              <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
+                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
             </h1>
-            <p className="text-[19px] text-slate max-w-[42ch] mx-auto mb-9 leading-relaxed">
+              <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
               AI that drafts the work. You make every call.
             </p>
             <div className="flex gap-3.5 flex-wrap items-center justify-center">
