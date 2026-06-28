@@ -24,39 +24,61 @@ export async function POST(req: NextRequest) {
   // Get client + voice profile
   const { data: client } = await supabase
     .from("clients")
-    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules")
+    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules, sample1, sample2, sample3")
     .eq("auth_user_id", user.id)
     .single();
 
   if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
+
+  // Also fetch profile samples
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("sample1, sample2, sample3, voice_tone, voice_rules, voice_signoff")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  // Merge profile voice data into client (profile takes precedence if set)
+  if (profile) {
+    if (profile.voice_tone) client.voice_tone = profile.voice_tone;
+    if (profile.voice_rules) client.voice_rules = profile.voice_rules;
+    if (profile.voice_signoff) client.voice_signoff = profile.voice_signoff;
+  }
+
+  const samplePosts = [profile?.sample1, profile?.sample2, profile?.sample3]
+    .filter(Boolean)
+    .map((s, i) => `--- Sample ${i + 1} ---\n${s}`)
+    .join("\n\n");
   if (!client.unipile_account_id) return NextResponse.json({ error: "LinkedIn not connected." }, { status: 400 });
 
   const systemPrompt = `You are a LinkedIn ghostwriter for ${client.voice_name}, a ${client.voice_role}.
 
-Your job is to draft a LinkedIn post in their exact voice.
+Your job is to write a LinkedIn post that sounds EXACTLY like them — not like a ghostwriter, not like a marketer, not like an AI.
 
-Voice profile:
-- Tone: ${client.voice_tone || "professional and direct"}
-- Sign-off style: ${client.voice_signoff || "none"}
-- Voice rules: ${client.voice_rules || "none"}
+VOICE PROFILE:
+- Tone: ${client.voice_tone || "direct, concise, founder voice"}
+- Rules: ${client.voice_rules || "no buzzwords, no corporate language, write like a person"}
+- Sign-off: ${client.voice_signoff || "none"}
 
-LinkedIn post rules:
-1. Write in first person, in ${client.voice_name}'s voice — direct, specific, no corporate fog.
-2. Hook on the first line. Make it a statement or observation that creates tension or curiosity. No "I am excited to share", no "Today I want to talk about".
-3. Short paragraphs. One idea per paragraph. Single sentences are fine. White space is not optional.
-4. NEVER use markdown formatting — no **bold**, no *italics*, no bullet points with dashes or asterisks. Plain text only.
-5. No hashtags.
-6. No emojis.
-7. No generic closing questions like "What do you think?" or "Let me know your thoughts."
-8. Never start with "I" as the first word.
-9. Write from a point of view — have an opinion, take a position, say something specific.
-10. Sound like a person who has actually done the thing, not someone who has read about it.
-11. Keep it between 100-250 words. Shorter is almost always better.
-12. No section headers, no bold text, no formatting of any kind. Just paragraphs.
+${samplePosts ? `WRITING SAMPLES — study these carefully. Match the rhythm, sentence length, paragraph structure, and vocabulary exactly:
 
-Return ONLY the post text. Nothing else. No preamble, no commentary, no quotation marks around it.`;
+${samplePosts}` : ""}
 
-  const userMessage = `Topic: ${topic.trim()}${notes?.trim() ? `\n\nAdditional notes: ${notes.trim()}` : ""}`;
+POST WRITING RULES:
+1. Match the exact sentence rhythm and paragraph length from the writing samples above.
+2. One idea per paragraph. Single sentences are fine and often better.
+3. Hook on line one — a statement, observation, or tension. Never start with "I am excited", "Today I want to", or "I am happy to share".
+4. Never start with "I" as the first word.
+5. ZERO markdown — no **bold**, no *italics*, no bullet points, no dashes as bullets, no headers.
+6. No hashtags. No emojis.
+7. No generic closing questions. End with a specific thought, a position, or a quiet call to action.
+8. 100-220 words maximum. Shorter is almost always better.
+9. Have an opinion. Take a position. Say something the reader won't have read today.
+10. Sound like someone who has actually done the thing, not read about it.
+11. Plain paragraphs only. No formatting of any kind.
+
+Return ONLY the post text. Nothing else.`;
+
+const userMessage = `Topic: ${topic.trim()}${notes?.trim() ? `\n\nAdditional notes: ${notes.trim()}` : ""}`;
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5",
