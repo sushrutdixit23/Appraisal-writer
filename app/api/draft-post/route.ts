@@ -70,6 +70,7 @@ POST WRITING RULES:
 4. Never start with "I" as the first word.
 5. ZERO markdown — no **bold**, no *italics*, no bullet points, no dashes as bullets, no headers.
 6. No hashtags. No emojis.
+7. Never use em dashes (—) anywhere in the post body. They are an AI tell. Use a period or a new sentence instead.
 7. No generic closing questions. End with a specific thought, a position, or a quiet call to action.
 8. 100-220 words maximum. Shorter is almost always better.
 9. Have an opinion. Take a position. Say something the reader won't have read today.
@@ -81,7 +82,7 @@ Return ONLY the post text. Nothing else.`;
 const userMessage = `Topic: ${topic.trim()}${notes?.trim() ? `\n\nAdditional notes: ${notes.trim()}` : ""}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
