@@ -75,16 +75,26 @@ export default function Home() {
                       <span className="w-2.5 h-2.5 rounded-full bg-[#3a3845]" />
                       <span className="w-2.5 h-2.5 rounded-full bg-[#3a3845]" />
                       <span className="ml-2 font-serif text-[15px] text-[#cdc8be]">Engage<span className="text-indigo">.</span></span>
-                      <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;6 / 100</span>
+                      <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;6 / 50</span>
                     </div>
                     <div className="p-4">
-                      <div className="text-xs text-slate-light mb-1">Amrish Kumar Choubey · Comment</div>
-                      <div className="text-[13px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3">
-                        Keep learning. Proud of you
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-ink/10 text-ink-soft px-2 py-0.5 rounded-md">DM</span>
+                          <span className="text-[12px] font-semibold text-ink">Rohan Desai</span>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "rgba(255,68,68,0.10)", color: "#FF4444", border: "1px solid rgba(255,68,68,0.25)" }}>Hot lead</span>
+                      </div>
+                      <div className="text-[12.5px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3 leading-relaxed">
+                        Would love to explore working together — are you taking on clients this quarter?
                       </div>
                       <div className="text-[9px] uppercase tracking-wide text-slate-light mb-1.5">Reply prepared for you</div>
-                      <div className="text-[13px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed">
-                        Thank you so much, Amrish sir - that truly means a lot coming from you. Your encouragement keeps me pushing further.
+                      <div className="text-[12.5px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed mb-3">
+                        Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-line text-slate">Skip</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>Approve &amp; send</span>
                       </div>
                     </div>
                   </div>
