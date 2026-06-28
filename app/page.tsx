@@ -27,7 +27,7 @@ export default function Home() {
                 Supervised AI · Built around you
             </span>
               <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
-                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>� your professional copilot.</span>
+                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
             </h1>
               <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
               AI that drafts the work. You make every call.
@@ -247,7 +247,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-              Zyntask � your professional copilot.
+              Zyntask — your professional copilot.
                 </p>
               </div>
               <div>
