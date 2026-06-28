@@ -65,6 +65,146 @@ function TempDot({ temp }: { temp: string | null }) {
   return <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: color, marginRight: 5, flexShrink: 0, marginTop: 3 }} />;
 }
 
+
+function DetailPanel({ item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, view }: {
+  item: Interaction; drafts: Record<string, string>; setDrafts: (d: Record<string, string>) => void;
+  busyId: string | null; handleApprove: (item: Interaction) => void; handleSkip: (item: Interaction) => void;
+  handlePublishPost: (item: Interaction) => void; view: string;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3.5">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white"
+            style={{ background: ACCENT }}
+          >
+            {item.name?.[0]?.toUpperCase() ?? "?"}
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold text-white">{item.name}</p>
+            <p className="text-[12.5px] text-slate-light">{item.role}</p>
+          </div>
+        </div>
+        <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+        {item.post && (
+          <div className="text-[12.5px] text-slate-light bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
+            On: {item.post}
+          </div>
+        )}
+
+        <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 leading-relaxed">
+          {item.text}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
+            <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
+            <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
+            <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
+          </div>
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
+            <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`}>
+              {item.requires_human ? "Needs you" : "Safe to auto"}
+            </span>
+          </div>
+        </div>
+
+        {item.reasoning && (
+          <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
+            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
+          </div>
+        )}
+
+        {item.temperature && (
+          <div className="rounded-lg px-3.5 py-3 border" style={{
+            background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
+            borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
+          }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
+              {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
+            </p>
+            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
+          </div>
+        )}
+
+        {item.suggested_action && (
+          <div className="rounded-lg px-3.5 py-3 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
+            <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
+          </div>
+        )}
+
+        {view === "sent" && (
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
+            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
+              {item.reply || "-"}
+            </div>
+          </div>
+        )}
+
+        {view === "skipped" && (
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
+            <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
+            {item.reply && (
+              <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
+                {item.reply}
+                <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Actions — sticky at bottom */}
+      {view === "pending" && (
+        <div className="pt-3 border-t border-white/10 mt-3 space-y-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light">Reply</p>
+          <textarea key={item.id + "-reply"}
+            value={drafts[item.id] ?? ""}
+            onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
+                rows={6}
+                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-y min-h-[120px] focus:outline-none focus:border-white/25"
+          />
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => handleSkip(item)}
+              disabled={busyId === item.id}
+              className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50"
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => handleApprove(item)}
+              disabled={busyId === item.id}
+              className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:opacity-90 disabled:opacity-50"
+              style={{ background: ACCENT }}
+            >
+              {busyId === item.id ? "Sending..." : "Approve & send"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -276,138 +416,6 @@ export default function Dashboard() {
   const capPct = Math.min(100, (sentToday / dailyCap) * 100);
   const emptyCopy = EMPTY_COPY[view];
 
-  const DetailPanel = ({ item }: { item: Interaction }) => (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3.5">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white"
-            style={{ background: ACCENT }}
-          >
-            {item.name?.[0]?.toUpperCase() ?? "?"}
-          </div>
-          <div>
-            <p className="text-[15px] font-semibold text-white">{item.name}</p>
-            <p className="text-[12.5px] text-slate-light">{item.role}</p>
-          </div>
-        </div>
-        <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto space-y-3 pb-2">
-        {item.post && (
-          <div className="text-[12.5px] text-slate-light bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
-            On: {item.post}
-          </div>
-        )}
-
-        <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 leading-relaxed">
-          {item.text}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
-            <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
-          </div>
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
-            <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
-          </div>
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
-            <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
-          </div>
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 flex flex-col">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
-            <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`}>
-              {item.requires_human ? "Needs you" : "Safe to auto"}
-            </span>
-          </div>
-        </div>
-
-        {item.reasoning && (
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
-            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
-          </div>
-        )}
-
-        {item.temperature && (
-          <div className="rounded-lg px-3.5 py-3 border" style={{
-            background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
-            borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
-          }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
-              {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
-            </p>
-            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
-          </div>
-        )}
-
-        {item.suggested_action && (
-          <div className="rounded-lg px-3.5 py-3 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
-            <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
-          </div>
-        )}
-
-        {view === "sent" && (
-          <div>
-            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Reply sent</p>
-            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed">
-              {item.reply || "-"}
-            </div>
-          </div>
-        )}
-
-        {view === "skipped" && (
-          <div>
-            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">Skipped</p>
-            <p className="text-slate-light text-sm mb-3">This message was skipped. No reply was sent.</p>
-            {item.reply && (
-              <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/50 leading-relaxed">
-                {item.reply}
-                <p className="text-[10.5px] text-slate-light mt-2 normal-case">Drafted, not sent.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Actions — sticky at bottom */}
-      {view === "pending" && (
-        <div className="pt-3 border-t border-white/10 mt-3 space-y-3">
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light">Reply</p>
-          <textarea
-            value={drafts[item.id] ?? ""}
-            onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
-            rows={4}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-none focus:outline-none focus:border-white/25"
-          />
-          <div className="flex gap-2.5">
-            <button
-              onClick={() => handleSkip(item)}
-              disabled={busyId === item.id}
-              className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50"
-            >
-              Skip
-            </button>
-            <button
-              onClick={() => handleApprove(item)}
-              disabled={busyId === item.id}
-              className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl shadow-[0_6px_18px_rgba(10,102,194,0.35)] hover:opacity-90 disabled:opacity-50"
-              style={{ background: ACCENT }}
-            >
-              {busyId === item.id ? "Sending..." : "Approve & send"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <main className="min-h-screen bg-ink">
@@ -568,7 +576,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-                  <DetailPanel item={selected} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} />
                 </div>
               ) : null}
             </div>
@@ -598,8 +606,8 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} />
-            </div>
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} view={view} />
           </div>
         </div>
       )}

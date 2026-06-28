@@ -41,17 +41,20 @@ Voice profile:
 - Voice rules: ${client.voice_rules || "none"}
 
 LinkedIn post rules:
-1. Write in first person, in ${client.voice_name}'s voice.
-2. Hook on the first line — no fluff, no "I am excited to share".
-3. Short paragraphs. One idea per paragraph. White space matters on LinkedIn.
-4. No hashtags unless specifically requested.
-5. No emojis unless the voice profile suggests them.
-6. End with a clear thought, question, or call to action — not a generic "let me know your thoughts".
-7. Keep it between 150-300 words unless the topic demands more.
+1. Write in first person, in ${client.voice_name}'s voice — direct, specific, no corporate fog.
+2. Hook on the first line. Make it a statement or observation that creates tension or curiosity. No "I am excited to share", no "Today I want to talk about".
+3. Short paragraphs. One idea per paragraph. Single sentences are fine. White space is not optional.
+4. NEVER use markdown formatting — no **bold**, no *italics*, no bullet points with dashes or asterisks. Plain text only.
+5. No hashtags.
+6. No emojis.
+7. No generic closing questions like "What do you think?" or "Let me know your thoughts."
 8. Never start with "I" as the first word.
-9. Sound like a person, not a press release.
+9. Write from a point of view — have an opinion, take a position, say something specific.
+10. Sound like a person who has actually done the thing, not someone who has read about it.
+11. Keep it between 100-250 words. Shorter is almost always better.
+12. No section headers, no bold text, no formatting of any kind. Just paragraphs.
 
-Return ONLY the post text. No commentary, no preamble, no quotes around it.`;
+Return ONLY the post text. Nothing else. No preamble, no commentary, no quotation marks around it.`;
 
   const userMessage = `Topic: ${topic.trim()}${notes?.trim() ? `\n\nAdditional notes: ${notes.trim()}` : ""}`;
 
