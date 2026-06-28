@@ -27,7 +27,7 @@ export default function Home() {
                 Supervised AI · Built around you
             </span>
               <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
-                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
+                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>� your professional copilot.</span>
             </h1>
               <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
               AI that drafts the work. You make every call.
@@ -87,11 +87,11 @@ export default function Home() {
                         <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "rgba(255,68,68,0.10)", color: "#FF4444", border: "1px solid rgba(255,68,68,0.25)" }}>Hot lead</span>
                       </div>
                       <div className="text-[12.5px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3 leading-relaxed">
-                        Would love to explore working together â€” are you taking on clients this quarter?
+                        Would love to explore working together — are you taking on clients this quarter?
                       </div>
                       <div className="text-[9px] uppercase tracking-wide text-slate-light mb-1.5">Reply prepared for you</div>
                       <div className="text-[12.5px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed mb-3">
-                        Thanks so much, Rohan â€” really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
+Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
                       </div>
                       <div className="flex gap-2 justify-end">
                         <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-line text-slate">Skip</span>
@@ -247,7 +247,7 @@ export default function Home() {
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-              Zyntask — your professional copilot.
+              Zyntask � your professional copilot.
                 </p>
               </div>
               <div>
@@ -263,7 +263,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center justify-between flex-wrap gap-3.5 pt-6">
-              <small className="text-slate text-[13px]">Â© 2026 Zyntask</small>
+              <small className="text-slate text-[13px]">© 2026 Zyntask</small>
             </div>
           </div>
         </footer>
@@ -271,3 +271,4 @@ export default function Home() {
     </main>
   );
 }
+
