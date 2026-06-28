@@ -38,6 +38,27 @@ function isSameDay(a: Date, b: Date) {
 
 export default function CalendarPage() {
   const router = useRouter();
+
+  const archivePost = async (postId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/delete-draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ id: postId }),
+    });
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
+
+  const reschedulePost = async (postId: string, scheduledAt: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/schedule-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ id: postId, scheduled_at: scheduledAt }),
+    });
+    if (res.ok) setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_at: scheduledAt } : p));
+  };
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -104,6 +125,36 @@ export default function CalendarPage() {
           </div>
           <a href="/dashboard" className="text-[13px] text-slate hover:text-indigo transition-colors">Back to dashboard</a>
         </div>
+
+        {/* Scheduled posts */}
+        {posts.filter(p => p.scheduled_at && p.status === "pending").length > 0 && (
+          <div className="mb-8">
+            <h2 className="font-display font-semibold text-[18px] text-ink mb-4">Scheduled</h2>
+            <div className="space-y-3">
+              {posts.filter(p => p.scheduled_at && p.status === "pending").map(post => (
+                <div key={post.id} className="bg-cloud border border-indigo/20 rounded-[16px] p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo bg-indigo/10 border border-indigo/20 px-2 py-0.5 rounded-full">Scheduled</span>
+                      <span className="text-[11px] text-slate">{new Date(post.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(post.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <button onClick={() => archivePost(post.id)} className="text-[11px] text-slate-light hover:text-rose transition-colors">Remove</button>
+                  </div>
+                  <p className="text-[14px] font-semibold text-ink mb-1">{post.text}</p>
+                  <p className="text-[12.5px] text-slate leading-relaxed mb-4 line-clamp-2">{post.reply}</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-[11px] text-slate font-medium">Reschedule:</p>
+                    {bestTimes.map((t, i) => (
+                      <button key={i} onClick={() => reschedulePost(post.id, t.toISOString())} className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg border border-line text-slate hover:border-indigo/30 hover:text-indigo transition-colors">
+                        {t.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" })} {t.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {unscheduled.length > 0 && bestTimes.length > 0 && (
           <div className="bg-cloud border border-line rounded-[20px] p-5 mb-6">
