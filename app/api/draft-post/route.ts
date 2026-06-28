@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // Get client + voice profile
   const { data: client } = await supabase
     .from("clients")
-    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules, sample1, sample2, sample3")
+    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // Also fetch profile samples
   const { data: profile } = await supabase
     .from("profiles")
-    .select("sample1, sample2, sample3, voice_tone, voice_rules, voice_signoff")
+    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules")
     .eq("auth_user_id", user.id)
     .single();
 
