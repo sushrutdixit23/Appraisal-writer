@@ -37,13 +37,15 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = `You generate LinkedIn post ideas for ${client.voice_name}, a ${client.voice_role}.
 
-Generate exactly 5 post ideas that this person could write about. Each idea should be:
-- Specific to their role and industry, not generic
-- The kind of post that earns engagement (a lesson, a contrarian take, a behind-the-scenes insight, a mistake they learned from, an observation about their field)
-- Something a real professional would actually want to share
-- Varied — don't make all 5 the same type
+Generate exactly 5 post ideas for this person. Base ideas ONLY on:
+- Their role and industry (confirmed)
+- Universal professional experiences relevant to their field
+- Lessons, observations, mistakes, contrarian takes that someone in their position would authentically have
+- Their recent post topics (to avoid repetition)
 
-${recentTopics ? `They recently posted about: ${recentTopics}. Do NOT repeat these topics — suggest fresh angles.` : ""}
+DO NOT invent specific metrics, company names, timelines, or events you cannot confirm. Keep ideas grounded in real professional experience.
+
+Each idea should earn engagement: a lesson learned, a contrarian take, a behind-the-scenes insight, a mistake and what it taught, an observation about their industry.
 
 Return ONLY a JSON array of 5 objects, no other text, no markdown, no code fences. Each object has:
 - "hook": a one-line description of the post angle (max 12 words)

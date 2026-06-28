@@ -587,7 +587,7 @@ export default function Dashboard() {
                             <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-slate-light hover:underline">No</button>
                           </div>
                         ) : (
-                          <button onClick={() => setConfirmDeleteId(item.id)} className="text-[10px] text-slate-light hover:text-rose transition-colors">Delete draft</button>
+                          <button onClick={() => setConfirmDeleteId(item.id)} className="text-[10.5px] font-medium text-rose/70 hover:text-rose transition-colors flex items-center gap-1">Delete draft</button>
                         )}
                       </div>
                     )}
@@ -661,20 +661,20 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
               {/* Get ideas section */}
-              <div className="mt-2">
+              <div className="mb-4">
                 <button
                   onClick={handleGetIdeas}
                   disabled={loadingIdeas}
-                  className="w-full flex items-center justify-center gap-2 text-[12px] font-medium py-2 rounded-lg border border-white/15 text-slate-light hover:text-white hover:border-white/30 transition-all disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 text-[13px] font-semibold py-3 rounded-xl text-white hover:opacity-90 transition-all disabled:opacity-50"
+                  style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
                 >
-                  <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 4h.01"/></svg>
-                  {loadingIdeas ? "Getting ideas..." : "Get post ideas for me"}
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 4h.01"/></svg>
+                  {loadingIdeas ? "Getting ideas..." : "Get ideas for this week"}
                 </button>
                 {ideasOpen && ideas.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-[10px] text-slate-light uppercase tracking-wider font-semibold">Pick an idea to draft</p>
+                  <div className="mt-3 space-y-2 max-h-[280px] overflow-y-auto">
+                    <p className="text-[10px] text-slate-light uppercase tracking-wider font-semibold mb-1">Pick one to draft</p>
                     {ideas.map((idea, i) => (
                       <button
                         key={i}
@@ -682,12 +682,13 @@ export default function Dashboard() {
                         className="w-full text-left px-3.5 py-3 rounded-xl border border-white/10 bg-black/20 hover:border-indigo/40 hover:bg-white/5 transition-all"
                       >
                         <p className="text-[13px] font-semibold text-white mb-0.5">{idea.hook}</p>
-                        <p className="text-[11px] text-slate-light leading-relaxed">{idea.prompt}</p>
+                        <p className="text-[11.5px] text-slate-light leading-relaxed">{idea.prompt}</p>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
+            <div className="flex gap-3 mt-6">
               <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
               <button onClick={handleDraftPost} disabled={draftingPost} className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl disabled:opacity-50" style={{ background: ACCENT }}>
                 {draftingPost ? "Drafting..." : "Draft post"}

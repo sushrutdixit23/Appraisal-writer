@@ -57,7 +57,7 @@ Your job is to write a LinkedIn post that sounds EXACTLY like them — not like 
 VOICE PROFILE:
 - Tone: ${client.voice_tone || "direct, concise, founder voice"}
 - Rules: ${client.voice_rules || "no buzzwords, no corporate language, write like a person"}
-- Sign-off: ${client.voice_signoff || "none"}
+- Style: Direct, human, no corporate language
 
 ${samplePosts ? `WRITING SAMPLES — study these carefully. Match the rhythm, sentence length, paragraph structure, and vocabulary exactly:
 
