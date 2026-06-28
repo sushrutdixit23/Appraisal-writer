@@ -23,10 +23,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_55%_at_50%_42%,rgba(247,246,242,0.78),transparent_72%)] pointer-events-none" />
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-12">
             <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-ink-soft font-mono text-[11.5px] tracking-wide uppercase mb-7">
-              Supervised AI · Built around you
+              Supervised AI Â· Built around you
             </span>
             <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6 text-ink">
-              <span className="text-grad">Zyntask</span> — your professional copilot.
+              <span className="text-grad">Zyntask</span> â€” your professional copilot.
             </h1>
             <p className="text-[19px] text-slate max-w-[42ch] mx-auto mb-9 leading-relaxed">
               AI that drafts the work. You make every call.
@@ -86,11 +86,11 @@ export default function Home() {
                         <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "rgba(255,68,68,0.10)", color: "#FF4444", border: "1px solid rgba(255,68,68,0.25)" }}>Hot lead</span>
                       </div>
                       <div className="text-[12.5px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3 leading-relaxed">
-                        Would love to explore working together — are you taking on clients this quarter?
+                        Would love to explore working together â€” are you taking on clients this quarter?
                       </div>
                       <div className="text-[9px] uppercase tracking-wide text-slate-light mb-1.5">Reply prepared for you</div>
                       <div className="text-[12.5px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed mb-3">
-                        Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
+                        Thanks so much, Rohan â€” really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
                       </div>
                       <div className="flex gap-2 justify-end">
                         <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-line text-slate">Skip</span>
@@ -246,7 +246,7 @@ export default function Home() {
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-              <span className="text-grad">Zyntask</span> — your professional copilot.
+              <span className="text-grad">Zyntask</span> â€” your professional copilot.
                 </p>
               </div>
               <div>
@@ -256,12 +256,13 @@ export default function Home() {
               </div>
               <div>
                 <h5 className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-4">Company</h5>
+                <a href="/manifesto" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Manifesto</a>
                 <a href="mailto:hello@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Contact</a>
                 <a href="mailto:support@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Support</a>
               </div>
             </div>
             <div className="flex items-center justify-between flex-wrap gap-3.5 pt-6">
-              <small className="text-slate text-[13px]">© 2026 Zyntask</small>
+              <small className="text-slate text-[13px]">Â© 2026 Zyntask</small>
             </div>
           </div>
         </footer>
