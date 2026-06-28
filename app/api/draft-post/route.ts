@@ -83,7 +83,7 @@ Return ONLY the post text. No commentary, no preamble, no quotes around it.`;
     .select()
     .single();
 
-  if (saveError) return NextResponse.json({ error: "Failed to save draft." }, { status: 500 });
+  if (saveError) return NextResponse.json({ error: "Failed to save draft.", detail: saveError.message, code: saveError.code }, { status: 500 });
 
   return NextResponse.json({ id: interaction.id, draft });
 }
