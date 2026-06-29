@@ -505,6 +505,7 @@ export default function Dashboard() {
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
             <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
+            <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
             <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
           </div>
         </div>
