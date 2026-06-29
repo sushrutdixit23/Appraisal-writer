@@ -19,6 +19,7 @@ type Stats = {
   totalPending: number;
   classifications: Record<string, number>;
   dailyActivity: { day: string; count: number }[];
+  wins: { outcome_value: string; outcome_marked_at: string; name: string }[];
 };
 
 function MetricCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
@@ -68,6 +69,16 @@ export default function AnalyticsPage() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
+      // Wins / outcomes
+      const { data: winsData } = await supabase
+        .from("interactions")
+        .select("outcome, outcome_value, outcome_marked_at, name")
+        .eq("client_id", clientRow.id)
+        .eq("outcome", "win")
+        .order("outcome_marked_at", { ascending: false });
+      const wins = winsData || [];
+
 
       // Sent this week
       const { count: sentThisWeek } = await supabase
@@ -132,6 +143,7 @@ export default function AnalyticsPage() {
         totalPending: pending,
         classifications,
         dailyActivity,
+        wins,
       });
       setLoading(false);
     };
@@ -208,6 +220,27 @@ export default function AnalyticsPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Wins section */}
+        {stats.wins.length > 0 && (
+          <div className="bg-cloud border border-line rounded-[20px] p-6 mb-6">
+            <div className="flex items-center justify-between mb-5">
+              <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate">Recorded wins</p>
+              <span className="text-[12px] font-bold text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full">{stats.wins.length} win{stats.wins.length !== 1 ? "s" : ""}</span>
+            </div>
+            <div className="space-y-3">
+              {stats.wins.map((w, i) => (
+                <div key={i} className="flex items-start justify-between gap-4 py-3 border-b border-line last:border-0">
+                  <div>
+                    <p className="text-[13px] font-semibold text-ink">{w.outcome_value}</p>
+                    <p className="text-[11px] text-slate mt-0.5">from conversation with {w.name}</p>
+                  </div>
+                  <span className="text-[11px] text-slate flex-shrink-0">{new Date(w.outcome_marked_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

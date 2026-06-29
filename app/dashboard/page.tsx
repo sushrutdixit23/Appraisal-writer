@@ -67,7 +67,7 @@ function TempDot({ temp }: { temp: string | null }) {
 
 // DetailPanel defined OUTSIDE Dashboard to prevent re-mount on every render
 function DetailPanel({
-  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, view
+  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, view
 }: {
   item: Interaction;
   drafts: Record<string, string>;
@@ -78,6 +78,10 @@ function DetailPanel({
   handlePublishPost: (item: Interaction) => void;
   handleSchedulePost: (id: string, scheduledAt: string) => void;
   schedulingPost: boolean;
+  handleMarkOutcome: (id: string, outcome: string, outcomeValue: string) => void;
+  outcomeMenuId: string | null;
+  setOutcomeMenuId: (id: string | null) => void;
+  markingOutcome: string | null;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
@@ -162,6 +166,35 @@ function DetailPanel({
             <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap">
               {item.reply || "-"}
             </div>
+          {view === "sent" && !item.outcome && (
+            <div className="relative mt-3">
+              <button
+                onClick={() => setOutcomeMenuId(outcomeMenuId === item.id ? null : item.id)}
+                className="w-full py-2.5 text-[12px] font-semibold border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.8 5.3.8-3.8 3.7.9 5.2L10 14l-4.8 2.5.9-5.2L2.3 7.6l5.3-.8z"/></svg>
+                Mark as win
+              </button>
+              {outcomeMenuId === item.id && (
+                <div className="absolute bottom-full mb-2 left-0 right-0 bg-[#13151f] border border-white/15 rounded-[14px] overflow-hidden z-10">
+                  {["Became a client", "Got a meeting", "Led to a referral", "Replied positively", "Other win"].map(o => (
+                    <button key={o} onClick={() => handleMarkOutcome(item.id, "win", o)}
+                      disabled={markingOutcome === item.id}
+                      className="w-full text-left px-4 py-3 text-[13px] text-white hover:bg-white/5 transition-colors border-b border-white/10 last:border-0"
+                    >
+                      {o}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {view === "sent" && item.outcome && (
+            <div className="mt-3 px-4 py-3 rounded-xl border border-green-500/25 bg-green-500/08">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-green-500 mb-0.5">Win recorded</p>
+              <p className="text-[13px] text-white/80">{item.outcome_value || item.outcome}</p>
+            </div>
+          )}
           </div>
         )}
 
@@ -249,6 +282,8 @@ export default function Dashboard() {
   const [loadingIdeas, setLoadingIdeas] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [markingOutcome, setMarkingOutcome] = useState<string | null>(null);
+  const [outcomeMenuId, setOutcomeMenuId] = useState<string | null>(null);
   const [schedulePostId, setSchedulePostId] = useState<string | null>(null);
   const [schedulingPost, setSchedulingPost] = useState(false);
   const [postTopic, setPostTopic] = useState("");
@@ -433,6 +468,23 @@ export default function Dashboard() {
       if (myClientId) await loadQueue(myClientId, "posts");
     } catch { showToast("Could not reach the server."); }
     finally { setSchedulingPost(false); }
+  };
+
+  const handleMarkOutcome = async (id: string, outcome: string, outcomeValue: string) => {
+    setMarkingOutcome(id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/mark-outcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ id, outcome, outcome_value: outcomeValue }),
+      });
+      if (!res.ok) { showToast("Failed to mark outcome."); return; }
+      showToast("Win recorded!");
+      setOutcomeMenuId(null);
+      if (myClientId) await loadQueue(myClientId, view);
+    } catch { showToast("Could not reach the server."); }
+    finally { setMarkingOutcome(null); }
   };
 
   const handleDraftPost = async () => {
@@ -647,7 +699,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} view={view} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} view={view} />
                 </div>
               ) : null}
             </div>
@@ -667,7 +719,7 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} view={view} />
             </div>
           </div>
         </div>
