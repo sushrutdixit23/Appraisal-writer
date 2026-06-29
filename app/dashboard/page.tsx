@@ -506,6 +506,7 @@ export default function Dashboard() {
             </div>
             <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
             <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
+            <a href="/voice" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Voice</a>
             <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
           </div>
         </div>

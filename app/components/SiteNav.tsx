@@ -144,7 +144,7 @@ export default function SiteNav() {
                 </button>
                 {settingsOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-cloud border border-line rounded-[14px] shadow-zy-lg overflow-hidden z-50" onClick={() => setSettingsOpen(false)}>
-                    <a href="/account" className="flex items-center gap-2.5 px-4 py-3 text-[14px] text-ink hover:bg-mist transition-colors">
+                    <a href="/voice" className="flex items-center gap-2.5 px-4 py-3 text-[14px] text-ink hover:bg-mist transition-colors">
                       <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="10" cy="7" r="3.5" />
                         <path d="M2.5 17.5c0-3.314 3.358-6 7.5-6s7.5 2.686 7.5 6" />
@@ -192,7 +192,7 @@ export default function SiteNav() {
               <button onClick={() => { setOpen(false); setAuthOpen(true); setTab("signup"); }} className={`mt-4 inline-flex justify-center items-center gap-2 px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Sign in</button>
             )}
             {session && (
-              <a href="/account" onClick={() => setOpen(false)} className={`mt-4 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Profile settings</a>
+              <a href="/account" onClick={() => setOpen(false)} className={`mt-4 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] text-ink border border-line ${btn}`}>Voice profile</a>
             )}
             {session && (
               <a href={dashboardHref} onClick={() => setOpen(false)} className={`mt-2.5 inline-flex justify-center px-5 py-3 rounded-[11px] text-[15px] bg-ink text-white ${btn}`}>Dashboard</a>
