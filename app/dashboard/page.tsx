@@ -728,6 +728,8 @@ export default function Dashboard() {
                       </button>
                     ))}
                   </div>
+                )}
+              </div>
               <div className="mt-2">
                 <button
                   onClick={async () => {
@@ -755,8 +757,6 @@ export default function Dashboard() {
                   <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.8 5.3.8-3.8 3.7.9 5.2L10 14l-4.8 2.5.9-5.2L2.3 7.6l5.3-.8z"/></svg>
                   Turn an achievement into a post
                 </button>
-              </div>
-                )}
               </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
