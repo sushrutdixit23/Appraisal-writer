@@ -728,6 +728,34 @@ export default function Dashboard() {
                       </button>
                     ))}
                   </div>
+              <div className="mt-2">
+                <button
+                  onClick={async () => {
+                    const achievement = window.prompt("Describe an achievement or experience to turn into a post:");
+                    if (!achievement) return;
+                    setDraftingPost(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const res = await fetch("/api/repurpose-post", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                        body: JSON.stringify({ original_text: achievement, original_reply: "", mode: "achievement" }),
+                      });
+                      const result = await res.json();
+                      if (res.ok) {
+                        showToast("Achievement turned into a post draft.");
+                        setDraftModalOpen(false);
+                        await handleTabChange("posts");
+                      }
+                    } catch { showToast("Failed. Try again."); }
+                    finally { setDraftingPost(false); }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 text-[12px] font-medium py-2 rounded-lg border border-white/15 text-slate-light hover:text-white hover:border-white/30 transition-all"
+                >
+                  <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[2] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.8 5.3.8-3.8 3.7.9 5.2L10 14l-4.8 2.5.9-5.2L2.3 7.6l5.3-.8z"/></svg>
+                  Turn an achievement into a post
+                </button>
+              </div>
                 )}
               </div>
             <div className="flex gap-3 mt-6">
