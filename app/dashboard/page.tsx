@@ -24,6 +24,9 @@ type Interaction = {
   created_at: string;
   temperature: string | null;
   temperature_reason: string | null;
+  outcome: string | null;
+  outcome_value: string | null;
+  outcome_marked_at: string | null;
 };
 
 type FilterType = "all" | "dm" | "comment";
