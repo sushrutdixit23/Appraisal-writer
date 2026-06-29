@@ -70,7 +70,7 @@ function TempDot({ temp }: { temp: string | null }) {
 
 // DetailPanel defined OUTSIDE Dashboard to prevent re-mount on every render
 function DetailPanel({
-  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, view
+  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, attachmentData, attachmentName, attachmentType, setAttachmentData, setAttachmentName, setAttachmentType, view
 }: {
   item: Interaction;
   drafts: Record<string, string>;
@@ -85,6 +85,12 @@ function DetailPanel({
   outcomeMenuId: string | null;
   setOutcomeMenuId: (id: string | null) => void;
   markingOutcome: string | null;
+  attachmentData: string | null;
+  attachmentName: string | null;
+  attachmentType: string | null;
+  setAttachmentData: (v: string | null) => void;
+  setAttachmentName: (v: string | null) => void;
+  setAttachmentType: (v: string | null) => void;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
@@ -239,6 +245,29 @@ function DetailPanel({
               </button>
             </div>
           )}
+          {isPost && view === "posts" && (
+            <div className="mb-2">
+              <label className="flex items-center gap-2 cursor-pointer w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-black/20 hover:border-white/25 transition-colors">
+                <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[1.8] fill-none flex-shrink-0 text-slate-light" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
+                <span className="text-[12px] text-slate-light flex-1 truncate">{attachmentName || "Attach image or document"}</span>
+                {attachmentName && <button onClick={() => { setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[10px]">Remove</button>}
+                <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      setAttachmentData(ev.target?.result as string);
+                      setAttachmentName(file.name);
+                      setAttachmentType(file.type);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
+          )}
           <div className="flex gap-2.5">
             {!isPost && (
               <button
@@ -292,6 +321,9 @@ export default function Dashboard() {
   const [postTopic, setPostTopic] = useState("");
   const [postNotes, setPostNotes] = useState("");
   const [draftingPost, setDraftingPost] = useState(false);
+  const [attachmentData, setAttachmentData] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [attachmentType, setAttachmentType] = useState<string | null>(null);
 
   const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
@@ -413,11 +445,12 @@ export default function Dashboard() {
       const res = await fetch("/api/create-post", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ id: item.id, text }),
+        body: JSON.stringify({ id: item.id, text, attachment_data: attachmentData, attachment_name: attachmentName, attachment_type: attachmentType }),
       });
       const result = await res.json();
       if (!res.ok) { showToast(result.error || "Failed to publish."); return; }
       showToast("Published to LinkedIn.");
+      setAttachmentData(null); setAttachmentName(null); setAttachmentType(null);
       setSheetOpen(false);
       if (myClientId) await loadQueue(myClientId, "posts");
     } catch { showToast("Could not reach the server."); }
@@ -702,7 +735,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} view={view} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
                 </div>
               ) : null}
             </div>
@@ -722,7 +755,7 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
             </div>
           </div>
         </div>
@@ -814,6 +847,29 @@ export default function Dashboard() {
                 </button>
               </div>
             <div className="flex gap-3 mt-6">
+              {/* File attachment */}
+              <div>
+                <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Attach image <span className="normal-case opacity-60">(optional)</span></p>
+                <label className="flex items-center gap-2 cursor-pointer w-full px-4 py-2.5 rounded-xl border border-white/10 bg-black/20 hover:border-white/25 transition-colors">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none flex-shrink-0 text-slate-light" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
+                  <span className="text-[13px] text-slate-light flex-1 truncate">{attachmentName || "Choose image or document"}</span>
+                  {attachmentName && <button onClick={() => { setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[11px] hover:underline flex-shrink-0">Remove</button>}
+                  <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        setAttachmentData(ev.target?.result as string);
+                        setAttachmentName(file.name);
+                        setAttachmentType(file.type);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
               <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
               <button onClick={handleDraftPost} disabled={draftingPost} className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl disabled:opacity-50" style={{ background: ACCENT }}>
                 {draftingPost ? "Drafting..." : "Draft post"}
