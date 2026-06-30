@@ -111,30 +111,30 @@ function DetailPanel({
 
       <div className="flex-1 overflow-y-auto space-y-3 pb-2">
         {item.post && (
-          <div className="text-[12.5px] text-slate-light bg-black/20 border border-white/10 rounded-xl px-4 py-3 leading-relaxed">
+          <div className="text-[12.5px] text-slate-light rounded-xl px-4 py-3 leading-relaxed border border-white/[0.05]" style={{ background: "rgba(0,0,0,0.18)" }}>
             On: {item.post}
           </div>
         )}
 
-        <div className="text-[14.5px] text-white/90 bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 leading-relaxed">
+        <div className="text-[14.5px] text-white/90 rounded-xl px-4 py-3.5 leading-relaxed border border-white/[0.06]" style={{ background: "linear-gradient(165deg, rgba(91,75,255,0.04), rgba(0,0,0,0.15))" }}>
           {item.text}
         </div>
 
         {!isPost && (
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <div className="rounded-xl px-3 py-2.5 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Classified</p>
               <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
             </div>
-            <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <div className="rounded-xl px-3 py-2.5 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Intent</p>
               <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
             </div>
-            <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <div className="rounded-xl px-3 py-2.5 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Confidence</p>
               <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
             </div>
-            <div className="bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            <div className="rounded-xl px-3 py-2.5 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-0.5">Routing</p>
               <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`}>
                 {item.requires_human ? "Needs you" : "Safe to auto"}
@@ -144,7 +144,7 @@ function DetailPanel({
         )}
 
         {item.reasoning && !isPost && (
-          <div className="bg-black/20 border border-white/10 rounded-lg px-3.5 py-3">
+          <div className="rounded-xl px-3.5 py-3 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.025)" }}>
             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-light mb-1">Why this classification</p>
             <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
           </div>
@@ -152,8 +152,8 @@ function DetailPanel({
 
         {item.temperature && !isPost && (
           <div className="rounded-lg px-3.5 py-3 border" style={{
-            background: item.temperature === "hot" ? "rgba(255,68,68,0.08)" : item.temperature === "warm" ? "rgba(245,166,35,0.08)" : "rgba(74,158,255,0.08)",
-            borderColor: item.temperature === "hot" ? "rgba(255,68,68,0.25)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(74,158,255,0.25)"
+            background: item.temperature === "hot" ? "linear-gradient(135deg, rgba(255,138,76,0.12), rgba(255,68,108,0.08))" : item.temperature === "warm" ? "linear-gradient(135deg, rgba(245,180,80,0.10), rgba(245,140,35,0.06))" : "linear-gradient(135deg, rgba(91,140,255,0.08), rgba(74,120,255,0.05))",
+            borderColor: item.temperature === "hot" ? "rgba(255,138,76,0.30)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(91,140,255,0.22)"
           }}>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
               {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
@@ -163,7 +163,7 @@ function DetailPanel({
         )}
 
         {item.suggested_action && !isPost && (
-          <div className="rounded-lg px-3.5 py-3 border" style={{ background: "rgba(91,75,255,0.08)", borderColor: "rgba(91,75,255,0.25)" }}>
+          <div className="rounded-lg px-3.5 py-3 border" style={{ background: "linear-gradient(135deg, rgba(122,108,255,0.12), rgba(91,75,255,0.05))", borderColor: "rgba(122,108,255,0.28)" }}>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#8a6ff0" }}>Suggested next step</p>
             <p className="text-[12.5px] text-white/85 leading-relaxed">{item.suggested_action}</p>
           </div>
@@ -172,7 +172,7 @@ function DetailPanel({
         {view === "sent" && (
           <div>
             <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-light mb-2">{isPost ? "Post published" : "Reply sent"}</p>
-            <div className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap">
+            <div className="w-full rounded-xl px-4 py-3.5 text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap border border-white/[0.06]" style={{ background: "rgba(0,0,0,0.18)" }}>
               {item.reply || "-"}
             </div>
           {view === "sent" && !item.outcome && (
@@ -185,7 +185,7 @@ function DetailPanel({
                 Mark as win
               </button>
               {outcomeMenuId === item.id && (
-                <div className="absolute bottom-full mb-2 left-0 right-0 bg-[#13151f] border border-white/15 rounded-[14px] overflow-hidden z-10">
+                <div className="absolute bottom-full mb-2 left-0 right-0 rounded-[16px] overflow-hidden z-10 border border-white/[0.1]" style={{ background: "linear-gradient(165deg, #1A1E36 0%, #12142400 100%), #14162a", boxShadow: "0 20px 50px -15px rgba(0,0,0,0.7)" }}>
                   {["Became a client", "Got a meeting", "Led to a referral", "Replied positively", "Other win"].map(o => (
                     <button key={o} onClick={() => handleMarkOutcome(item.id, "win", o)}
                       disabled={markingOutcome === item.id}
@@ -225,7 +225,7 @@ function DetailPanel({
             value={drafts[item.id] ?? ""}
             onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
             rows={isPost ? 10 : 4}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none focus:border-white/25"
+            className="w-full rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50" style={{ background: "rgba(0,0,0,0.22)" }}
           />
           {isPost && view === "posts" && (
             <div className="flex gap-2 mb-2">
@@ -551,7 +551,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-ink flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "radial-gradient(120% 100% at 15% 0%, #15193180 0%, #0B0D17 55%, #090A12 100%)" }}>
         <p className="text-slate-light text-sm">Loading...</p>
       </main>
     );
@@ -575,11 +575,11 @@ export default function Dashboard() {
   const emptyCopy = EMPTY_COPY[view];
 
   return (
-    <main className="min-h-screen bg-ink">
+    <main className="min-h-screen" style={{ background: "radial-gradient(130% 90% at 12% -5%, #1A1E3A 0%, #0D0F1C 50%, #090A12 100%)" }}>
       <style jsx global>{`select option { background-color: #1a1d29; color: #ffffff; }`}</style>
 
       {/* Header */}
-      <div className="bg-ink border-b border-white/10 sticky top-0 z-30">
+      <div className="sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.06]" style={{ background: "linear-gradient(180deg, rgba(13,15,28,0.92) 0%, rgba(13,15,28,0.78) 100%)" }}>
         <div className="max-w-6xl mx-auto px-4 md:px-7 h-[60px] md:h-[68px] flex items-center justify-between gap-4">
           <span className="font-serif font-semibold text-xl md:text-2xl text-white tracking-tight">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
@@ -602,7 +602,7 @@ export default function Dashboard() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-7 py-5 md:py-10">
         {!linkedinConnected ? (
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center">
+          <div className="rounded-[24px] p-12 text-center border border-white/[0.07]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -20px rgba(0,0,0,0.5)" }}>
             <p className="font-serif text-2xl text-white mb-2">Setting up your LinkedIn connection.</p>
             <p className="text-slate-light text-sm max-w-md mx-auto leading-relaxed">
               We are finishing setup on our end. This usually takes under 24 hours.
@@ -611,8 +611,8 @@ export default function Dashboard() {
         ) : (
           <div className="md:grid md:grid-cols-[320px_1fr] md:gap-6">
             {/* Left panel */}
-            <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-4 md:px-5 py-4 border-b border-white/10 space-y-3">
+            <div className="rounded-[24px] overflow-hidden border border-white/[0.07]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.018) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 60px -24px rgba(0,0,0,0.55)" }}>
+              <div className="px-4 md:px-5 py-4 border-b border-white/[0.06] space-y-3">
                 {/* View tabs */}
                 <div className="flex gap-1 bg-black/30 rounded-lg p-1">
                   {(["pending", "sent", "skipped", "posts"] as ViewTab[]).map((tab) => (
@@ -666,7 +666,7 @@ export default function Dashboard() {
                     <select
                       value={classFilter}
                       onChange={(e) => setClassFilter(e.target.value)}
-                      className="w-full appearance-none text-[11.5px] bg-black/30 border border-white/10 rounded-lg pl-2.5 pr-7 py-1.5 text-white"
+                      className="w-full appearance-none text-[11.5px] rounded-lg pl-2.5 pr-7 py-2 text-white border border-white/[0.08]" style={{ background: "rgba(0,0,0,0.25)" }}
                     >
                       <option value="all">All types</option>
                       {classifications.map((c) => (
@@ -729,12 +729,12 @@ export default function Dashboard() {
             {/* Right panel — desktop */}
             <div className="hidden md:block">
               {items.length === 0 ? (
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-12 text-center">
+                <div className="rounded-[24px] p-12 text-center border border-white/[0.07]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -20px rgba(0,0,0,0.5)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
                   <p className="text-slate-light text-sm">{emptyCopy.body}</p>
                 </div>
               ) : selected ? (
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8">
+                <div className="rounded-[24px] p-8 border border-white/[0.07]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.018) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 60px -24px rgba(0,0,0,0.55)" }}>
                   <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
                 </div>
               ) : null}
@@ -747,7 +747,7 @@ export default function Dashboard() {
       {sheetOpen && selected && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSheetOpen(false)} />
-          <div className="relative bg-[#13151f] border-t border-white/10 rounded-t-[24px] max-h-[90vh] flex flex-col px-5 pt-4 pb-8">
+          <div className="relative border-t border-white/[0.08] rounded-t-[28px] max-h-[90vh] flex flex-col px-5 pt-4 pb-8" style={{ background: "linear-gradient(180deg, #161A2E 0%, #0F1120 100%)", boxShadow: "0 -20px 60px -10px rgba(0,0,0,0.6)" }}>
             <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
             <button onClick={() => setSheetOpen(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white">
               <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none" strokeLinecap="round">
@@ -765,7 +765,7 @@ export default function Dashboard() {
       {draftModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDraftModalOpen(false)} />
-          <div className="relative bg-[#13151f] border border-white/10 rounded-[24px] p-7 w-full max-w-lg">
+          <div className="relative rounded-[28px] p-7 w-full max-w-lg border border-white/[0.08]" style={{ background: "linear-gradient(165deg, #181C32 0%, #0F1120 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 80px -20px rgba(0,0,0,0.7)" }}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-light mb-1">Draft a LinkedIn post</p>
             <h3 className="font-serif font-semibold text-[22px] text-white mb-5">What do you want to post about?</h3>
             <div className="space-y-4">
@@ -777,7 +777,7 @@ export default function Dashboard() {
                   onChange={e => setPostTopic(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") handleDraftPost(); }}
                   placeholder="e.g. What I learned building Zyntask in 2 weeks"
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light focus:outline-none focus:border-white/25"
+                  className="w-full rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50" style={{ background: "rgba(0,0,0,0.22)" }}
                 />
               </div>
               <div>
@@ -787,7 +787,7 @@ export default function Dashboard() {
                   onChange={e => setPostNotes(e.target.value)}
                   rows={3}
                   placeholder="Any specific angles, stats, or details to include..."
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light resize-none focus:outline-none focus:border-white/25"
+                  className="w-full rounded-xl px-4 py-3 text-[14px] text-white placeholder-slate-light resize-none focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50" style={{ background: "rgba(0,0,0,0.22)" }}
                 />
               </div>
             </div>
@@ -809,7 +809,7 @@ export default function Dashboard() {
                       <button
                         key={i}
                         onClick={() => { setPostTopic(idea.hook); setPostNotes(idea.prompt); setIdeasOpen(false); }}
-                        className="w-full text-left px-3.5 py-3 rounded-xl border border-white/10 bg-black/20 hover:border-indigo/40 hover:bg-white/5 transition-all"
+                        className="w-full text-left px-3.5 py-3 rounded-xl border border-white/[0.07] hover:border-indigo/40 transition-all" style={{ background: "rgba(255,255,255,0.025)" }}
                       >
                         <p className="text-[13px] font-semibold text-white mb-0.5">{idea.hook}</p>
                         <p className="text-[11.5px] text-slate-light leading-relaxed">{idea.prompt}</p>
