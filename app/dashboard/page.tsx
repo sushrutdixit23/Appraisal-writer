@@ -109,14 +109,14 @@ function DetailPanel({
         <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+      <div className="flex-1 overflow-y-auto space-y-4 pb-2">
         {item.post && (
-          <div className="text-[12.5px] text-slate-light rounded-xl px-4 py-3 leading-relaxed border border-white/[0.07]" style={{ background: "rgba(0,0,0,0.18)" }}>
+          <div className="text-[12.5px] text-slate-light/85 rounded-xl px-4 py-3.5 leading-[1.6] border border-white/[0.06]" style={{ background: "rgba(0,0,0,0.16)" }}>
             On: {item.post}
           </div>
         )}
 
-        <div className="text-[14.5px] text-white/90 rounded-xl px-4 py-3.5 leading-relaxed border border-white/[0.08]" style={{ background: "linear-gradient(165deg, rgba(91,75,255,0.04), rgba(0,0,0,0.15))" }}>
+        <div className="text-[15px] text-white/90 rounded-2xl px-5 py-5 leading-[1.7] border border-white/[0.08]" style={{ background: "linear-gradient(165deg, rgba(91,75,255,0.04), rgba(0,0,0,0.15))" }}>
           {item.text}
         </div>
 
@@ -124,19 +124,19 @@ function DetailPanel({
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-xl px-3 py-2.5 border border-white/[0.07]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-light/70 mb-0.5">Classified</p>
-              <p className="text-[13px] font-semibold" style={{ color: "#5B9BFF" }}>{item.classification}</p>
+              <p className="text-[12.5px] font-medium" style={{ color: "#5B9BFF", opacity: 0.85 }}>{item.classification}</p>
             </div>
             <div className="rounded-xl px-3 py-2.5 border border-white/[0.07]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-light/70 mb-0.5">Intent</p>
-              <p className="text-[13px] font-medium text-white truncate">{item.intent || "-"}</p>
+              <p className="text-[14px] font-semibold text-white truncate tracking-[-0.005em]">{item.intent || "-"}</p>
             </div>
             <div className="rounded-xl px-3 py-2.5 border border-white/[0.07]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-light/70 mb-0.5">Confidence</p>
-              <p className="text-[13px] font-mono text-white">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
+              <p className="text-[12.5px] font-mono text-white/75">{item.confidence != null ? `${item.confidence}%` : "-"}</p>
             </div>
             <div className="rounded-xl px-3 py-2.5 border border-white/[0.07]" style={{ background: "rgba(255,255,255,0.025)" }}>
               <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-light/70 mb-0.5">Routing</p>
-              <span className={`text-[11px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`}>
+              <span className={`text-[12px] font-bold uppercase tracking-wide ${item.requires_human ? "text-amber" : "text-green-400"}`} style={{ textShadow: item.requires_human ? "0 0 20px rgba(245,166,35,0.25)" : "0 0 20px rgba(74,222,128,0.2)" }}>
                 {item.requires_human ? "Needs you" : "Safe to auto"}
               </span>
             </div>
@@ -144,9 +144,9 @@ function DetailPanel({
         )}
 
         {item.reasoning && !isPost && (
-          <div className="rounded-xl px-3.5 py-3 border border-white/[0.07]" style={{ background: "rgba(255,255,255,0.025)" }}>
-            <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-light/70 mb-1">Why this classification</p>
-            <p className="text-[12.5px] text-white/80 leading-relaxed">{item.reasoning}</p>
+          <div className="rounded-xl px-3.5 py-2.5 border border-white/[0.05]" style={{ background: "rgba(255,255,255,0.018)" }}>
+            <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-light/50 mb-1">Why this classification</p>
+            <p className="text-[12.5px] text-white/65 leading-[1.65] font-light">{item.reasoning}</p>
           </div>
         )}
 
@@ -551,7 +551,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ background: "radial-gradient(140% 100% at 10% -10%, #242A52 0%, #181B33 35%, #0B0C16 75%, #07080F 100%)" }}>
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "radial-gradient(150% 110% at 8% -15%, #1E2344 0%, #15182C 30%, #0C0D17 65%, #08090F 100%)" }}>
         <p className="text-slate-light text-sm">Loading...</p>
       </main>
     );
@@ -575,17 +575,18 @@ export default function Dashboard() {
   const emptyCopy = EMPTY_COPY[view];
 
   return (
-    <main className="min-h-screen" style={{ background: "radial-gradient(140% 100% at 10% -10%, #242A52 0%, #181B33 35%, #0B0C16 75%, #07080F 100%)" }}>
+    <main className="min-h-screen" style={{ background: "radial-gradient(150% 110% at 8% -15%, #1E2344 0%, #15182C 30%, #0C0D17 65%, #08090F 100%)" }}>
       <style jsx global>{`select option { background-color: #1a1d29; color: #ffffff; }`}</style>
 
       {/* Header */}
       <div className="sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.08]" style={{ background: "linear-gradient(180deg, rgba(20,23,42,0.95) 0%, rgba(15,17,30,0.85) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.08)" }}>
-        <div className="max-w-6xl mx-auto px-4 md:px-7 h-[60px] md:h-[68px] flex items-center justify-between gap-4">
-          <span className="font-serif font-semibold text-xl md:text-2xl text-white tracking-tight">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 h-[62px] md:h-[72px] flex items-center justify-between gap-6">
+          <span className="relative font-serif font-semibold text-xl md:text-2xl text-white tracking-tight flex items-center gap-2.5">
+            <span className="relative w-2 h-2 rounded-full flex-shrink-0" style={{ background: "linear-gradient(135deg, #8a6ff0, #5B4BFF)", boxShadow: "0 0 12px rgba(138,111,240,0.55), 0 0 24px rgba(91,75,255,0.25)" }} />
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
-          <div className="flex items-center gap-3 md:gap-6">
-            <div className="flex items-center gap-2 text-[11px] md:text-[12.5px] text-slate-light">
+          <div className="flex items-center gap-4 md:gap-8">
+            <div className="flex items-center gap-2.5 text-[11px] md:text-[12.5px] text-slate-light">
               <span className="hidden sm:inline">Sent today</span>
               <div className="w-16 md:w-24 h-[5px] md:h-[6px] bg-white/10 rounded-full overflow-hidden">
                 <div className="h-full" style={{ width: `${capPct}%`, background: ACCENT }} />
@@ -691,7 +692,7 @@ export default function Dashboard() {
                     key={item.id}
                     onClick={() => handleSelectItem(item.id)}
                     className="w-full text-left px-4 md:px-5 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/5"
-                    style={item.id === selectedId ? { background: "rgba(255,255,255,0.06)", borderLeft: "3px solid #5B4BFF" } : { borderLeft: "3px solid transparent" }}
+                    style={item.id === selectedId ? { background: "linear-gradient(90deg, rgba(91,75,255,0.10), rgba(91,75,255,0.02))", borderLeft: "3px solid #7A6CFF", boxShadow: "inset 0 0 0 1px rgba(122,108,255,0.08)" } : { borderLeft: "3px solid transparent", opacity: 0.82 }}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2.5 min-w-0">
