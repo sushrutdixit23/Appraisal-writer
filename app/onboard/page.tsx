@@ -1,6 +1,5 @@
 "use client";
 export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SiteNav from "../components/SiteNav";
@@ -12,38 +11,46 @@ declare global {
 
 const TIERS = [
   {
-    id: "monthly",
-    name: "Monthly",
+    id: "basic_monthly",
+    name: "Basic",
+    price: 3999,
+    billingLabel: "/ mo",
+    period: "monthly",
+    cap: 50,
+    tagline: "Help me stay consistently visible.",
+    features: ["Reply drafting for DMs and comments", "Post drafting, 3 ideas a week", "Scheduling and content calendar", "Approval-first workflow", "Basic analytics", "One LinkedIn profile"],
+  },
+  {
+    id: "basic_annual",
+    name: "Basic",
+    price: 39990,
+    billingLabel: "/ yr",
+    period: "annual",
+    cap: 50,
+    tagline: "Help me stay consistently visible.",
+    features: ["Reply drafting for DMs and comments", "Post drafting, 3 ideas a week", "Scheduling and content calendar", "Approval-first workflow", "Basic analytics", "One LinkedIn profile"],
+  },
+  {
+    id: "pro_monthly",
+    name: "Professional",
     price: 8999,
     billingLabel: "/ mo",
-    effectiveLabel: "Rs 8,999 / mo",
-    cap: 100,
-    bestFor: "Trying it properly",
-    terms: "Cancel anytime",
-    features: ["100 replies/day", "DMs + Comments monitored", "Full voice setup", "Email support"],
+    period: "monthly",
+    cap: 150,
+    tagline: "Help me run my communication workflow.",
+    popular: true,
+    features: ["Everything in Basic", "Unlimited post ideas", "Comment opportunity detection", "Voice profile, visible and editable", "Repurpose old posts", "Outcome tracking", "Advanced analytics"],
   },
   {
-    id: "annual",
-    name: "Annual",
+    id: "pro_annual",
+    name: "Professional",
     price: 89990,
     billingLabel: "/ yr",
-    effectiveLabel: "Rs 7,499 / mo effective",
-    cap: 100,
-    bestFor: "Committed solo users",
-    terms: "~17% off — 2 months free",
-    features: ["100 replies/day", "DMs + Comments monitored", "Full voice setup", "Priority support"],
+    period: "annual",
+    cap: 150,
+    tagline: "Help me run my communication workflow.",
     popular: true,
-  },
-  {
-    id: "founder",
-    name: "Founder rate",
-    price: 50000,
-    billingLabel: " setup",
-    effectiveLabel: "Rs 5,499 / mo after",
-    cap: 100,
-    bestFor: "In it for the long haul",
-    terms: "Lowest rate, locked forever",
-    features: ["100 replies/day", "DMs + Comments monitored", "Deep voice tuning", "Direct support"],
+    features: ["Everything in Basic", "Unlimited post ideas", "Comment opportunity detection", "Voice profile, visible and editable", "Repurpose old posts", "Outcome tracking", "Advanced analytics"],
   },
 ];
 
@@ -51,7 +58,8 @@ export default function OnboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const [selectedTier, setSelectedTier] = useState("tier2");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+  const [selectedPlan, setSelectedPlan] = useState<"basic" | "pro">("pro");
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -67,32 +75,31 @@ export default function OnboardPage() {
         router.replace("/");
         return;
       }
-
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
         .eq("auth_user_id", session.user.id)
         .maybeSingle();
-
       if (!profileData) {
         router.replace("/setup");
         return;
       }
-
       setProfile(profileData);
       setLoading(false);
     };
     init();
   }, [router]);
 
+  const selectedTier = TIERS.find(
+    (t) => t.period === billingPeriod && t.name.toLowerCase() === selectedPlan.replace("basic", "basic").replace("pro", "professional")
+  )!;
+
   const handlePayment = async () => {
     setError("");
     setPaying(true);
-
-    const tier = TIERS.find((t) => t.id === selectedTier)!;
-
+    const tier = selectedTier;
     try {
-      const orderRes = await fetch("/api/order", {
+      const orderRes = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: tier.price * 100 }),
@@ -115,7 +122,7 @@ export default function OnboardPage() {
           amount: order.amount,
           currency: order.currency,
           name: "Zyntask",
-          description: `Engage â€” ${tier.name}`,
+          description: `Engage - ${tier.name} (${tier.period === "annual" ? "Annual" : "Monthly"})`,
           order_id: order.id,
           prefill: { name: profile.full_name },
           theme: { color: "#5B4BFF" },
@@ -124,13 +131,13 @@ export default function OnboardPage() {
               const { data: { session } } = await supabase.auth.getSession();
               const res = await fetch("/api/onboard", {
                 method: "POST",
-                headers: { 
+                headers: {
                   "Content-Type": "application/json",
                   "Authorization": `Bearer ${session?.access_token}`,
                 },
                 body: JSON.stringify({
-                  tier: selectedTier,
-                  daily_cap: tier.cap || 100,
+                  tier: tier.id,
+                  daily_cap: tier.cap || 50,
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
@@ -174,8 +181,11 @@ export default function OnboardPage() {
           </div>
           <h1 className="font-serif font-semibold text-3xl text-white mb-3">You are in.</h1>
           <p className="text-slate-light text-[15px] leading-relaxed max-w-[38ch] mx-auto">
-            You are all set, {profile.full_name}. Your subscription is active. Head to your dashboard to start approving repliesr you.
+            You are all set, {profile.full_name}. Your subscription is active. Head to your dashboard to start using Engage.
           </p>
+          <a href="/dashboard" className="inline-flex mt-7 px-7 py-3 rounded-xl text-[14px] font-semibold text-white" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
+            Go to dashboard
+          </a>
         </div>
       </main>
     );
@@ -191,7 +201,8 @@ export default function OnboardPage() {
             <p className="text-[14px] text-white/80">Choose a plan below to keep Engage running. Your voice profile and history are saved.</p>
           </div>
         )}
-        <div className="text-center mb-12">
+
+        <div className="text-center mb-8">
           <h1 className="font-serif font-semibold text-3xl text-white mb-3">
             {trialExpired ? "Upgrade to continue." : `Choose your plan, ${profile.full_name.split(" ")[0]}.`}
           </h1>
@@ -200,39 +211,62 @@ export default function OnboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          {TIERS.map((tier) => (
+        {/* Billing period toggle */}
+        <div className="flex justify-center mb-10">
+          <div className="inline-flex gap-1 bg-white/[0.05] border border-white/10 rounded-xl p-1">
             <button
-              key={tier.id}
-              onClick={() => setSelectedTier(tier.id)}
-              className={`text-left rounded-2xl p-6 border-2 transition-all relative ${
-                selectedTier === tier.id
-                  ? "border-indigo bg-white/[0.06]"
-                  : "border-white/10 bg-white/[0.02] hover:border-white/20"
-              }`}
+              onClick={() => setBillingPeriod("monthly")}
+              className={`px-5 py-2 rounded-lg text-[13px] font-medium transition-all ${billingPeriod === "monthly" ? "bg-indigo text-white" : "text-slate-light"}`}
             >
-              {tier.popular && (
-                <span className="absolute -top-3 left-6 bg-indigo text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                  Most popular
-                </span>
-              )}
-              <h3 className="font-display font-semibold text-lg text-white mb-1">{tier.name}</h3>
-              <div className="font-serif font-semibold text-2xl text-white mb-4">
-                Rs {tier.price.toLocaleString("en-IN")}<span className="text-sm text-slate-light">/mo</span>
-              </div>
-              <ul className="space-y-2">
-                {tier.features.map((f) => (
-                  <li key={f} className="text-[12.5px] text-slate-light flex items-start gap-2">
-                    <span className="text-indigo mt-0.5">+</span>{f}
-                  </li>
-                ))}
-              </ul>
+              Monthly
             </button>
-          ))}
+            <button
+              onClick={() => setBillingPeriod("annual")}
+              className={`px-5 py-2 rounded-lg text-[13px] font-medium transition-all ${billingPeriod === "annual" ? "bg-indigo text-white" : "text-slate-light"}`}
+            >
+              Annual <span className="opacity-70">- 2 months free</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          {(["basic", "pro"] as const).map((planKey) => {
+            const tier = TIERS.find(t => t.period === billingPeriod && t.name.toLowerCase() === (planKey === "basic" ? "basic" : "professional"))!;
+            const isSelected = selectedPlan === planKey;
+            return (
+              <button
+                key={planKey}
+                onClick={() => setSelectedPlan(planKey)}
+                className={`text-left rounded-2xl p-6 border-2 transition-all relative ${
+                  isSelected ? "border-indigo bg-white/[0.06]" : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                }`}
+              >
+                {tier.popular && (
+                  <span className="absolute -top-3 left-6 bg-indigo text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Most popular
+                  </span>
+                )}
+                <h3 className="font-display font-semibold text-lg text-white mb-1">{tier.name}</h3>
+                <p className="text-[11.5px] text-indigo italic mb-3">{tier.tagline}</p>
+                <div className="font-serif font-semibold text-2xl text-white mb-4">
+                  Rs {tier.price.toLocaleString("en-IN")}<span className="text-sm text-slate-light">{tier.billingLabel}</span>
+                </div>
+                <ul className="space-y-2">
+                  {tier.features.map((f) => (
+                    <li key={f} className="text-[12.5px] text-slate-light flex items-start gap-2">
+                      <span className="text-indigo mt-0.5">+</span>{f}
+                    </li>
+                  ))}
+                </ul>
+              </button>
+            );
+          })}
         </div>
 
         {error && <p className="text-rose text-[13px] text-center mb-4">{error}</p>}
-        <p className="text-center text-[12px] text-slate-light mt-4">Running multiple LinkedIn profiles? <a href="mailto:hello@zyntask.in" className="text-indigo hover:underline">Talk to us</a> about agency pricing.</p>
+        <p className="text-center text-[12px] text-slate-light mt-4 mb-6">
+          Running multiple LinkedIn profiles? <a href="mailto:hello@zyntask.in" className="text-indigo hover:underline">Talk to us</a> about agency pricing, or our Founding Access tier.
+        </p>
 
         <div className="text-center">
           <button
@@ -241,11 +275,10 @@ export default function OnboardPage() {
             className="px-8 py-3.5 rounded-xl text-base font-medium text-white disabled:opacity-50"
             style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}
           >
-            {paying ? "Processing..." : `Pay Rs ${TIERS.find((t) => t.id === selectedTier)!.price.toLocaleString("en-IN")}${TIERS.find((t) => t.id === selectedTier)!.billingLabel} â†’`}
+            {paying ? "Processing..." : `Pay Rs ${selectedTier.price.toLocaleString("en-IN")}${selectedTier.billingLabel} ->`}
           </button>
         </div>
       </div>
     </main>
   );
 }
-
