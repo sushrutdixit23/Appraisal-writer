@@ -108,6 +108,7 @@ POST RULES:
       role: client.voice_role,
       text: topic,
       reply: draft,
+      original_draft: draft,
       status: "pending",
       classification: "post",
       intent: topic,

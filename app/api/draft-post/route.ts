@@ -101,6 +101,7 @@ const userMessage = `Topic: ${topic.trim()}${notes?.trim() ? `\n\nAdditional not
       role: client.voice_role,
       text: topic.trim(),
       reply: draft,
+      original_draft: draft,
       status: "pending",
       classification: "post",
       intent: topic.trim(),
