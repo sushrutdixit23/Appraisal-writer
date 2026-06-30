@@ -54,7 +54,7 @@ export default function SetupPage() {
         .maybeSingle();
 
       if (existing) {
-        router.replace("/welcome");
+        router.replace("/connect-linkedin");
         return;
       }
 
