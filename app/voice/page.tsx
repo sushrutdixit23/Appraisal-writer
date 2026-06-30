@@ -73,6 +73,8 @@ export default function VoicePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -102,6 +104,13 @@ export default function VoicePage() {
         setProfile(p);
         setForm(p);
       }
+      try {
+        const statsRes = await fetch("/api/voice-stats", {
+          headers: { "Authorization": `Bearer ${sessionData.session.access_token}` },
+        });
+        if (statsRes.ok) setStats(await statsRes.json());
+      } catch {}
+      setStatsLoading(false);
       setLoading(false);
     };
     load();
@@ -182,6 +191,45 @@ export default function VoicePage() {
         </div>
 
         <StrengthBar profile={form} />
+
+        {!statsLoading && stats && stats.hasEnoughData && (
+          <div className="bg-cloud border border-line rounded-[20px] p-6 mb-6">
+            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-1">What Engage has learned</p>
+            <p className="text-[12.5px] text-slate mb-5">Based on {stats.totalSent} drafts sent in your voice over {stats.daysActive} day{stats.daysActive !== 1 ? "s" : ""}.</p>
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <p className="font-display font-bold text-[28px] text-ink leading-none mb-1">{stats.totalSent}</p>
+                <p className="text-[11.5px] text-slate">{stats.repliesSent} replies, {stats.postsSent} posts</p>
+              </div>
+              {stats.editRate !== null && (
+                <div>
+                  <p className="font-display font-bold text-[28px] leading-none mb-1" style={{ color: stats.editRate < 30 ? "#1FBF75" : stats.editRate < 60 ? "#F5A623" : "#646B7E" }}>
+                    {100 - stats.editRate}%
+                  </p>
+                  <p className="text-[11.5px] text-slate">
+                    {stats.editRate < 30 ? "sent as drafted, no edits" : stats.editRate < 60 ? "needed light edits" : "still learning your voice"}
+                  </p>
+                </div>
+              )}
+            </div>
+            {stats.topWords && stats.topWords.length > 0 && (
+              <div>
+                <p className="text-[11px] font-semibold text-ink-soft mb-2">Words that show up often in your sent replies</p>
+                <div className="flex flex-wrap gap-2">
+                  {stats.topWords.map((w: string) => (
+                    <span key={w} className="text-[12px] px-3 py-1 rounded-full bg-mist border border-line text-ink-soft">{w}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!statsLoading && stats && !stats.hasEnoughData && (
+          <div className="bg-cloud border border-line rounded-[20px] p-6 mb-6 text-center">
+            <p className="text-[13px] text-slate">Approve a few more replies or posts and Engage will start showing you what it has learned about your voice here.</p>
+          </div>
+        )}
 
         <div className="space-y-5">
 
