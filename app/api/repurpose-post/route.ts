@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
@@ -30,12 +30,18 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("sample1, sample2, sample3, voice_rules, voice_tone")
+    .select("sample1, sample2, sample3, voice_rules, voice_tone, post_tone, post_rules, post_sample1, post_sample2, post_sample3")
     .eq("auth_user_id", user.id)
     .single();
 
-  const samplePosts = [profile?.sample1, profile?.sample2, profile?.sample3]
-    .filter(Boolean)
+  const effectivePostTone = profile?.post_tone || client.voice_tone;
+  const effectivePostRules = profile?.post_rules || client.voice_rules;
+
+  const postSpecificSamples = [profile?.post_sample1, profile?.post_sample2, profile?.post_sample3].filter(Boolean);
+  const replySamples = [profile?.sample1, profile?.sample2, profile?.sample3].filter(Boolean);
+  const samplesToUse = postSpecificSamples.length > 0 ? postSpecificSamples : replySamples;
+
+  const samplePosts = samplesToUse
     .map((s, i) => "--- Sample " + (i+1) + " ---\n" + s)
     .join("\n\n");
 
@@ -63,7 +69,7 @@ ${samplePosts ? "Match this writing style:\n" + samplePosts : ""}`;
 
 ${original_text}
 
-Write a LinkedIn post that shares this as a professional insight or lesson learned. 
+Write a LinkedIn post that shares this as a professional insight or lesson learned.
 Turn the achievement into something valuable for the reader, not just a brag.
 Make it specific, grounded, and human.
 
@@ -72,8 +78,8 @@ ${samplePosts ? "Match this writing style:\n" + samplePosts : ""}`;
 
   const systemPrompt = `You are writing a LinkedIn post for ${client.voice_name}, a ${client.voice_role}.
 
-Voice: ${client.voice_tone || "direct and human"}
-Rules: ${client.voice_rules || "no buzzwords, no corporate language"}
+Voice: ${effectivePostTone || "direct and human"}
+Rules: ${effectivePostRules || "no buzzwords, no corporate language"}
 
 POST RULES:
 1. No markdown - no **bold**, no bullets with dashes or asterisks

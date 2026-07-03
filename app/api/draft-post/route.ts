@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("voice_tone, voice_rules, voice_signoff, sample1, sample2, sample3")
+    .select("voice_tone, voice_rules, voice_signoff, sample1, sample2, sample3, post_tone, post_rules, post_sample1, post_sample2, post_sample3")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -41,8 +41,17 @@ export async function POST(req: NextRequest) {
     if (profile.voice_signoff) client.voice_signoff = profile.voice_signoff;
   }
 
-  const samplePosts = [profile?.sample1, profile?.sample2, profile?.sample3]
-    .filter(Boolean)
+  // Post-specific voice overrides. Falls back to the reply voice fields above
+  // whenever a post-specific field is empty, so existing users see no change
+  // until they explicitly fill these in on the Voice page.
+  const effectivePostTone = profile?.post_tone || client.voice_tone;
+  const effectivePostRules = profile?.post_rules || client.voice_rules;
+
+  const postSpecificSamples = [profile?.post_sample1, profile?.post_sample2, profile?.post_sample3].filter(Boolean);
+  const replySamples = [profile?.sample1, profile?.sample2, profile?.sample3].filter(Boolean);
+  const samplesToUse = postSpecificSamples.length > 0 ? postSpecificSamples : replySamples;
+
+  const samplePosts = samplesToUse
     .map((s, i) => `--- Sample ${i + 1} ---\n${s}`)
     .join("\n\n");
 
@@ -77,8 +86,8 @@ export async function POST(req: NextRequest) {
 Your job is to write a LinkedIn post that sounds EXACTLY like them, not like a ghostwriter, not like a marketer, not like an AI.
 
 VOICE PROFILE:
-- Tone: ${client.voice_tone || "direct, concise, founder voice"}
-- Rules: ${client.voice_rules || "no buzzwords, no corporate language, write like a person"}
+- Tone: ${effectivePostTone || "direct, concise, founder voice"}
+- Rules: ${effectivePostRules || "no buzzwords, no corporate language, write like a person"}
 - Style: Direct, human, no corporate language
 ${samplePosts ? `WRITING SAMPLES, study these carefully. Match the rhythm, sentence length, paragraph structure, and vocabulary exactly:
 ${samplePosts}` : ""}

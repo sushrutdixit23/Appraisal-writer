@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
@@ -19,6 +19,11 @@ type VoiceProfile = {
   sample1: string;
   sample2: string;
   sample3: string;
+  post_tone: string;
+  post_rules: string;
+  post_sample1: string;
+  post_sample2: string;
+  post_sample3: string;
 };
 
 const TONES = [
@@ -100,6 +105,11 @@ export default function VoicePage() {
           sample1: profileData.sample1 || "",
           sample2: profileData.sample2 || "",
           sample3: profileData.sample3 || "",
+          post_tone: profileData.post_tone || "",
+          post_rules: profileData.post_rules || "",
+          post_sample1: profileData.post_sample1 || "",
+          post_sample2: profileData.post_sample2 || "",
+          post_sample3: profileData.post_sample3 || "",
         };
         setProfile(p);
         setForm(p);
@@ -135,6 +145,11 @@ export default function VoicePage() {
           sample1: form.sample1,
           sample2: form.sample2,
           sample3: form.sample3,
+          post_tone: form.post_tone,
+          post_rules: form.post_rules,
+          post_sample1: form.post_sample1,
+          post_sample2: form.post_sample2,
+          post_sample3: form.post_sample3,
         })
         .eq("id", form.id);
 
@@ -260,6 +275,7 @@ export default function VoicePage() {
           {/* Voice settings */}
           <div className="bg-cloud border border-line rounded-[20px] p-6">
             <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-4">Voice settings</p>
+            <p className="text-[12.5px] text-slate mb-4">Used for DM replies and comment replies. Posts can optionally use a different voice below.</p>
             <div className="space-y-4">
               <div>
                 <label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Tone</label>
@@ -306,6 +322,47 @@ export default function VoicePage() {
                   />
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Post voice (optional override) */}
+          <div className="bg-cloud border border-line rounded-[20px] p-6">
+            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-1">Post voice (optional)</p>
+            <p className="text-[12.5px] text-slate mb-4">LinkedIn posts are often more polished than a quick reply. Leave any of this blank and Engage falls back to your reply voice above for posts too.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Post tone</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TONES.map(t => (
+                    <button key={t} onClick={() => set("post_tone", t)}
+                      className="text-left px-4 py-2.5 rounded-xl border text-[13px] transition-all"
+                      style={form.post_tone === t ? { borderColor: "#5B4BFF", background: "rgba(91,75,255,0.06)", color: "#5B4BFF", fontWeight: 600 } : { borderColor: "#E2E6EF", color: "#646B7E" }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Post rules</label>
+                <p className="text-[11.5px] text-slate mb-2">Instructions that only apply to posts. e.g. "More opinionated than my replies. Always take a clear stance."</p>
+                <textarea value={form.post_rules} onChange={e => set("post_rules", e.target.value)}
+                  rows={4} placeholder="e.g. Longer and more considered than my DM replies. Open with a bold claim."
+                  className="w-full bg-mist border border-line rounded-xl px-4 py-3 text-[14px] text-ink placeholder-slate-light resize-y focus:outline-none focus:border-indigo/40 transition-colors" />
+              </div>
+              <div className="space-y-4">
+                {([1,2,3] as const).map(n => (
+                  <div key={n}>
+                    <label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Post sample {n} (optional)</label>
+                    <textarea
+                      value={form[`post_sample${n}` as keyof VoiceProfile] as string}
+                      onChange={e => set(`post_sample${n}` as keyof VoiceProfile, e.target.value)}
+                      rows={4}
+                      placeholder="Paste an example of a post you've written..."
+                      className="w-full bg-mist border border-line rounded-xl px-4 py-3 text-[13.5px] text-ink placeholder-slate-light resize-y focus:outline-none focus:border-indigo/40 transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
