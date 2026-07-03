@@ -324,6 +324,7 @@ export default function Dashboard() {
   const [attachmentData, setAttachmentData] = useState<string | null>(null);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [attachmentType, setAttachmentType] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
@@ -766,9 +767,10 @@ export default function Dashboard() {
       {draftModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDraftModalOpen(false)} />
-          <div className="relative rounded-[28px] p-7 w-full max-w-lg border border-white/[0.08]" style={{ background: "linear-gradient(165deg, #181C32 0%, #0F1120 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 80px -20px rgba(0,0,0,0.7)" }}>
+          <div className="relative rounded-[28px] p-7 w-full max-w-lg max-h-[88vh] flex flex-col border border-white/[0.08]" style={{ background: "linear-gradient(165deg, #181C32 0%, #0F1120 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 80px -20px rgba(0,0,0,0.7)" }}>
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-light/75 mb-1">Draft a LinkedIn post</p>
-            <h3 className="font-serif font-semibold text-[22px] text-white mb-5">What do you want to post about?</h3>
+            <h3 className="font-serif font-semibold text-[22px] text-white mb-5 flex-shrink-0">What do you want to post about?</h3>
+            <div className="overflow-y-auto flex-1 -mr-2 pr-2">
             <div className="space-y-4">
               <div>
                 <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Topic</p>
@@ -847,14 +849,46 @@ export default function Dashboard() {
                   Turn an achievement into a post
                 </button>
               </div>
-            <div className="flex gap-3 mt-6">
-              {/* File attachment */}
-              <div>
+              {/* File attachment - full width, own row, drag/drop + paste enabled */}
+              <div className="mt-4">
                 <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Attach image <span className="normal-case opacity-60">(optional)</span></p>
-                <label className="flex items-center gap-2 cursor-pointer w-full px-4 py-2.5 rounded-xl border border-white/10 bg-black/20 hover:border-white/25 transition-colors">
+                <label
+                  className={`flex items-center gap-2 cursor-pointer w-full px-4 py-3 rounded-xl border-2 border-dashed transition-colors ${dragOver ? "border-indigo/60 bg-indigo/[0.06]" : "border-white/15 bg-black/20 hover:border-white/25"}`}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      setAttachmentData(ev.target?.result as string);
+                      setAttachmentName(file.name);
+                      setAttachmentType(file.type);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  onPaste={e => {
+                    const clipItem = Array.from(e.clipboardData.items).find(it => it.type.startsWith("image/"));
+                    if (!clipItem) return;
+                    const file = clipItem.getAsFile();
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      setAttachmentData(ev.target?.result as string);
+                      setAttachmentName(file.name);
+                      setAttachmentType(file.type);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  tabIndex={0}
+                >
                   <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none flex-shrink-0 text-slate-light" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
-                  <span className="text-[13px] text-slate-light flex-1 truncate">{attachmentName || "Choose image or document"}</span>
-                  {attachmentName && <button onClick={() => { setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[11px] hover:underline flex-shrink-0">Remove</button>}
+                  <span className="text-[13px] text-slate-light flex-1 truncate">{attachmentName || "Drop, paste, or click to choose an image"}</span>
+                  {attachmentName && <button onClick={(e) => { e.preventDefault(); setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[11px] hover:underline flex-shrink-0">Remove</button>}
                   <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0];
@@ -870,7 +904,13 @@ export default function Dashboard() {
                     }}
                   />
                 </label>
+                {attachmentData && (attachmentType || "").startsWith("image/") && (
+                  <img src={attachmentData} alt="attachment preview" className="mt-2.5 rounded-lg max-h-[140px] object-cover border border-white/10" />
+                )}
               </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 flex-shrink-0">
               <button onClick={() => setDraftModalOpen(false)} className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30">Cancel</button>
               <button onClick={handleDraftPost} disabled={draftingPost} className="flex-[2] py-3 text-[14px] font-medium text-white rounded-xl disabled:opacity-50" style={{ background: ACCENT }}>
                 {draftingPost ? "Drafting..." : "Draft post"}
