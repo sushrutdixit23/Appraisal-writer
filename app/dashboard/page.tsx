@@ -544,7 +544,7 @@ export default function Dashboard() {
       });
       const result = await res.json();
       if (!res.ok) { showToast(result.error || "Failed to draft post."); return; }
-      showToast("Post drafted.");
+      showToast(result.hookStrength && result.hookStrength !== "strong" && result.hookNote ? `Post drafted. ${result.hookNote}` : "Post drafted. Strong opening.");
       setDraftModalOpen(false);
       setPostTopic("");
       setPostNotes("");
