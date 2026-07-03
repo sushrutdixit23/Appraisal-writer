@@ -48,6 +48,31 @@ export async function POST(req: NextRequest) {
 
   if (!client.unipile_account_id) return NextResponse.json({ error: "LinkedIn not connected." }, { status: 400 });
 
+  // Fetch recent genuine edits to past posts so this draft learns from real corrections
+  const { data: pastPosts } = await supabase
+    .from("interactions")
+    .select("original_draft, reply")
+    .eq("client_id", client.id)
+    .eq("type", "post_draft")
+    .eq("status", "sent")
+    .not("original_draft", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(15);
+
+  const corrections = (pastPosts || [])
+    .filter(p => {
+      const orig = (p.original_draft || "").trim();
+      const final = (p.reply || "").trim();
+      if (!orig || !final || orig === final) return false;
+      if (Math.abs(final.length - orig.length) < 10 && orig.slice(0, 30) === final.slice(0, 30)) return false;
+      return true;
+    })
+    .slice(0, 3);
+
+  const correctionsBlock = corrections.length > 0
+    ? `\nRecent corrections ${client.voice_name} made to past post drafts. Study what changed and why, then apply that same judgment here. Do not repeat similar mistakes:\n${corrections.map(c => `AI draft: "${c.original_draft}"\n${client.voice_name} changed it to: "${c.reply}"`).join("\n\n")}\n`
+    : "";
+
   const systemPrompt = `You are a LinkedIn ghostwriter for ${client.voice_name}, a ${client.voice_role}.
 Your job is to write a LinkedIn post that sounds EXACTLY like them, not like a ghostwriter, not like a marketer, not like an AI.
 
@@ -57,7 +82,7 @@ VOICE PROFILE:
 - Style: Direct, human, no corporate language
 ${samplePosts ? `WRITING SAMPLES, study these carefully. Match the rhythm, sentence length, paragraph structure, and vocabulary exactly:
 ${samplePosts}` : ""}
-
+${correctionsBlock}
 POST WRITING RULES:
 1. Match the exact sentence rhythm and paragraph length from the writing samples above.
 2. One idea per paragraph. Single sentences are fine and often better.
@@ -72,7 +97,7 @@ POST WRITING RULES:
 11. Sound like someone who has actually done the thing, not read about it.
 12. Plain paragraphs only. No formatting of any kind.
 
-CRITICAL - LinkedIn only shows the first two lines before "see more." A weak opening (generic statement, throat-clearing, "I've been thinking about...") kills reach because nobody clicks to expand. A strong opening creates tension, makes a claim, or states something specific and surprising in the first line.
+CRITICAL - LinkedIn only shows the first two lines before "see more." A weak opening kills reach because nobody clicks to expand. A strong opening creates tension, makes a claim, or states something specific and surprising in the first line.
 
 After writing the post, evaluate your own opening two lines honestly. Respond in this exact format:
 
@@ -93,7 +118,6 @@ HOOK_NOTE: [one short sentence - if strong, say why briefly; if moderate or weak
 
   const raw = (response.content[0] as { text: string }).text.trim();
 
-  // Parse the structured response
   let draft = raw;
   let hookStrength: string | null = null;
   let hookNote: string | null = null;
@@ -107,7 +131,6 @@ HOOK_NOTE: [one short sentence - if strong, say why briefly; if moderate or weak
     hookStrength = strengthMatch ? strengthMatch[1].toLowerCase() : null;
     hookNote = noteMatch ? noteMatch[1].trim() : null;
   }
-  // If parsing fails for any reason, draft falls back to the raw text - never breaks the core feature
 
   const { data: interaction, error: saveError } = await supabase
     .from("interactions")
