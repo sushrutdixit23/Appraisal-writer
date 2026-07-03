@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import ZyntaskMark from "./ZyntaskMark";
 
 const STAR_PATH = "M50 4C50.8 4 53 22 54.5 33C56 44 60 48 71 49.5C82 51 96 50 96 50C96 50 82 49 71 50.5C60 52 56 56 54.5 67C53 78 50.8 96 50 96C49.2 96 47 78 45.5 67C44 56 40 52 29 50.5C18 49 4 50 4 50C4 50 18 51 29 49.5C40 48 44 44 45.5 33C47 22 49.2 4 50 4Z";
 const STAR_CUT = "M50 36C50.2 36 51.5 43 52 46C52.5 49 54 50.5 57 51C60 51.5 64 51 64 50C64 49 60 48.5 57 49C54 49.5 52.5 51 52 54C51.5 57 50.2 64 50 64C49.8 64 48.5 57 48 54C47.5 51 46 49.5 43 49C40 48.5 36 49 36 50C36 51 40 51.5 43 51C46 50.5 47.5 49 48 46C48.5 43 49.8 36 50 36Z";
@@ -116,11 +117,7 @@ export default function SiteNav() {
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo/35 to-transparent pointer-events-none" />
         <div className="max-w-6xl mx-auto px-6 h-[70px] flex items-center justify-between">
           <a href="/" className="group flex items-center gap-2.5 font-display font-bold text-xl text-ink">
-            <span className="w-7.5 h-7.5 rounded-[9px] bg-grad flex items-center justify-center shadow-zy-sm transition-shadow duration-300 group-hover:shadow-[0_0_18px_rgba(91,75,255,0.55)]">
-              <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-white stroke-[2.6] fill-none" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 10.5 8.5 15 16 5.5" />
-              </svg>
-            </span>
+            <ZyntaskMark size={30} />
             Zyntask
           </a>
           <div className="hidden md:flex items-center gap-8">
