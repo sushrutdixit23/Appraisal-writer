@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
+import ZyntaskMark from "../components/ZyntaskMark";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -598,8 +599,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.08]" style={{ background: "linear-gradient(180deg, rgba(20,23,42,0.95) 0%, rgba(15,17,30,0.85) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.08)" }}>
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-[62px] md:h-[72px] flex items-center justify-between gap-6">
-          <span className="relative font-serif font-semibold text-xl md:text-2xl text-white tracking-tight flex items-center gap-2.5">
-            <span className="relative w-2 h-2 rounded-full flex-shrink-0" style={{ background: "linear-gradient(135deg, #8a6ff0, #5B4BFF)", boxShadow: "0 0 12px rgba(138,111,240,0.55), 0 0 24px rgba(91,75,255,0.25)" }} />
+          <span className="relative font-display font-bold text-2xl md:text-3xl text-white tracking-tight flex items-center gap-2.5">
+            <ZyntaskMark size={36} />
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
           <div className="flex items-center gap-4 md:gap-8">
