@@ -325,6 +325,7 @@ export default function Dashboard() {
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [attachmentType, setAttachmentType] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   const loadMeta = async (clientId: string) => {
     const { data: clientRow } = await supabase
@@ -367,6 +368,13 @@ export default function Dashboard() {
     setDrafts((prev) => ({ ...prev, ...initialDrafts }));
     setSelectedId((prev) => (filtered.find((i) => i.id === prev) ? prev : filtered[0]?.id ?? null));
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const dismissed = localStorage.getItem("engage_checklist_dismissed");
+      if (!dismissed) setShowChecklist(true);
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -611,6 +619,32 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
+          <>
+            {showChecklist && (
+              <div className="rounded-[20px] p-5 mb-5 border border-white/[0.10] relative" style={{ background: "linear-gradient(150deg, rgba(91,75,255,0.10), rgba(138,111,240,0.03))" }}>
+                <button
+                  onClick={() => { setShowChecklist(false); if (typeof window !== "undefined") { localStorage.setItem("engage_checklist_dismissed", "1"); } }}
+                  className="absolute top-4 right-4 text-slate-light hover:text-white transition-colors"
+                >
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none" strokeLinecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+                </button>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo mb-3">New here? Start with these</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <button onClick={() => setDraftModalOpen(true)} className="text-left px-4 py-3 rounded-xl border border-white/[0.08] hover:border-indigo/40 transition-all" style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <p className="text-[13px] font-semibold text-white mb-0.5">Draft your first post</p>
+                    <p className="text-[11.5px] text-slate-light">Get post ideas and publish in your voice</p>
+                  </button>
+                  <a href="/voice" className="text-left px-4 py-3 rounded-xl border border-white/[0.08] hover:border-indigo/40 transition-all block" style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <p className="text-[13px] font-semibold text-white mb-0.5">Check your voice profile</p>
+                    <p className="text-[11.5px] text-slate-light">See and edit how Engage sounds like you</p>
+                  </a>
+                  <a href="/calendar" className="text-left px-4 py-3 rounded-xl border border-white/[0.08] hover:border-indigo/40 transition-all block" style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <p className="text-[13px] font-semibold text-white mb-0.5">See your content calendar</p>
+                    <p className="text-[11.5px] text-slate-light">Drafted, scheduled, and published posts</p>
+                  </a>
+                </div>
+              </div>
+            )}
           <div className="md:grid md:grid-cols-[320px_1fr] md:gap-6">
             {/* Left panel */}
             <div className="rounded-[24px] overflow-hidden border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
@@ -742,6 +776,7 @@ export default function Dashboard() {
               ) : null}
             </div>
           </div>
+          </>
         )}
       </div>
 
