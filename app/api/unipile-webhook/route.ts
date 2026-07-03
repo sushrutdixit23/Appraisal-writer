@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-// This route is called by Unipile (no user auth header - verify via shared knowledge of expected payload shape)
 export async function POST(req: NextRequest) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,14 +11,12 @@ export async function POST(req: NextRequest) {
   const payload = await req.json();
   console.log("Unipile webhook received:", JSON.stringify(payload));
 
-  // Expected payload: { status: "CREATION_SUCCESS", account_id: "...", name: "<auth_user_id>" }
   const { status, account_id, name: authUserId } = payload;
 
   if (status !== "CREATION_SUCCESS" || !account_id || !authUserId) {
     return NextResponse.json({ received: true, processed: false });
   }
 
-  // Get the profile we created during setup
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -31,7 +28,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, processed: false, error: "Profile not found" });
   }
 
-  // Fetch the connected LinkedIn profile to get a display picture / id (optional, best-effort)
   let unipileProfileId: string | null = null;
   try {
     const profileRes = await fetch(
@@ -48,7 +44,6 @@ export async function POST(req: NextRequest) {
 
   const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Check if a client row already exists for this user (e.g. reconnect case)
   const { data: existingClient } = await supabase
     .from("clients")
     .select("id")
@@ -89,25 +84,44 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Notify founder on genuinely new signups only (not reconnects)
-  if (isNewClient && process.env.RESEND_API_KEY && process.env.FOUNDER_EMAIL) {
+  if (isNewClient && process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const firstName = profile.full_name?.split(" ")[0] || "there";
+
+    // Founder notification
+    if (process.env.FOUNDER_EMAIL) {
+      try {
+        await resend.emails.send({
+          from: "Zyntask <onboarding@resend.dev>",
+          to: process.env.FOUNDER_EMAIL,
+          subject: `New Engage trial: ${profile.full_name}`,
+          text: `${profile.full_name} just connected their LinkedIn and started a free trial.\n\nRole: ${profile.role || "not specified"}\nLinkedIn: ${profile.linkedin_url || "not specified"}\nTrial ends: ${new Date(trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}\n\nView in Supabase to see full details.`,
+        });
+      } catch (e) {
+        console.error("Failed to send founder notification email:", e);
+      }
+    }
+
+    // Day 0 welcome email to the user
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from: "Zyntask <onboarding@resend.dev>",
-        to: process.env.FOUNDER_EMAIL,
-        subject: `New Engage trial: ${profile.full_name}`,
-        text: `${profile.full_name} just connected their LinkedIn and started a free trial.\n\nRole: ${profile.role || "not specified"}\nLinkedIn: ${profile.linkedin_url || "not specified"}\nTrial ends: ${new Date(trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}\n\nView in Supabase to see full details.`,
-      });
+      const { data: userData } = await supabase.auth.admin.getUserById(authUserId);
+      const userEmail = userData?.user?.email;
+      if (userEmail) {
+        await resend.emails.send({
+          from: "Engage <onboarding@resend.dev>",
+          to: userEmail,
+          subject: "Your Engage trial has started",
+          text: `Hi ${firstName},\n\nYour LinkedIn is connected and your free trial has started. One week, full access.\n\nHere is what happens next: Engage is reading your recent messages and comments right now, and drafting replies in your voice. Give it a couple of minutes, then open your dashboard to see your first queue.\n\nA good first step: draft your first post. Go to the Posts tab and hit "Draft a post" - you can ask for post ideas if you are not sure what to write about.\n\nOpen your dashboard: https://www.zyntask.in/dashboard\n\n- Engage`,
+        });
+      }
     } catch (e) {
-      console.error("Failed to send founder notification email:", e);
+      console.error("Failed to send day-0 welcome email:", e);
     }
   }
 
   return NextResponse.json({ received: true, processed: true });
 }
 
-// Unipile may also send a GET for verification - respond OK
 export async function GET() {
   return NextResponse.json({ status: "ok" });
 }
