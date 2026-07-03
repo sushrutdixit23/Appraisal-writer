@@ -116,6 +116,13 @@ function DetailPanel({
           </div>
         )}
 
+        {item.type === "comment" && (
+          <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl border border-white/[0.06]" style={{ background: "rgba(122,108,255,0.05)" }}>
+            <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 4h.01"/></svg>
+            <p className="text-[11.5px] text-slate-light leading-relaxed">Replying quickly extends your reach. LinkedIn shows a post to more people when you engage with early comments.</p>
+          </div>
+        )}
+
         <div className="text-[15px] text-white/90 rounded-2xl px-5 py-5 leading-[1.7] border border-white/[0.08]" style={{ background: "linear-gradient(165deg, rgba(91,75,255,0.04), rgba(0,0,0,0.15))" }}>
           {item.text}
         </div>
