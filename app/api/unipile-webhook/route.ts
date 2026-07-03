@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 // This route is called by Unipile (no user auth header - verify via shared knowledge of expected payload shape)
 export async function POST(req: NextRequest) {
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
+  const isNewClient = !existingClient;
+
   if (existingClient) {
     await supabase
       .from("clients")
@@ -84,6 +87,21 @@ export async function POST(req: NextRequest) {
       trial_replies_used: 0,
       profile_id: profile.id,
     });
+  }
+
+  // Notify founder on genuinely new signups only (not reconnects)
+  if (isNewClient && process.env.RESEND_API_KEY && process.env.FOUNDER_EMAIL) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Zyntask <onboarding@resend.dev>",
+        to: process.env.FOUNDER_EMAIL,
+        subject: `New Engage trial: ${profile.full_name}`,
+        text: `${profile.full_name} just connected their LinkedIn and started a free trial.\n\nRole: ${profile.role || "not specified"}\nLinkedIn: ${profile.linkedin_url || "not specified"}\nTrial ends: ${new Date(trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}\n\nView in Supabase to see full details.`,
+      });
+    } catch (e) {
+      console.error("Failed to send founder notification email:", e);
+    }
   }
 
   return NextResponse.json({ received: true, processed: true });
