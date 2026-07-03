@@ -176,12 +176,38 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-between mb-10">
           <div>
             <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-1">Engage analytics</p>
-            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink">How Engage is working for you</h1>
+            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink">What Engage has helped you achieve</h1>
           </div>
           <a href="/dashboard" className="text-[13px] text-slate hover:text-indigo transition-colors">Back to dashboard</a>
         </div>
 
-        {/* Key metrics */}
+        {/* Outcomes - leads the page */}
+        <div className="bg-cloud border border-line rounded-[20px] p-6 mb-8" style={{ background: stats.wins.length > 0 ? "linear-gradient(150deg, rgba(31,191,117,0.06), rgba(31,191,117,0.01))" : undefined }}>
+          <div className="flex items-center justify-between mb-5">
+            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate">Business outcomes</p>
+            {stats.wins.length > 0 && (
+              <span className="text-[12px] font-bold text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full">{stats.wins.length} win{stats.wins.length !== 1 ? "s" : ""}</span>
+            )}
+          </div>
+          {stats.wins.length > 0 ? (
+            <div className="space-y-3">
+              {stats.wins.map((w, i) => (
+                <div key={i} className="flex items-start justify-between gap-4 py-3 border-b border-line last:border-0">
+                  <div>
+                    <p className="text-[13px] font-semibold text-ink">{w.outcome_value}</p>
+                    <p className="text-[11px] text-slate mt-0.5">from conversation with {w.name}</p>
+                  </div>
+                  <span className="text-[11px] text-slate flex-shrink-0">{new Date(w.outcome_marked_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[13px] text-slate leading-relaxed">No wins recorded yet. When a conversation turns into a meeting, a client, or something real, mark it as a win from your dashboard. This is where the real value of Engage shows up, not in reply counts.</p>
+          )}
+        </div>
+
+        {/* Activity - supporting detail */}
+        <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-3">Activity</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           <MetricCard label="Sent this week" value={stats.sentThisWeek} sub="LinkedIn replies dispatched" />
           <MetricCard label="Hot leads engaged" value={stats.hotLeadsEngaged} sub="High-priority conversations" color="#FF4444" />
@@ -224,26 +250,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* Wins section */}
-        {stats.wins.length > 0 && (
-          <div className="bg-cloud border border-line rounded-[20px] p-6 mb-6">
-            <div className="flex items-center justify-between mb-5">
-              <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate">Recorded wins</p>
-              <span className="text-[12px] font-bold text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full">{stats.wins.length} win{stats.wins.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="space-y-3">
-              {stats.wins.map((w, i) => (
-                <div key={i} className="flex items-start justify-between gap-4 py-3 border-b border-line last:border-0">
-                  <div>
-                    <p className="text-[13px] font-semibold text-ink">{w.outcome_value}</p>
-                    <p className="text-[11px] text-slate mt-0.5">from conversation with {w.name}</p>
-                  </div>
-                  <span className="text-[11px] text-slate flex-shrink-0">{new Date(w.outcome_marked_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {stats.totalSent === 0 && stats.sentThisWeek === 0 && (
           <div className="text-center py-10 mt-6">
