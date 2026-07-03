@@ -292,6 +292,42 @@ export default function EngagePage() {
         </Reveal>
 
         <Reveal>
+          <section className="py-24">
+            <div className="max-w-5xl mx-auto px-6">
+              <div className="max-w-[640px] mx-auto mb-14 text-center">
+                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">What this replaces</span>
+                <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] mb-5 text-white">The honest comparison.</h2>
+                <p className="text-slate-light text-[16px] leading-relaxed max-w-[52ch] mx-auto">Here is what a consistent, well-managed LinkedIn presence normally costs, and what you actually get for it.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white/[0.04] border border-white/10 rounded-[20px] p-6">
+                  <p className="font-mono text-[10.5px] tracking-[0.1em] uppercase text-slate-light mb-3">Ghostwriter</p>
+                  <p className="font-serif font-semibold text-[26px] text-white mb-1">Rs 20-50k<span className="text-[13px] text-slate-light font-sans">/mo</span></p>
+                  <p className="text-[13px] text-slate-light leading-relaxed">You brief them, they write, you still review everything before it goes out. Slow turnaround, limited by one writer.</p>
+                </div>
+                <div className="bg-white/[0.04] border border-white/10 rounded-[20px] p-6">
+                  <p className="font-mono text-[10.5px] tracking-[0.1em] uppercase text-slate-light mb-3">Social media VA</p>
+                  <p className="font-serif font-semibold text-[26px] text-white mb-1">Rs 15-30k<span className="text-[13px] text-slate-light font-sans">/mo</span></p>
+                  <p className="text-[13px] text-slate-light leading-relaxed">Your time to manage, their time to execute. Still needs your eyes on every reply and every post.</p>
+                </div>
+                <div className="bg-white/[0.04] border border-white/10 rounded-[20px] p-6">
+                  <p className="font-mono text-[10.5px] tracking-[0.1em] uppercase text-slate-light mb-3">Automation tools</p>
+                  <p className="font-serif font-semibold text-[26px] text-white mb-1">$99<span className="text-[13px] text-slate-light font-sans">/mo</span></p>
+                  <p className="text-[13px] text-slate-light leading-relaxed">Tools like Expandi or Lemlist send without you reading it first. Built for volume, not judgment, and it risks the account.</p>
+                </div>
+                <div className="relative rounded-[20px] p-6" style={{ background: "linear-gradient(150deg, rgba(91,75,255,0.14), rgba(138,111,240,0.06))", border: "1px solid rgba(122,108,255,0.35)" }}>
+                  <span className="absolute -top-3 left-6 bg-indigo text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">Engage</span>
+                  <p className="font-mono text-[10.5px] tracking-[0.1em] uppercase text-slate-light mb-3 mt-2">Engage, Basic</p>
+                  <p className="font-serif font-semibold text-[26px] text-white mb-1">Rs 3,999<span className="text-[13px] text-slate-light font-sans">/mo</span></p>
+                  <p className="text-[13px] text-white/85 leading-relaxed">Drafts everything in your voice, replies and posts alike. Nothing sends without you reading it first. Always.</p>
+                </div>
+              </div>
+              <p className="text-center text-[13px] text-slate-light mt-8 max-w-[56ch] mx-auto">This is not about being the cheapest option. It is that the two ways to spend less, a script that sends without you, or an outreach tool built for volume over judgment, are also the two ways to put your name on something you never actually approved.</p>
+            </div>
+          </section>
+        </Reveal>
+
+        <Reveal>
           <section id="pricing" className="py-24">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[640px] mx-auto mb-14 text-center">
