@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
+import ZyntaskLoader from "../components/ZyntaskLoader";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -568,7 +569,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "radial-gradient(150% 110% at 8% -15%, #1E2344 0%, #15182C 30%, #0C0D17 65%, #08090F 100%)" }}>
-        <p className="text-slate-light text-sm">Loading...</p>
+        <ZyntaskLoader />
       </main>
     );
   }

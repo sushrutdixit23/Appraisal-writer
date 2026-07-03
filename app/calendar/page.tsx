@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
+import ZyntaskLoader from "../components/ZyntaskLoader";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -112,7 +113,7 @@ export default function CalendarPage() {
   const published = posts.filter(p => p.status === "sent");
   const bestTimes = getBestTimes();
 
-  if (loading) return <main className="min-h-screen bg-mist flex items-center justify-center"><p className="text-slate text-sm">Loading...</p></main>;
+  if (loading) return <main className="min-h-screen bg-mist flex items-center justify-center"><ZyntaskLoader /></main>;
 
   return (
     <main className="min-h-screen bg-mist">

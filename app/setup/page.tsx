@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
+import ZyntaskLoader from "../components/ZyntaskLoader";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -103,7 +104,7 @@ export default function SetupPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-ink flex items-center justify-center">
-        <p className="text-slate-light text-sm">Loading...</p>
+        <ZyntaskLoader />
       </main>
     );
   }
