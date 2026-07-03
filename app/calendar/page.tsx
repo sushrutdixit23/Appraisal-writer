@@ -158,7 +158,8 @@ export default function CalendarPage() {
 
         {unscheduled.length > 0 && bestTimes.length > 0 && (
           <div className="bg-cloud border border-line rounded-[20px] p-5 mb-6">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo mb-3">Best times to post this week</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo mb-1">Best times to post this week</p>
+            <p className="text-[12px] text-slate mb-3">Your audience is most active Tuesday to Thursday, morning and early evening. The first hour after posting matters most for reach, so a good time to post is a good time to also check back in.</p>
             <div className="flex gap-3 flex-wrap">
               {bestTimes.map((t, i) => (
                 <div key={i} className="flex items-center gap-2 bg-mist border border-line rounded-xl px-4 py-2">
