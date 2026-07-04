@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
+import CommentTargets from "../components/CommentTargets";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -366,6 +367,7 @@ export default function VoicePage() {
               </div>
             </div>
           </div>
+          <CommentTargets />
 
           {/* Save */}
           {error && <p className="text-rose text-[13px]">{error}</p>}
