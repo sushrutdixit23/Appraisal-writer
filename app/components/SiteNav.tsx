@@ -74,7 +74,6 @@ export default function SiteNav() {
 
   const links = [
     { href: "/engage", label: "Engage" },
-    { href: "/engage/features", label: "Features" },
     { href: "/#agents", label: "Agents" },
     { href: "/appraisal-writer", label: "Appraisal Writer" },
   ];
