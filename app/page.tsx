@@ -1,3 +1,4 @@
+﻿import ZyntaskMark from "./components/ZyntaskMark";
 import SiteNav from "./components/SiteNav";
 import Reveal from "./components/Reveal";
 
@@ -239,11 +240,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
             <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pb-11 border-b border-line">
               <div className="col-span-2">
                 <a href="/" className="flex items-center gap-2.5 font-display font-bold text-xl text-ink mb-4">
-                  <span className="w-7.5 h-7.5 rounded-[9px] bg-grad flex items-center justify-center shadow-zy-sm">
-                    <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-white stroke-[2.6] fill-none" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 10.5 8.5 15 16 5.5" />
-                    </svg>
-                  </span>
+                  <ZyntaskMark size={40} />
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">

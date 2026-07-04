@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
+import ZyntaskMark from "../components/ZyntaskMark";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SiteNav from "../components/SiteNav";
@@ -48,11 +49,7 @@ export default function WelcomePage() {
           <SiteNav />
           <div className="max-w-lg mx-auto px-6 pt-24 pb-20">
             <div className="text-center mb-10">
-              <div className="w-16 h-16 rounded-[20px] bg-grad flex items-center justify-center mx-auto mb-6 shadow-[0_8px_28px_rgba(91,75,255,0.35)]">
-                <svg viewBox="0 0 20 20" className="w-8 h-8 stroke-white stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 10.5 8.5 15 16 5.5" />
-                </svg>
-              </div>
+              <div className="flex items-center justify-center mb-6"><ZyntaskMark size={64} /></div>
               <h1 className="font-display font-bold text-[clamp(26px,5vw,36px)] text-ink tracking-tight mb-3">
                 {name ? `You are set, ${name}.` : "You are set."}
               </h1>
@@ -104,11 +101,7 @@ export default function WelcomePage() {
       <div className="relative z-10">
         <SiteNav />
         <div className="max-w-lg mx-auto px-6 pt-28 pb-20 text-center">
-          <div className="w-16 h-16 rounded-[20px] bg-grad flex items-center justify-center mx-auto mb-7 shadow-[0_8px_28px_rgba(91,75,255,0.35)]">
-            <svg viewBox="0 0 20 20" className="w-8 h-8 stroke-white stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 10.5 8.5 15 16 5.5" />
-            </svg>
-          </div>
+          <div className="flex items-center justify-center mb-7"><ZyntaskMark size={64} /></div>
           <h1 className="font-display font-bold text-[clamp(28px,5vw,40px)] text-ink tracking-tight mb-3">
             {name ? `Welcome, ${name}.` : "Welcome to Zyntask."}
           </h1>
