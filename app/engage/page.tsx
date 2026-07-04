@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Engage by Zyntask - Your LinkedIn presence, on autopilot, with you in control",
   description: "Engage drafts your replies, plans your posts, and learns your voice - then waits for your approval before anything goes out. Start with a free trial.",
@@ -26,6 +26,7 @@ export default function EngagePage() {
               <a href="/setup" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg ${btn}`}>Start free trial</a>
               <a href="#how" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base text-white border border-white/20 hover:border-white/40 ${btn}`}>See how it works</a>
             </div>
+            <a href="/engage/features" className="inline-block mt-5 text-[13.5px] text-slate-light hover:text-white transition-colors underline underline-offset-4">See the full feature list</a>
 
             <div className="relative z-10 max-w-md mx-auto mt-16 text-left">
               <div className="bg-white/[0.06] border border-white/10 rounded-[20px] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
