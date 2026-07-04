@@ -308,6 +308,7 @@ export default function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [sentToday, setSentToday] = useState(0);
   const [dailyCap, setDailyCap] = useState(100);
@@ -601,7 +602,7 @@ export default function Dashboard() {
           <span className="relative font-serif font-semibold text-2xl md:text-3xl text-white tracking-tight flex items-center gap-2.5">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
-          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 md:gap-8">
+          <div className="flex items-center gap-3 md:gap-8">
             <div className="flex items-center gap-2.5 text-[11px] md:text-[12.5px] text-slate-light">
               <span className="hidden sm:inline">Sent today</span>
               <div className="w-16 md:w-24 h-[5px] md:h-[6px] bg-white/10 rounded-full overflow-hidden">
@@ -609,10 +610,27 @@ export default function Dashboard() {
               </div>
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
-            <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
-            <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
-            <a href="/voice" target="_blank" rel="noopener noreferrer" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Voice</a>
-            <a href="/welcome" className="text-[11px] md:text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
+            <div className="hidden md:flex items-center gap-8">
+              <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
+              <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
+              <a href="/voice" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Voice</a>
+              <a href="/welcome" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
+            </div>
+            <div className="relative md:hidden">
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu" aria-expanded={mobileMenuOpen} className="p-2 -mr-2 text-slate-light hover:text-white transition-colors">
+                <svg viewBox="0 0 20 20" className="w-5 h-5 stroke-current stroke-[1.8] fill-none" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h14M3 10h14M3 14h14" />
+                </svg>
+              </button>
+              {mobileMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-44 bg-[#14172a] border border-white/[0.12] rounded-[14px] shadow-xl overflow-hidden z-50">
+                  <a href="/calendar" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Calendar</a>
+                  <a href="/analytics" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Analytics</a>
+                  <a href="/voice" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Voice</a>
+                  <a href="/welcome" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors">Back to home</a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
