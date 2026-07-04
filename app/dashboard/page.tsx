@@ -438,13 +438,13 @@ export default function Dashboard() {
     finally { setBusyId(null); }
   };
 
-  const handleSkip = async (item: Interaction) => {
+  const handleSkip = async (item: Interaction, reason?: string) => {
     setBusyId(item.id);
     try {
       const res = await fetch("/api/skip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id, client_id: item.client_id }),
+        body: JSON.stringify({ id: item.id, client_id: item.client_id, reason }),
       });
       if (!res.ok) { showToast("Failed to skip."); return; }
       showToast("Skipped.");
@@ -492,13 +492,13 @@ export default function Dashboard() {
     finally { setLoadingIdeas(false); }
   };
 
-  const handleDeleteDraft = async (id: string) => {
+  const handleDeleteDraft = async (id: string, reason?: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/delete-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, reason }),
       });
       if (!res.ok) { showToast("Failed to delete."); return; }
       showToast("Draft deleted.");
@@ -773,10 +773,14 @@ export default function Dashboard() {
                     {item.type === "post_draft" && (
                       <div className="flex justify-end mt-2" onClick={e => e.stopPropagation()}>
                         {confirmDeleteId === item.id ? (
-                          <div className="flex gap-2 items-center">
-                            <span className="text-[10px] text-slate-light">Delete this draft?</span>
-                            <button onClick={() => handleDeleteDraft(item.id)} className="text-[10px] text-rose font-semibold hover:underline">Yes</button>
-                            <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-slate-light hover:underline">No</button>
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span className="text-[10px] text-slate-light">Why delete this?</span>
+                            <div className="flex flex-wrap gap-1.5 justify-end max-w-[220px]">
+                              {["Off-topic", "Wrong tone", "Too salesy", "Other"].map((r) => (
+                                <button key={r} onClick={() => handleDeleteDraft(item.id, r)} className="text-[9.5px] px-2 py-1 rounded-full border border-white/15 text-slate-light hover:border-rose/50 hover:text-rose transition-colors">{r}</button>
+                              ))}
+                              <button onClick={() => setConfirmDeleteId(null)} className="text-[9.5px] px-2 py-1 text-slate-light hover:underline">Cancel</button>
+                            </div>
                           </div>
                         ) : (
                           <button onClick={() => setConfirmDeleteId(item.id)} className="text-[10.5px] font-medium text-rose/70 hover:text-rose transition-colors flex items-center gap-1">Delete draft</button>

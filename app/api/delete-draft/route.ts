@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
@@ -14,10 +14,9 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
-  const { id } = await req.json();
+  const { id, reason } = await req.json();
   if (!id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
 
-  // Verify the interaction belongs to this user's client
   const { data: client } = await supabase
     .from("clients")
     .select("id")
@@ -26,7 +25,24 @@ export async function POST(req: NextRequest) {
 
   if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
 
-  // Delete only if it belongs to this client and is a post draft
+  if (reason) {
+    const { data: draft } = await supabase
+      .from("interactions")
+      .select("type, reply")
+      .eq("id", id)
+      .eq("client_id", client.id)
+      .single();
+
+    if (draft) {
+      await supabase.from("rejection_events").insert({
+        client_id: client.id,
+        interaction_type: draft.type,
+        original_text: draft.reply,
+        reason,
+      });
+    }
+  }
+
   const { error } = await supabase
     .from("interactions")
     .delete()
