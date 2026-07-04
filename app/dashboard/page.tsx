@@ -599,9 +599,10 @@ export default function Dashboard() {
       <div className="sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.08]" style={{ background: "linear-gradient(180deg, rgba(20,23,42,0.95) 0%, rgba(15,17,30,0.85) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.08)" }}>
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-[62px] md:h-[72px] flex items-center justify-between gap-6">
           <span className="relative font-display font-bold text-2xl md:text-3xl text-white tracking-tight flex items-center gap-2.5">
-          <span className="relative font-display font-bold text-2xl md:text-3xl text-white tracking-tight flex items-center gap-2.5">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
           </span>
+          <div className="flex items-center gap-4 md:gap-8">
+            <div className="flex items-center gap-2.5 text-[11px] md:text-[12.5px] text-slate-light">
               <span className="hidden sm:inline">Sent today</span>
               <div className="w-16 md:w-24 h-[5px] md:h-[6px] bg-white/10 rounded-full overflow-hidden">
                 <div className="h-full" style={{ width: `${capPct}%`, background: ACCENT }} />
