@@ -78,7 +78,7 @@ function DetailPanel({
   setDrafts: (d: Record<string, string>) => void;
   busyId: string | null;
   handleApprove: (item: Interaction) => void;
-  handleSkip: (item: Interaction) => void;
+  handleSkip: (item: Interaction, reason?: string) => void;
   handlePublishPost: (item: Interaction) => void;
   handleSchedulePost: (id: string, scheduledAt: string) => void;
   schedulingPost: boolean;
@@ -95,6 +95,8 @@ function DetailPanel({
   view: string;
 }) {
   const isPost = item.type === "post_draft";
+  const [showSkipReasons, setShowSkipReasons] = useState(false);
+  useEffect(() => { setShowSkipReasons(false); }, [item.id]);
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
@@ -278,13 +280,25 @@ function DetailPanel({
           )}
           <div className="flex gap-2.5">
             {!isPost && (
-              <button
-                onClick={() => handleSkip(item)}
-                disabled={busyId === item.id}
-                className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50"
-              >
-                Skip
-              </button>
+              showSkipReasons ? (
+                <div className="flex-1 flex flex-col gap-1.5">
+                  <span className="text-[10px] text-slate-light">Why skip this?</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Off-topic", "Wrong tone", "Not now", "Other"].map((r) => (
+                      <button key={r} onClick={() => handleSkip(item, r)} disabled={busyId === item.id} className="text-[10.5px] px-2.5 py-1.5 rounded-full border border-white/15 text-slate-light hover:border-white/40 hover:text-white transition-colors disabled:opacity-50">{r}</button>
+                    ))}
+                    <button onClick={() => handleSkip(item)} disabled={busyId === item.id} className="text-[10.5px] px-2.5 py-1.5 rounded-full text-slate-light hover:text-white transition-colors underline disabled:opacity-50">Skip anyway</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSkipReasons(true)}
+                  disabled={busyId === item.id}
+                  className="flex-1 py-3 text-[14px] border border-white/15 rounded-xl text-white hover:border-white/30 disabled:opacity-50"
+                >
+                  Skip
+                </button>
+              )
             )}
             <button
               onClick={() => isPost ? handlePublishPost(item) : handleApprove(item)}
