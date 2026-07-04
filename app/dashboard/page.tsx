@@ -323,6 +323,8 @@ export default function Dashboard() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [reviewLink, setReviewLink] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [toast, setToast] = useState("");
   const [sentToday, setSentToday] = useState(0);
   const [dailyCap, setDailyCap] = useState(100);
@@ -450,6 +452,30 @@ export default function Dashboard() {
       if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
     } catch { showToast("Could not reach the server."); }
     finally { setBusyId(null); }
+  };
+
+  const handleGenerateReviewLink = async () => {
+    setGeneratingLink(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/review/generate", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session?.access_token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const url = `${window.location.origin}/review/${data.token}`;
+        setReviewLink(url);
+        await navigator.clipboard.writeText(url);
+        showToast("Review link copied - expires in 48 hours.");
+      } else {
+        showToast("Failed to generate link.");
+      }
+    } catch {
+      showToast("Could not reach the server.");
+    } finally {
+      setGeneratingLink(false);
+    }
   };
 
   const handleSkip = async (item: Interaction, reason?: string) => {
@@ -629,6 +655,7 @@ export default function Dashboard() {
               <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
               <a href="/voice" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Voice</a>
               <a href="/welcome" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
+              <button onClick={handleGenerateReviewLink} disabled={generatingLink} className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap disabled:opacity-50">{generatingLink ? "Generating..." : "Get review link"}</button>
             </div>
             <div className="relative md:hidden">
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu" aria-expanded={mobileMenuOpen} className="p-2 -mr-2 text-slate-light hover:text-white transition-colors">
