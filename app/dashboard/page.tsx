@@ -654,7 +654,7 @@ export default function Dashboard() {
             )}
           <div className="md:grid md:grid-cols-[320px_1fr] md:gap-6">
             {/* Left panel */}
-            <div className="rounded-[24px] overflow-hidden border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
+            <div className="rounded-[24px] overflow-hidden border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
               <div className="px-4 md:px-5 py-4 border-b border-white/[0.08] space-y-3">
                 {/* View tabs */}
                 <div className="flex gap-1 bg-black/30 rounded-lg p-1">
@@ -723,6 +723,7 @@ export default function Dashboard() {
                 )}
               </div>
 
+              <div className="flex-1 md:overflow-y-auto">
               {/* Item list */}
               {visibleItems.length === 0 ? (
                 <div className="px-5 py-8 text-center text-[13px] text-slate-light">
@@ -767,10 +768,11 @@ export default function Dashboard() {
                   </button>
                 ))
               )}
+              </div>
             </div>
 
             {/* Right panel — desktop */}
-            <div className="hidden md:block">
+            <div className="hidden md:block md:h-[calc(100vh-160px)] md:overflow-y-auto">
               {items.length === 0 ? (
                 <div className="rounded-[24px] p-12 text-center border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
