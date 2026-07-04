@@ -28,6 +28,8 @@ type Interaction = {
   outcome: string | null;
   outcome_value: string | null;
   outcome_marked_at: string | null;
+  voice_match_confidence: number | null;
+  voice_match_note: string | null;
 };
 
 type FilterType = "all" | "dm" | "comment";
@@ -237,6 +239,9 @@ function DetailPanel({
             rows={isPost ? 10 : 4}
             className="w-full rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50" style={{ background: "rgba(0,0,0,0.22)" }}
           />
+          {!isPost && item.voice_match_confidence !== null && item.voice_match_confidence !== undefined && item.voice_match_confidence < 70 && item.voice_match_note && (
+            <p className="text-[11.5px] text-slate-light/70 mt-1.5 italic">{item.voice_match_note}</p>
+          )}
           {isPost && view === "posts" && (
             <div className="flex gap-2 mb-2">
               <a href="/calendar" target="_blank" rel="noopener noreferrer" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/25 hover:bg-white/[0.02] transition-all duration-200">
