@@ -7,8 +7,23 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://zyntask.in"),
   title: "Zyntask - Agents that work with you",
   description: "Zyntask builds AI agents that handle the work, while you keep the final call.",
+  openGraph: {
+    title: "Zyntask - your professional copilot",
+    description: "AI that drafts the work. You make every call.",
+    url: "https://zyntask.in",
+    siteName: "Zyntask",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Zyntask - your professional copilot",
+    description: "AI that drafts the work. You make every call.",
+    images: ["/og-image.png"],
+  },
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
