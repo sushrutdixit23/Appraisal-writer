@@ -133,7 +133,7 @@ function DetailPanel({
         <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pb-2">
+      <div className="flex-1 overflow-y-auto space-y-4 pb-8">
         {item.post && (
           <div className="text-[12.5px] text-slate-light/85 rounded-xl px-4 py-3.5 leading-[1.6] border border-white/[0.06]" style={{ background: "rgba(0,0,0,0.16)" }}>
             On: {item.post}
@@ -677,7 +677,7 @@ export default function Dashboard() {
       <style jsx global>{`select option { background-color: #1a1d29; color: #ffffff; }`}</style>
 
       {/* Header */}
-      <div className="sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.08]" style={{ background: "linear-gradient(180deg, rgba(20,23,42,0.95) 0%, rgba(15,17,30,0.85) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.08)" }}>
+      <div className="sticky top-0 z-30 backdrop-blur-xl" style={{ background: "linear-gradient(180deg, rgba(20,23,42,0.55) 0%, rgba(15,17,30,0.25) 70%, rgba(15,17,30,0) 100%)" }}>
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-[62px] md:h-[72px] flex items-center justify-between gap-6">
           <span className="relative font-serif font-semibold text-2xl md:text-3xl text-white tracking-tight flex items-center gap-2.5">
             Engage<span style={{ color: "#8a6ff0" }}>.</span>
