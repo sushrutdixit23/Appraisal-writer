@@ -133,7 +133,7 @@ function DetailPanel({
         <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-8">
+      <div className={isPost ? "overflow-y-auto no-scrollbar space-y-4 pb-8" : "flex-1 overflow-y-auto no-scrollbar space-y-4 pb-8"}>
         {item.post && (
           <div className="text-[12.5px] text-slate-light/85 rounded-xl px-4 py-3.5 leading-[1.6] border border-white/[0.06]" style={{ background: "rgba(0,0,0,0.16)" }}>
             On: {item.post}
@@ -256,7 +256,7 @@ function DetailPanel({
             value={drafts[item.id] ?? ""}
             onChange={(e) => setDrafts({ ...drafts, [item.id]: e.target.value })}
             rows={isPost ? 10 : 4}
-            className="w-full rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50" style={{ background: "rgba(0,0,0,0.22)" }}
+            className="w-full rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50 no-scrollbar" style={{ background: "rgba(0,0,0,0.22)" }}
           />
           {!isPost && item.voice_match_confidence !== null && item.voice_match_confidence !== undefined && item.voice_match_confidence < 70 && item.voice_match_note && (
             <p className="text-[11.5px] text-slate-light/70 mt-1.5 italic">{item.voice_match_note}</p>
