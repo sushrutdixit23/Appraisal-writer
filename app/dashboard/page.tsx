@@ -363,6 +363,7 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reviewLink, setReviewLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [sentToday, setSentToday] = useState(0);
   const [dailyCap, setDailyCap] = useState(100);
@@ -693,9 +694,19 @@ export default function Dashboard() {
             <div className="hidden md:flex items-center gap-8">
               <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
               <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
-              <a href="/voice" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Voice</a>
-              <a href="/welcome" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Back to home</a>
-              <button onClick={handleGenerateReviewLink} disabled={generatingLink} className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap disabled:opacity-50">{generatingLink ? "Generating..." : "Get review link"}</button>
+              <div className="relative">
+                <button onClick={() => setMoreMenuOpen(!moreMenuOpen)} className="flex items-center gap-1 text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">
+                  More
+                  <svg viewBox="0 0 20 20" className={`w-3 h-3 stroke-current stroke-[2] fill-none transition-transform ${moreMenuOpen ? "rotate-180" : ""}`} strokeLinecap="round" strokeLinejoin="round"><path d="M5 8l5 5 5-5" /></svg>
+                </button>
+                {moreMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-[#14172a] border border-white/[0.12] rounded-[14px] shadow-xl overflow-hidden z-50">
+                    <a href="/voice" target="_blank" rel="noopener noreferrer" onClick={() => setMoreMenuOpen(false)} className="block px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Voice</a>
+                    <button onClick={() => { handleGenerateReviewLink(); setMoreMenuOpen(false); }} disabled={generatingLink} className="w-full text-left px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06] disabled:opacity-50">{generatingLink ? "Generating..." : "Get review link"}</button>
+                    <a href="/welcome" onClick={() => setMoreMenuOpen(false)} className="block px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors">Home</a>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="relative md:hidden">
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu" aria-expanded={mobileMenuOpen} className="p-2 -mr-2 text-slate-light hover:text-white transition-colors">
@@ -875,7 +886,7 @@ export default function Dashboard() {
             </div>
 
             {/* Right panel — desktop */}
-            <div className="hidden md:block md:h-[calc(100vh-200px)] md:overflow-y-auto no-scrollbar">
+            <div className="hidden md:block md:h-[calc(100vh-160px)] md:overflow-y-auto no-scrollbar">
               {items.length === 0 ? (
                 <div className="rounded-[24px] p-12 text-center border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
