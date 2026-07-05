@@ -889,7 +889,7 @@ export default function Dashboard() {
             </div>
 
             {/* Right panel — desktop */}
-            <div className="hidden md:block md:h-[calc(100vh-160px)] no-scrollbar">
+            <div className="hidden md:block md:h-[calc(100vh-160px)] overflow-hidden no-scrollbar">
               {items.length === 0 ? (
                 <div className="rounded-[24px] p-12 text-center border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
