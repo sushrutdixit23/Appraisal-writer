@@ -281,7 +281,7 @@ function DetailPanel({
                     ))}
                   </div>
                   <div className="flex items-center gap-2 pt-1">
-                    <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} className="flex-1 bg-mist text-ink text-[12px] rounded-lg px-2.5 py-2 border border-line focus:outline-none" />
+                    <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} style={{ colorScheme: "dark" }} className="flex-1 bg-black/25 text-white text-[12px] rounded-lg px-2.5 py-2 border border-white/15 focus:outline-none focus:border-indigo/40" />
                     <button onClick={() => { if (customDateTime) { handleSchedulePost(item.id, new Date(customDateTime).toISOString()); setShowScheduler(false); } }} disabled={!customDateTime || schedulingPost} className="text-[11.5px] px-3 py-2 rounded-lg text-white disabled:opacity-40 flex-shrink-0" style={{ background: ACCENT }}>Set</button>
                   </div>
                   <button onClick={() => setShowScheduler(false)} className="text-[10.5px] text-slate-light hover:underline">Cancel</button>
@@ -370,6 +370,7 @@ export default function Dashboard() {
   const [myClientId, setMyClientId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
+  const [classFilterOpen, setClassFilterOpen] = useState(false);
   const [view, setView] = useState<ViewTab>("pending");
   const [linkedinConnected, setLinkedinConnected] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -819,19 +820,18 @@ export default function Dashboard() {
 
                 {classifications.length > 0 && view !== "posts" && (
                   <div className="relative">
-                    <select
-                      value={classFilter}
-                      onChange={(e) => setClassFilter(e.target.value)}
-                      className="w-full appearance-none text-[11.5px] rounded-lg pl-2.5 pr-7 py-2 text-white border border-white/[0.08]" style={{ background: "rgba(0,0,0,0.25)" }}
-                    >
-                      <option value="all">All types</option>
-                      {classifications.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-slate-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <button onClick={() => setClassFilterOpen(!classFilterOpen)} className="w-full flex items-center justify-between text-[11.5px] rounded-lg pl-2.5 pr-2.5 py-2 text-white border border-white/[0.08]" style={{ background: "rgba(0,0,0,0.25)" }}>
+                      <span>{classFilter === "all" ? "All types" : classFilter}</span>
+                      <svg className={`w-3 h-3 text-slate-light transition-transform ${classFilterOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 7.5L10 12.5L15 7.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    {classFilterOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] rounded-[10px] shadow-xl overflow-hidden z-50">
+                        <button onClick={() => { setClassFilter("all"); setClassFilterOpen(false); }} className="w-full text-left px-3 py-2 text-[11.5px] text-white hover:bg-white/10 transition-colors">All types</button>
+                        {classifications.map((c) => (
+                          <button key={c} onClick={() => { setClassFilter(c); setClassFilterOpen(false); }} className="w-full text-left px-3 py-2 text-[11.5px] text-white hover:bg-white/10 transition-colors">{c}</button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
