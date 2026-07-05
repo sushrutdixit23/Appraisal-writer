@@ -119,7 +119,7 @@ function DetailPanel({
     return slots.slice(0, 3);
   };
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-y-auto no-scrollbar">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white" style={{ background: ACCENT }}>
@@ -648,8 +648,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ background: "radial-gradient(150% 110% at 8% -15%, #1E2344 0%, #15182C 30%, #0C0D17 65%, #08090F 100%)" }}>
-        <ZyntaskLoader />
+      <main className="relative min-h-screen flex items-center justify-center bg-ink overflow-hidden">
+        <div className="aurora-page-dark" />
+        <div className="relative z-10">
+          <ZyntaskLoader />
+        </div>
       </main>
     );
   }
@@ -692,10 +695,10 @@ export default function Dashboard() {
               <span className="font-mono text-white">{sentToday}/{dailyCap}</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Calendar</a>
-              <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">Analytics</a>
+              <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Calendar</a>
+              <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Analytics</a>
               <div className="relative">
-                <button onClick={() => setMoreMenuOpen(!moreMenuOpen)} className="flex items-center gap-1 text-[12.5px] text-slate-light hover:text-white transition-colors whitespace-nowrap">
+                <button onClick={() => setMoreMenuOpen(!moreMenuOpen)} className="flex items-center gap-1 text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">
                   More
                   <svg viewBox="0 0 20 20" className={`w-3 h-3 stroke-current stroke-[2] fill-none transition-transform ${moreMenuOpen ? "rotate-180" : ""}`} strokeLinecap="round" strokeLinejoin="round"><path d="M5 8l5 5 5-5" /></svg>
                 </button>
@@ -886,14 +889,14 @@ export default function Dashboard() {
             </div>
 
             {/* Right panel — desktop */}
-            <div className="hidden md:block md:h-[calc(100vh-160px)] md:overflow-y-auto no-scrollbar">
+            <div className="hidden md:block md:h-[calc(100vh-160px)] no-scrollbar">
               {items.length === 0 ? (
                 <div className="rounded-[24px] p-12 text-center border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
                   <p className="text-slate-light text-sm">{emptyCopy.body}</p>
                 </div>
               ) : selected ? (
-                <div className="rounded-[24px] p-8 border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
+                <div className="rounded-[24px] p-8 overflow-hidden border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
                 </div>
               ) : null}
