@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
@@ -671,7 +671,9 @@ export default function Dashboard() {
   const emptyCopy = EMPTY_COPY[view];
 
   return (
-    <main className="min-h-screen" style={{ background: "radial-gradient(150% 110% at 8% -15%, #1E2344 0%, #15182C 30%, #0C0D17 65%, #08090F 100%)" }}>
+    <main className="relative min-h-screen bg-ink overflow-x-hidden">
+      <div className="aurora-page-dark" />
+      <div className="relative z-10">
       <style jsx global>{`select option { background-color: #1a1d29; color: #ffffff; }`}</style>
 
       {/* Header */}
@@ -1071,6 +1073,7 @@ export default function Dashboard() {
           {toast}
         </div>
       )}
+      </div>
     </main>
   );
 }
