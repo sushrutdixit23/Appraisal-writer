@@ -256,6 +256,9 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                 <h5 className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-4">Company</h5>
                 <a href="/manifesto" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Manifesto</a>
                 <a href="/trust" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Trust & Security</a>
+                <a href="/privacy" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Privacy Policy</a>
+                <a href="/terms" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Terms of Service</a>
+                <a href="/refund" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Refund & Cancellation</a>
                 <a href="mailto:hello@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Contact</a>
                 <a href="mailto:support@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Support</a>
               </div>
