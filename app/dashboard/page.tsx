@@ -30,6 +30,7 @@ type Interaction = {
   outcome_marked_at: string | null;
   voice_match_confidence: number | null;
   voice_match_note: string | null;
+  scheduled_at: string | null;
 };
 
 type FilterType = "all" | "dm" | "comment";
@@ -99,6 +100,24 @@ function DetailPanel({
   const isPost = item.type === "post_draft";
   const [showSkipReasons, setShowSkipReasons] = useState(false);
   useEffect(() => { setShowSkipReasons(false); }, [item.id]);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [customDateTime, setCustomDateTime] = useState("");
+  const getBestTimes = () => {
+    const now = new Date();
+    const slots: Date[] = [];
+    for (let i = 0; i < 14 && slots.length < 3; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+      const day = d.getDay();
+      if (day >= 1 && day <= 4) {
+        const morning = new Date(d); morning.setHours(8, 0, 0, 0);
+        if (morning > now) slots.push(morning);
+        const evening = new Date(d); evening.setHours(17, 30, 0, 0);
+        if (evening > now) slots.push(evening);
+      }
+    }
+    return slots.slice(0, 3);
+  };
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
@@ -243,21 +262,35 @@ function DetailPanel({
             <p className="text-[11.5px] text-slate-light/70 mt-1.5 italic">{item.voice_match_note}</p>
           )}
           {isPost && view === "posts" && (
-            <div className="flex gap-2 mb-2">
-              <a href="/calendar" target="_blank" rel="noopener noreferrer" className="flex-1 py-2 text-[12px] text-center border border-white/15 rounded-xl text-slate-light hover:text-white hover:border-white/25 hover:bg-white/[0.02] transition-all duration-200">
-                View calendar
-              </a>
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  const best = [1,2,3,4,5,6,7].map(d => { const t = new Date(now); t.setDate(now.getDate()+d); t.setHours(d%2===0?8:17,30,0,0); return t; }).find(t => t > now);
-                  if (best) handleSchedulePost(item.id, best.toISOString());
-                }}
-                disabled={schedulingPost}
-                className="flex-1 py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors disabled:opacity-50"
-              >
-                Schedule for best time
-              </button>
+            <div className="mb-2">
+              {item.scheduled_at ? (
+                <div className="flex items-center justify-between gap-2 bg-indigo/10 border border-indigo/25 rounded-xl px-3.5 py-2.5">
+                  <span className="text-[12px] text-indigo font-medium">
+                    Scheduled {new Date(item.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <button onClick={() => setShowScheduler(true)} className="text-[11px] text-indigo hover:underline flex-shrink-0">Change</button>
+                </div>
+              ) : showScheduler ? (
+                <div className="bg-black/20 border border-white/10 rounded-xl p-3.5 space-y-2.5">
+                  <p className="text-[11px] text-slate-light">Best times this week</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {getBestTimes().map((t, i) => (
+                      <button key={i} onClick={() => { handleSchedulePost(item.id, t.toISOString()); setShowScheduler(false); }} className="text-[11.5px] px-3 py-1.5 rounded-lg border border-indigo/30 text-indigo hover:bg-indigo/10 transition-colors">
+                        {t.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" })} {t.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} className="flex-1 bg-mist text-ink text-[12px] rounded-lg px-2.5 py-2 border border-line focus:outline-none" />
+                    <button onClick={() => { if (customDateTime) { handleSchedulePost(item.id, new Date(customDateTime).toISOString()); setShowScheduler(false); } }} disabled={!customDateTime || schedulingPost} className="text-[11.5px] px-3 py-2 rounded-lg text-white disabled:opacity-40 flex-shrink-0" style={{ background: ACCENT }}>Set</button>
+                  </div>
+                  <button onClick={() => setShowScheduler(false)} className="text-[10.5px] text-slate-light hover:underline">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setShowScheduler(true)} disabled={schedulingPost} className="w-full py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors disabled:opacity-50">
+                  Schedule this post
+                </button>
+              )}
             </div>
           )}
           {isPost && view === "posts" && (
