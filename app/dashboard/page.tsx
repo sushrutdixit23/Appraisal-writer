@@ -133,7 +133,7 @@ function DetailPanel({
         <span className="text-[12px] text-slate-light pt-1">{formatTime(item.created_at)}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pb-8">
+      <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-8">
         {item.post && (
           <div className="text-[12.5px] text-slate-light/85 rounded-xl px-4 py-3.5 leading-[1.6] border border-white/[0.06]" style={{ background: "rgba(0,0,0,0.16)" }}>
             On: {item.post}
@@ -675,7 +675,7 @@ export default function Dashboard() {
   const emptyCopy = EMPTY_COPY[view];
 
   return (
-    <main className="relative min-h-screen bg-ink overflow-x-hidden">
+    <main className="relative min-h-screen bg-ink overflow-x-hidden font-display">
       <div className="aurora-page-dark" />
       <div className="relative z-10">
       <style jsx global>{`select option { background-color: #1a1d29; color: #ffffff; }`}</style>
