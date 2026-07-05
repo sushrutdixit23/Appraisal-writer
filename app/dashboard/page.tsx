@@ -119,7 +119,7 @@ function DetailPanel({
     return slots.slice(0, 3);
   };
   return (
-    <div className="flex flex-col h-full overflow-y-auto no-scrollbar">
+    <div className="flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-base flex-shrink-0 text-white" style={{ background: ACCENT }}>
@@ -703,7 +703,7 @@ export default function Dashboard() {
                   <svg viewBox="0 0 20 20" className={`w-3 h-3 stroke-current stroke-[2] fill-none transition-transform ${moreMenuOpen ? "rotate-180" : ""}`} strokeLinecap="round" strokeLinejoin="round"><path d="M5 8l5 5 5-5" /></svg>
                 </button>
                 {moreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-44 bg-[#14172a] border border-white/[0.12] rounded-[14px] shadow-xl overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] rounded-[14px] shadow-xl overflow-hidden z-50">
                     <a href="/voice" target="_blank" rel="noopener noreferrer" onClick={() => setMoreMenuOpen(false)} className="block px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Voice</a>
                     <button onClick={() => { handleGenerateReviewLink(); setMoreMenuOpen(false); }} disabled={generatingLink} className="w-full text-left px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06] disabled:opacity-50">{generatingLink ? "Generating..." : "Get review link"}</button>
                     <a href="/welcome" onClick={() => setMoreMenuOpen(false)} className="block px-4 py-3 text-[13px] text-slate-light hover:bg-white/5 hover:text-white transition-colors">Home</a>
@@ -718,7 +718,7 @@ export default function Dashboard() {
                 </svg>
               </button>
               {mobileMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 bg-[#14172a] border border-white/[0.12] rounded-[14px] shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-44 bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] rounded-[14px] shadow-xl overflow-hidden z-50">
                   <a href="/calendar" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Calendar</a>
                   <a href="/analytics" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Analytics</a>
                   <a href="/voice" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Voice</a>
@@ -889,14 +889,14 @@ export default function Dashboard() {
             </div>
 
             {/* Right panel — desktop */}
-            <div className="hidden md:block md:h-[calc(100vh-160px)] overflow-hidden no-scrollbar">
+            <div className="hidden md:block">
               {items.length === 0 ? (
-                <div className="rounded-[24px] p-12 text-center border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
+                <div className="rounded-[24px] p-12 text-center border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col md:items-center md:justify-center" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <p className="font-serif text-2xl text-white mb-2">{emptyCopy.title}</p>
                   <p className="text-slate-light text-sm">{emptyCopy.body}</p>
                 </div>
               ) : selected ? (
-                <div className="rounded-[24px] p-8 overflow-hidden border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
+                <div className="rounded-[24px] p-8 overflow-hidden border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
                   <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
                 </div>
               ) : null}
