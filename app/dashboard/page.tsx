@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
@@ -263,14 +263,14 @@ function DetailPanel({
           )}
           {isPost && view === "posts" && (
             <div className="mb-2">
-              {item.scheduled_at ? (
+              {showScheduler ? (
                 <div className="flex items-center justify-between gap-2 bg-indigo/10 border border-indigo/25 rounded-xl px-3.5 py-2.5">
                   <span className="text-[12px] text-indigo font-medium">
-                    Scheduled {new Date(item.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    Scheduled {new Date(item.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <button onClick={() => setShowScheduler(true)} className="text-[11px] text-indigo hover:underline flex-shrink-0">Change</button>
                 </div>
-              ) : showScheduler ? (
+              ) : item.scheduled_at ? (
                 <div className="bg-black/20 border border-white/10 rounded-xl p-3.5 space-y-2.5">
                   <p className="text-[11px] text-slate-light">Best times this week</p>
                   <div className="flex gap-2 flex-wrap">
