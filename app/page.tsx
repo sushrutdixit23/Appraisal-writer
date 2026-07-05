@@ -259,6 +259,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                 <a href="/privacy" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Privacy Policy</a>
                 <a href="/terms" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Terms of Service</a>
                 <a href="/refund" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Refund & Cancellation</a>
+                <a href="/faq" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">FAQ</a>
                 <a href="mailto:hello@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Contact</a>
                 <a href="mailto:support@zyntask.in" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Support</a>
               </div>
