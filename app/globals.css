@@ -162,26 +162,25 @@ body {
   animation-direction: reverse;
 }
 @media (max-width: 768px) {
+  .aurora-page-dark::before {
+    filter: blur(26px);
+  }
+  .aurora-page-dark::after {
+    filter: blur(28px);
+  }
   .aurora-field::before,
   .aurora-field::after,
   .aurora-dark::before,
   .aurora-dark::after,
   .aurora-page-dark::before,
   .aurora-page-dark::after {
-    display: none;
+    animation: none;
   }
   .aurora-field,
   .aurora-dark,
   .aurora-page-dark {
     transform: none;
     will-change: auto;
-    position: static;
-  .aurora-field,
-  .aurora-dark,
-  .aurora-page-dark {
-    transform: none;
-    will-change: auto;
-  }
   }
 }
 .no-scrollbar {
