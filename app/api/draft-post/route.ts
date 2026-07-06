@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules")
+    .select("id, unipile_account_id, voice_name, voice_role, voice_tone, voice_signoff, voice_rules, linkedin_about, linkedin_recent_posts")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -54,6 +54,12 @@ export async function POST(req: NextRequest) {
   const samplePosts = samplesToUse
     .map((s, i) => `--- Sample ${i + 1} ---\n${s}`)
     .join("\n\n");
+
+  const linkedinContextBlock = (client.linkedin_about || (client.linkedin_recent_posts && client.linkedin_recent_posts.length > 0)) ? `
+REAL LINKEDIN CONTEXT - how they actually describe themselves and what they have recently written about. Use this to inform tone and subject matter, not to copy directly:
+${client.linkedin_about ? `Their LinkedIn About section:\n${client.linkedin_about}` : ""}
+${client.linkedin_recent_posts && client.linkedin_recent_posts.length > 0 ? `\nTheir last ${client.linkedin_recent_posts.length} posts:\n${client.linkedin_recent_posts.map((p: string, i: number) => `--- Recent post ${i + 1} ---\n${p}`).join("\n\n")}` : ""}
+` : "";
 
   if (!client.unipile_account_id) return NextResponse.json({ error: "LinkedIn not connected." }, { status: 400 });
 
@@ -91,6 +97,7 @@ VOICE PROFILE:
 - Style: Direct, human, no corporate language
 ${samplePosts ? `WRITING SAMPLES, study these carefully. Match the rhythm, sentence length, paragraph structure, and vocabulary exactly:
 ${samplePosts}` : ""}
+${linkedinContextBlock}
 ${correctionsBlock}
 POST WRITING RULES:
 1. Match the exact sentence rhythm and paragraph length from the writing samples above.
