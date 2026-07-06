@@ -151,7 +151,7 @@ export default function CalendarPage() {
                   <div key={post.id} className="rounded-[16px] p-5 border border-indigo/25" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)" }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo bg-indigo/10 border border-indigo/25 px-2 py-0.5 rounded-full">Scheduled</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#B5ACFF] bg-indigo/15 border border-indigo/30 px-2 py-0.5 rounded-full">Scheduled</span>
                         <span className="text-[11px] text-slate-light">{new Date(post.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(post.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
                       <button onClick={() => archivePost(post.id)} className="text-[11px] text-slate-light hover:text-rose transition-colors">Remove</button>
