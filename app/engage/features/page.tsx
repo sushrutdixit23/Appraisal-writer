@@ -3,7 +3,7 @@ export const metadata: Metadata = {
   title: "Everything Engage does - Zyntask",
   description: "A full breakdown of what Engage handles for you: replies, posts, scheduling, voice, comment opportunities, analytics, and the guardrails that keep you in control.",
 };
-import SiteNav from "../../components/SiteNav";
+import EngageNav from "../../components/EngageNav";
 import Reveal from "../../components/Reveal";
 
 const btn = "font-semibold transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]";
@@ -43,7 +43,7 @@ export default function EngageFeaturesPage() {
     <main className="relative min-h-screen bg-ink overflow-x-hidden overflow-y-auto no-scrollbar" style={{ height: "100vh" }}>
       <div className="aurora-page-dark" />
       <div className="relative z-10">
-        <SiteNav />
+        <EngageNav />
 
         <header className="relative pt-[70px] pb-16 text-white">
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
