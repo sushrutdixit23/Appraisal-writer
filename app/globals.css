@@ -176,6 +176,12 @@ body {
   .aurora-page-dark::after {
     filter: blur(28px);
   }
+  .aurora-field,
+  .aurora-dark,
+  .aurora-page-dark {
+    transform: none;
+    will-change: auto;
+  }
 }
 .no-scrollbar {
   scrollbar-width: none;
