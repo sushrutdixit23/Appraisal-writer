@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function LinkedInImport() {
+export default function LinkedInImport({ onPostsImported }: { onPostsImported?: (posts: string[]) => void }) {
   const [about, setAbout] = useState<string | null>(null);
   const [recentPosts, setRecentPosts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +43,9 @@ export default function LinkedInImport() {
       }
       setAbout(result.about || null);
       setRecentPosts(result.recentPosts || []);
+      if (onPostsImported && result.recentPosts && result.recentPosts.length > 0) {
+        onPostsImported(result.recentPosts);
+      }
     } catch {
       setError("Could not reach the server.");
     } finally {
@@ -53,9 +56,8 @@ export default function LinkedInImport() {
   if (loading) return null;
 
   return (
-    <div className="bg-cloud border border-line rounded-[20px] p-6">
-      <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-1">About & recent posts</p>
-      <p className="text-[12.5px] text-slate mb-4">Pull your real LinkedIn About section and last 3 posts straight from your profile, so your post voice reflects how you actually describe yourself and what you've recently written about - not just what you type into the samples above.</p>
+    <div>
+      <p className="text-[12.5px] text-slate mb-4">Pull your real LinkedIn About section and last 3 posts straight from your profile. Recent posts automatically fill the Post voice samples below, and the About section informs tone and subject matter.</p>
 
       <button onClick={doImport} disabled={importing} className="w-full py-2.5 text-[13px] font-semibold rounded-xl text-white disabled:opacity-50 transition-all hover:opacity-90 mb-4"
         style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF,#8a6ff0)" }}>
@@ -72,7 +74,7 @@ export default function LinkedInImport() {
 
       {recentPosts.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold text-ink-soft mb-1.5">Last {recentPosts.length} posts (imported)</p>
+          <p className="text-[11px] font-semibold text-ink-soft mb-1.5">Last {recentPosts.length} posts (imported, also filled into Post voice below)</p>
           <div className="space-y-2">
             {recentPosts.map((p, i) => (
               <div key={i} className="bg-mist border border-line rounded-xl px-4 py-3 text-[12.5px] text-ink-soft leading-relaxed line-clamp-3">{p}</div>

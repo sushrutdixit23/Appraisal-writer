@@ -362,7 +362,11 @@ export default function VoicePage() {
             </div>
           </CollapsibleSection>
           <CommentTargets />
-          <LinkedInImport />
+          <CollapsibleSection title="About & recent posts (LinkedIn import)" defaultOpen={false}>
+            <LinkedInImport onPostsImported={(posts) => {
+              posts.slice(0, 3).forEach((p, i) => set(`post_sample${i + 1}` as keyof VoiceProfile, p));
+            }} />
+          </CollapsibleSection>
 
           {/* Save */}
           {error && <p className="text-rose text-[13px]">{error}</p>}
