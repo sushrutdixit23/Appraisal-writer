@@ -176,6 +176,12 @@ body {
     transform: none;
     will-change: auto;
     position: static;
+  .aurora-field,
+  .aurora-dark,
+  .aurora-page-dark {
+    transform: none;
+    will-change: auto;
+  }
   }
 }
 .no-scrollbar {
