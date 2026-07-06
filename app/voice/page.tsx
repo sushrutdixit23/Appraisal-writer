@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
 import CommentTargets from "../components/CommentTargets";
+import LinkedInImport from "../components/LinkedInImport";
 import CollapsibleSection from "../components/CollapsibleSection";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -361,6 +362,7 @@ export default function VoicePage() {
             </div>
           </CollapsibleSection>
           <CommentTargets />
+          <LinkedInImport />
 
           {/* Save */}
           {error && <p className="text-rose text-[13px]">{error}</p>}
