@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
 import CommentTargets from "../components/CommentTargets";
+import CollapsibleSection from "../components/CollapsibleSection";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -249,9 +250,7 @@ export default function VoicePage() {
         )}
 
         <div className="space-y-5">
-
-          {/* Basic info */}
-          <div className="bg-cloud border border-line rounded-[20px] p-6">
+          <CollapsibleSection title="Basic info" defaultOpen={true}>
             <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-4">Basic info</p>
             <div className="space-y-4">
               <div>
@@ -272,11 +271,9 @@ export default function VoicePage() {
                   className="w-full bg-mist border border-line rounded-xl px-4 py-3 text-[14px] text-ink placeholder-slate-light focus:outline-none focus:border-indigo/40 transition-colors" />
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
-          {/* Voice settings */}
-          <div className="bg-cloud border border-line rounded-[20px] p-6">
-            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-4">Voice settings</p>
+          <CollapsibleSection title="Voice settings" defaultOpen={false}>
             <p className="text-[12.5px] text-slate mb-4">Used for DM replies and comment replies. Posts can optionally use a different voice below.</p>
             <div className="space-y-4">
               <div>
@@ -305,11 +302,9 @@ export default function VoicePage() {
                   className="w-full bg-mist border border-line rounded-xl px-4 py-3 text-[14px] text-ink placeholder-slate-light resize-y focus:outline-none focus:border-indigo/40 transition-colors" />
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
-          {/* Writing samples */}
-          <div className="bg-cloud border border-line rounded-[20px] p-6">
-            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-1">Writing samples</p>
+          <CollapsibleSection title="Writing samples" defaultOpen={false}>
             <p className="text-[12.5px] text-slate mb-4">Paste 1-3 examples of how you actually write — a LinkedIn reply, a DM, a post. This is the single most powerful thing you can do to make your agents sound like you.</p>
             <div className="space-y-4">
               {([1,2,3] as const).map(n => (
@@ -325,11 +320,9 @@ export default function VoicePage() {
                 </div>
               ))}
             </div>
-          </div>
+          </CollapsibleSection>
 
-          {/* Post voice (optional override) */}
-          <div className="bg-cloud border border-line rounded-[20px] p-6">
-            <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-slate mb-1">Post voice (optional)</p>
+          <CollapsibleSection title="Post voice (optional)" defaultOpen={false}>
             <p className="text-[12.5px] text-slate mb-4">LinkedIn posts are often more polished than a quick reply. Leave any of this blank and Engage falls back to your reply voice above for posts too.</p>
             <div className="space-y-4">
               <div>
@@ -366,7 +359,7 @@ export default function VoicePage() {
                 ))}
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
           <CommentTargets />
 
           {/* Save */}
