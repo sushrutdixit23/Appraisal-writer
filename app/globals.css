@@ -168,19 +168,14 @@ body {
   .aurora-dark::after,
   .aurora-page-dark::before,
   .aurora-page-dark::after {
-    animation: none;
-  }
-  .aurora-page-dark::before {
-    filter: blur(26px);
-  }
-  .aurora-page-dark::after {
-    filter: blur(28px);
+    display: none;
   }
   .aurora-field,
   .aurora-dark,
   .aurora-page-dark {
     transform: none;
     will-change: auto;
+    position: static;
   }
 }
 .no-scrollbar {
