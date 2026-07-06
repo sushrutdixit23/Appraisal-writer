@@ -76,7 +76,7 @@ body {
 .aurora-field,
 .aurora-dark,
 .aurora-page-dark {
-  position: absolute;
+  position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
