@@ -435,6 +435,43 @@ export default function Dashboard() {
     setSelectedId((prev) => (filtered.find((i) => i.id === prev) ? prev : filtered[0]?.id ?? null));
   };
 
+  // Background polling refresh - only adds genuinely new items and never
+  // touches drafts for items already on screen, so it never overwrites
+  // a reply someone is actively typing but has not sent yet.
+  const pollForNewItems = async (clientId: string, status: ViewTab) => {
+    const { data } = await supabase
+      .from("interactions")
+      .select("*")
+      .eq("client_id", clientId)
+      .eq("status", status === "posts" ? "pending" : status)
+      .order("created_at", { ascending: false });
+
+    let filtered = data ?? [];
+    if (status === "posts") {
+      filtered = filtered.filter(i => i.type === "post_draft");
+    } else {
+      filtered = filtered.filter(i => i.type !== "post_draft");
+    }
+
+    setItems((prevItems) => {
+      const prevIds = new Set(prevItems.map((i) => i.id));
+      const newIds = new Set(filtered.map((i: Interaction) => i.id));
+      const sameSize = prevIds.size === newIds.size;
+      const sameContents = sameSize && [...prevIds].every((id) => newIds.has(id));
+      if (sameContents) return prevItems;
+      return filtered as Interaction[];
+    });
+
+    setDrafts((prev) => {
+      const updated = { ...prev };
+      filtered.forEach((item: Interaction) => {
+        if (!(item.id in prev)) {
+          updated[item.id] = item.reply || "";
+        }
+      });
+      return updated;
+    });
+  };
   useEffect(() => {
     if (typeof window !== "undefined") {
       const dismissed = localStorage.getItem("engage_checklist_dismissed");
@@ -464,6 +501,14 @@ export default function Dashboard() {
     };
     load();
   }, [router]);
+
+  useEffect(() => {
+    if (!myClientId) return;
+    const interval = setInterval(() => {
+      pollForNewItems(myClientId, view);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [myClientId, view]);
 
   const handleTabChange = async (tab: ViewTab) => {
     setView(tab);
