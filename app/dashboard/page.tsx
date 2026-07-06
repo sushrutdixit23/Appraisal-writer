@@ -365,6 +365,7 @@ export default function Dashboard() {
   const [generatingLink, setGeneratingLink] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastScheduledAt, setToastScheduledAt] = useState<string | null>(null);
   const [sentToday, setSentToday] = useState(0);
   const [dailyCap, setDailyCap] = useState(100);
   const [myClientId, setMyClientId] = useState<string | null>(null);
@@ -470,9 +471,10 @@ export default function Dashboard() {
     if (myClientId) await loadQueue(myClientId, tab);
   };
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, scheduledAt?: string) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 2500);
+    setToastScheduledAt(scheduledAt || null);
+    setTimeout(() => { setToast(""); setToastScheduledAt(null); }, scheduledAt ? 4000 : 2500);
   };
 
   const handleApprove = async (item: Interaction) => {
@@ -597,7 +599,7 @@ export default function Dashboard() {
         body: JSON.stringify({ id, scheduled_at: scheduledAt }),
       });
       if (!res.ok) { showToast("Failed to schedule."); return; }
-      showToast("Post scheduled.");
+      showToast("Post scheduled.", scheduledAt);
       setSchedulePostId(null);
       if (myClientId) await loadQueue(myClientId, "posts");
     } catch { showToast("Could not reach the server."); }
@@ -1082,11 +1084,29 @@ export default function Dashboard() {
       )}
 
       {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-xl text-sm shadow-xl z-[60]">
-          {toast}
-        </div>
-      )}
+      {toast && (() => {
+        const isError = /failed|could not|error|write a|please/i.test(toast);
+        return (
+          <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm shadow-2xl z-[60] border backdrop-blur-xl min-w-[280px]`} style={{ background: isError ? "linear-gradient(135deg, rgba(58,20,28,0.94), rgba(28,10,16,0.97))" : "linear-gradient(135deg, rgba(18,42,36,0.94), rgba(10,24,20,0.97))", borderColor: isError ? "rgba(244,63,94,0.3)" : "rgba(52,211,153,0.3)" }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isError ? "rgba(244,63,94,0.18)" : "rgba(52,211,153,0.18)" }}>
+              {isError ? (
+                <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-rose-400 stroke-[2.5] fill-none" strokeLinecap="round"><path d="M6 6l8 8M14 6l-8 8" /></svg>
+              ) : (
+                <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-emerald-400 stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+              )}
+            </div>
+            <div>
+              <p className="text-white font-medium leading-tight">{toast}</p>
+              {toastScheduledAt && (
+                <div className="flex items-center gap-1.5 mt-1 text-white/65 text-[12px]">
+                  <svg viewBox="0 0 20 20" className="w-3 h-3 stroke-current stroke-[2] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="14" height="13" rx="2" /><path d="M3 8h14M7 2v3M13 2v3" /></svg>
+                  <span>{new Date(toastScheduledAt).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(toastScheduledAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
       </div>
     </main>
   );
