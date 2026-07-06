@@ -10,7 +10,7 @@ const btn = "font-semibold transition-all duration-200 hover:scale-[1.04] active
 
 export default function EngagePage() {
   return (
-    <main className="relative min-h-screen bg-ink overflow-x-hidden">
+    <main className="relative min-h-screen bg-ink overflow-x-hidden overflow-y-auto no-scrollbar" style={{ height: "100vh" }}>
       <div className="aurora-page-dark" />
       <div className="relative z-10">
         <SiteNav />

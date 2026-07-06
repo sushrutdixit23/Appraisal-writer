@@ -40,7 +40,7 @@ function FeatureSection({ eyebrow, title, items }: { eyebrow: string; title: str
 
 export default function EngageFeaturesPage() {
   return (
-    <main className="relative min-h-screen bg-ink overflow-x-hidden">
+    <main className="relative min-h-screen bg-ink overflow-x-hidden overflow-y-auto no-scrollbar" style={{ height: "100vh" }}>
       <div className="aurora-page-dark" />
       <div className="relative z-10">
         <SiteNav />
