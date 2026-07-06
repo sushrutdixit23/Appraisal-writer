@@ -264,13 +264,6 @@ function DetailPanel({
           {isPost && view === "posts" && (
             <div className="mb-2">
               {showScheduler ? (
-                <div className="flex items-center justify-between gap-2 bg-indigo/10 border border-indigo/25 rounded-xl px-3.5 py-2.5">
-                  <span className="text-[12px] text-indigo font-medium">
-                    Scheduled {new Date(item.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <button onClick={() => setShowScheduler(true)} className="text-[11px] text-indigo hover:underline flex-shrink-0">Change</button>
-                </div>
-              ) : item.scheduled_at ? (
                 <div className="bg-black/20 border border-white/10 rounded-xl p-3.5 space-y-2.5">
                   <p className="text-[11px] text-slate-light">Best times this week</p>
                   <div className="flex gap-2 flex-wrap">
@@ -285,6 +278,13 @@ function DetailPanel({
                     <button onClick={() => { if (customDateTime) { handleSchedulePost(item.id, new Date(customDateTime).toISOString()); setShowScheduler(false); } }} disabled={!customDateTime || schedulingPost} className="text-[11.5px] px-3 py-2 rounded-lg text-white disabled:opacity-40 flex-shrink-0" style={{ background: ACCENT }}>Set</button>
                   </div>
                   <button onClick={() => setShowScheduler(false)} className="text-[10.5px] text-slate-light hover:underline">Cancel</button>
+                </div>
+              ) : item.scheduled_at ? (
+                <div className="flex items-center justify-between gap-2 bg-indigo/10 border border-indigo/25 rounded-xl px-3.5 py-2.5">
+                  <span className="text-[12px] text-indigo font-medium">
+                    Scheduled {new Date(item.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <button onClick={() => setShowScheduler(true)} className="text-[11px] text-indigo hover:underline flex-shrink-0">Change</button>
                 </div>
               ) : (
                 <button onClick={() => setShowScheduler(true)} disabled={schedulingPost} className="w-full py-2 text-[12px] border border-indigo/30 rounded-xl text-indigo hover:bg-indigo/10 transition-colors disabled:opacity-50">
