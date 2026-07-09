@@ -591,53 +591,6 @@ export default function Dashboard() {
     finally { setBusyId(null); }
   };
 
-  const handleBulkApprove = async () => {
-    setBulkBusy(true);
-    const ids = Array.from(selectedIds);
-    let failed = 0;
-    for (const id of ids) {
-      const item = items.find((i) => i.id === id);
-      const text = drafts[id]?.trim();
-      if (!item || !text) { failed++; continue; }
-      try {
-        const res = await fetch("/api/approve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, client_id: item.client_id, text }),
-        });
-        if (!res.ok) failed++;
-      } catch { failed++; }
-    }
-    showToast(failed > 0 ? `Approved ${ids.length - failed}, ${failed} failed.` : `Approved ${ids.length}.`);
-    setSelectedIds(new Set());
-    setSelectMode(false);
-    setBulkBusy(false);
-    if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
-  };
-
-  const handleBulkSkip = async () => {
-    setBulkBusy(true);
-    const ids = Array.from(selectedIds);
-    let failed = 0;
-    for (const id of ids) {
-      const item = items.find((i) => i.id === id);
-      if (!item) { failed++; continue; }
-      try {
-        const res = await fetch("/api/skip", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, client_id: item.client_id, reason: "Other" }),
-        });
-        if (!res.ok) failed++;
-      } catch { failed++; }
-    }
-    showToast(failed > 0 ? `Skipped ${ids.length - failed}, ${failed} failed.` : `Skipped ${ids.length}.`);
-    setSelectedIds(new Set());
-    setSelectMode(false);
-    setBulkBusy(false);
-    if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
-  };
-
   const handlePublishPost = async (item: Interaction) => {
     const text = drafts[item.id]?.trim();
     if (!text) { showToast("Write something before publishing."); return; }
