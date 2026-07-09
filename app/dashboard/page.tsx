@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
@@ -187,7 +187,7 @@ function DetailPanel({
             borderColor: item.temperature === "hot" ? "rgba(255,138,76,0.30)" : item.temperature === "warm" ? "rgba(245,166,35,0.25)" : "rgba(91,140,255,0.22)"
           }}>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: item.temperature === "hot" ? "#FF4444" : item.temperature === "warm" ? "#F5A623" : "#4A9EFF" }}>
-              {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} Â· Lead temperature
+              {item.temperature === "hot" ? "Hot lead" : item.temperature === "warm" ? "Warm lead" : "Cold"} · Lead temperature
             </p>
             <p className="text-[12.5px] text-white/80 leading-relaxed">{item.temperature_reason}</p>
           </div>
@@ -358,6 +358,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Interaction[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -579,6 +589,53 @@ export default function Dashboard() {
       if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
     } catch { showToast("Could not reach the server."); }
     finally { setBusyId(null); }
+  };
+
+  const handleBulkApprove = async () => {
+    setBulkBusy(true);
+    const ids = Array.from(selectedIds);
+    let failed = 0;
+    for (const id of ids) {
+      const item = items.find((i) => i.id === id);
+      const text = drafts[id]?.trim();
+      if (!item || !text) { failed++; continue; }
+      try {
+        const res = await fetch("/api/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, client_id: item.client_id, text }),
+        });
+        if (!res.ok) failed++;
+      } catch { failed++; }
+    }
+    showToast(failed > 0 ? `Approved ${ids.length - failed}, ${failed} failed.` : `Approved ${ids.length}.`);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setBulkBusy(false);
+    if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
+  };
+
+  const handleBulkSkip = async () => {
+    setBulkBusy(true);
+    const ids = Array.from(selectedIds);
+    let failed = 0;
+    for (const id of ids) {
+      const item = items.find((i) => i.id === id);
+      if (!item) { failed++; continue; }
+      try {
+        const res = await fetch("/api/skip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, client_id: item.client_id, reason: "Other" }),
+        });
+        if (!res.ok) failed++;
+      } catch { failed++; }
+    }
+    showToast(failed > 0 ? `Skipped ${ids.length - failed}, ${failed} failed.` : `Skipped ${ids.length}.`);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setBulkBusy(false);
+    if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
   };
 
   const handlePublishPost = async (item: Interaction) => {
@@ -935,7 +992,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Right panel â€” desktop */}
+            {/* Right panel — desktop */}
             <div className="hidden md:block">
               {items.length === 0 ? (
                 <div className="rounded-[24px] p-12 text-center border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col md:items-center md:justify-center" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
