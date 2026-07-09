@@ -196,7 +196,7 @@ export default function EngagePage() {
                 <div>
                   <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">The part that compounds</span>
                   <h2 className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,42px)] mb-5 text-white">It sounds more like you every week.</h2>
-                  <p className="text-[16px] text-slate-light leading-relaxed mb-4">Most AI writing tools produce the same generic voice for everyone. Engage starts from real examples of how you actually write, and gets sharper every time you edit a draft.</p>
+                  <p className="text-[16px] text-slate-light leading-relaxed mb-4">Most AI writing tools produce the same generic voice for everyone. Engage learns yours from your last 100 messages in under 60 seconds, then gets sharper every time you edit a draft.</p>
                   <p className="text-[16px] text-slate-light leading-relaxed">This is not a setting you configure once. It is a profile that keeps building - your tone, your phrasing, your rhythm - and it is yours to see and edit at any time, never a black box.</p>
                 </div>
                 <div className="bg-white/[0.05] border border-white/10 rounded-[24px] p-7">
@@ -237,7 +237,7 @@ export default function EngagePage() {
                 <div className="bg-white/[0.05] border border-white/10 rounded-[24px] p-9">
                   <span className="block font-mono text-sky text-[11px] tracking-[0.12em] uppercase mb-3.5">Set up in minutes</span>
                   <h3 className="font-display font-semibold text-[24px] tracking-tight mb-3 text-white">Connect yourself, start today.</h3>
-                  <p className="text-[15px] text-slate-light leading-relaxed">No onboarding calls to wait for. Connect your LinkedIn securely, capture your voice from a few real examples, and your free trial begins the moment you are set up - all from your own dashboard.</p>
+                  <p className="text-[15px] text-slate-light leading-relaxed">No onboarding calls to wait for. Connect your LinkedIn securely and Engage scans your last 100 sent messages to learn your tone in under 60 seconds - your free trial begins the moment you are set up, all from your own dashboard.</p>
                 </div>
               </div>
             </div>
