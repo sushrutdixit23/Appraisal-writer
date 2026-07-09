@@ -941,6 +941,46 @@ export default function Dashboard() {
               </div>
 
               <div className="flex-1 md:overflow-y-auto no-scrollbar">
+              {(view === "pending") && (
+                <div className="px-4 md:px-5 py-2 flex items-center justify-between border-b border-white/[0.08]">
+                  {!selectMode ? (
+                    <button
+                      onClick={() => setSelectMode(true)}
+                      className="text-[11px] font-medium text-slate-light hover:text-white transition-colors"
+                    >
+                      Select
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+                      className="text-[11px] font-medium text-slate-light hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+              {selectMode && selectedIds.size > 0 && (
+                <div className="px-4 md:px-5 py-3 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-indigo/10 sticky top-0 z-10">
+                  <span className="text-[12px] text-white/90 font-medium">{selectedIds.size} selected</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleBulkSkip}
+                      disabled={bulkBusy}
+                      className="text-[11px] font-medium px-3 py-1.5 rounded-full border border-white/15 text-slate-light hover:border-white/40 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      Skip ({selectedIds.size})
+                    </button>
+                    <button
+                      onClick={handleBulkApprove}
+                      disabled={bulkBusy}
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-indigo text-white hover:bg-indigo/80 transition-colors disabled:opacity-50"
+                    >
+                      Approve ({selectedIds.size})
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Item list */}
               {visibleItems.length === 0 ? (
                 <div className="px-5 py-8 text-center text-[13px] text-slate-light">
