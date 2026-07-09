@@ -69,7 +69,7 @@ export default function Home() {
                     One screen. A few minutes. Done.
                   </h3>
                   <p className="text-[15px] text-slate leading-relaxed mb-5">
-                    Everything waiting for you, with the message, the classification, and the drafted reply - ready to approve or skip.
+                    Clear a full day's worth of hot leads in a few minutes, with total confidence in every send.
                   </p>
                   <div className="rounded-2xl border border-line bg-mist overflow-hidden">
                     <div className="h-9 bg-ink flex items-center px-3.5 gap-2">
@@ -107,7 +107,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     The one rule
                   </span>
                   <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5">
-                    Drafting is automatic. Sending never is.
+                    Scale your pipeline without sacrificing your reputation.
                   </h3>
                   <p className="text-[14.5px] text-slate-light leading-relaxed">
                     Every reply is read and approved by a real person before it reaches anyone - human-in-the-loop, always. There is no setting that changes that.
@@ -131,10 +131,10 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Sounds like you
                   </span>
                   <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">
-                    Tuned to your voice, not a template.
+                    Learns your tone in 60 seconds.
                   </h3>
                   <p className="text-[14.5px] text-slate leading-relaxed">
-                    Set up using real examples of how you actually write - then refined every time you edit a draft.
+                    Connect your LinkedIn and Engage learns your exact tone from your last 100 messages. You do not train it - it learns on the job, refining itself every time you edit a draft.
                   </p>
                 </div>
               </div>
@@ -212,6 +212,43 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
           </section>
         </Reveal>
 
+        {/* Build your fleet */}
+        <Reveal>
+          <section className="py-24 pt-4">
+            <div className="max-w-6xl mx-auto px-6">
+              <div className="max-w-[640px] mx-auto mb-14 text-center">
+                <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
+                  Build your fleet
+                </span>
+                <h2 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(28px,3.5vw,42px)] text-ink">
+                  Start with your inbox. Keep going from there.
+                </h2>
+                <p className="text-slate text-lg mt-4">
+                  Engage is the first agent. More are already live.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                  <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
+                    Live now
+                  </span>
+                  <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">Engage</h3>
+                  <p className="text-[14.5px] text-slate leading-relaxed mb-4">Master your LinkedIn inbox - drafted replies, ready for your approval.</p>
+                  <a href="/engage" className="text-[13.5px] font-semibold text-indigo hover:opacity-80 transition-opacity">See how it works &#8594;</a>
+                </div>
+                <div className="bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+                  <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
+                    Live now
+                  </span>
+                  <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">Appraisal Writer</h3>
+                  <p className="text-[14.5px] text-slate leading-relaxed mb-4">Draft your quarterly performance reviews in minutes, not evenings.</p>
+                  <a href="/appraisal-writer" className="text-[13.5px] font-semibold text-indigo hover:opacity-80 transition-opacity">See how it works &#8594;</a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </Reveal>
+
         {/* CTA */}
         <Reveal>
           <section className="px-6 pb-24">
@@ -223,7 +260,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Stay calm. Stay in sync. Get it done.
                   </h2>
                   <p className="text-white/85 text-lg mb-8">
-                    Tell us what is eating your time - there is probably an agent for that.
+                    Join today for Engage - and get early access as we roll out new agents built around how you work.
                   </p>
                   <a href="mailto:hello@zyntask.in" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-white text-indigo-deep hover:-translate-y-0.5 hover:scale-[1.03] transition-all">
                     Talk to us
