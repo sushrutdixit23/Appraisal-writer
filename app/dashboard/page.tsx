@@ -990,7 +990,7 @@ export default function Dashboard() {
                 visibleItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => (selectMode && item.type !== "post_draft" && !item.requires_human) ? toggleSelected(item.id) : handleSelectItem(item.id)}
+                    onClick={() => handleSelectItem(item.id)}
                     className="w-full text-left px-4 md:px-5 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/5"
                     style={item.id === selectedId ? { background: "linear-gradient(90deg, rgba(91,75,255,0.10), rgba(91,75,255,0.02))", borderLeft: "3px solid #7A6CFF", boxShadow: "inset 0 0 0 1px rgba(122,108,255,0.08)" } : { borderLeft: "3px solid transparent", opacity: 0.82 }}
                   >
