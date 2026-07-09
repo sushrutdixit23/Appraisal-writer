@@ -102,6 +102,8 @@ function DetailPanel({
   useEffect(() => { setShowSkipReasons(false); }, [item.id]);
   const [showScheduler, setShowScheduler] = useState(false);
   const [customDateTime, setCustomDateTime] = useState("");
+  const [previewMode, setPreviewMode] = useState(true);
+  useEffect(() => { setPreviewMode(true); }, [item.id]);
   const getBestTimes = () => {
     const now = new Date();
     const slots: Date[] = [];
@@ -248,9 +250,52 @@ function DetailPanel({
 
       {(view === "pending" || view === "posts") && (
         <div className="pt-3 border-t border-white/10 mt-3 space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-light/70">
-            {isPost ? "Review your draft" : "Reply"}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-light/70">
+              {isPost ? "Review your draft" : "Reply"}
+            </p>
+            <div className="flex gap-1 bg-black/25 rounded-lg p-0.5">
+              <button type="button" onClick={() => setPreviewMode(true)} className={`text-[10.5px] font-medium px-2.5 py-1 rounded-md transition-colors ${previewMode ? "bg-white/10 text-white" : "text-slate-light hover:text-white"}`}>Preview</button>
+              <button type="button" onClick={() => setPreviewMode(false)} className={`text-[10.5px] font-medium px-2.5 py-1 rounded-md transition-colors ${!previewMode ? "bg-white/10 text-white" : "text-slate-light hover:text-white"}`}>Edit</button>
+            </div>
+          </div>
+          {previewMode && (
+            <div className="rounded-xl border border-white/[0.08] p-4" style={{ background: "rgba(0,0,0,0.22)" }}>
+              {isPost ? (
+                <div className="space-y-3">
+                  <p className="text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap">{drafts[item.id] || "Nothing written yet."}</p>
+                  {attachmentName && (
+                    <div className="rounded-lg border border-white/10 px-3 py-2 text-[11.5px] text-slate-light flex items-center gap-2">
+                      <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
+                      {attachmentName}
+                    </div>
+                  )}
+                </div>
+              ) : item.type === "comment" ? (
+                <div className="space-y-3">
+                  {item.post && (
+                    <p className="text-[12px] text-slate-light/60 leading-relaxed border-l-2 border-white/10 pl-3">{item.post}</p>
+                  )}
+                  <div className="text-[13px] text-white/70 leading-relaxed">
+                    <span className="font-semibold text-white/85">{item.name}: </span>{item.text}
+                  </div>
+                  <div className="ml-4 rounded-xl px-3.5 py-2.5 text-[13px] text-white leading-relaxed" style={{ background: "rgba(122,108,255,0.12)", border: "1px solid rgba(122,108,255,0.25)" }}>
+                    <span className="font-semibold">You: </span>{drafts[item.id] || "Nothing written yet."}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-[13px] text-white/85 leading-relaxed" style={{ background: "rgba(255,255,255,0.07)" }}>{item.text}</div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-br-sm px-3.5 py-2.5 text-[13px] text-white leading-relaxed" style={{ background: ACCENT }}>{drafts[item.id] || "Nothing written yet."}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {!previewMode && (
           <textarea
             key={item.id + "-reply"}
             value={drafts[item.id] ?? ""}
@@ -258,6 +303,7 @@ function DetailPanel({
             rows={isPost ? 10 : 4}
             className="w-full rounded-xl px-4 py-3 text-[14.5px] text-white resize-y focus:outline-none transition-colors border border-white/[0.08] focus:border-indigo/50 no-scrollbar" style={{ background: "rgba(0,0,0,0.22)" }}
           />
+          )}
           {!isPost && item.voice_match_confidence !== null && item.voice_match_confidence !== undefined && item.voice_match_confidence < 70 && item.voice_match_note && (
             <p className="text-[11.5px] text-slate-light/70 mt-1.5 italic">{item.voice_match_note}</p>
           )}
@@ -962,7 +1008,19 @@ export default function Dashboard() {
               )}
               {selectMode && selectedIds.size > 0 && (
                 <div className="px-4 md:px-5 py-3 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-indigo/10 sticky top-0 z-10">
-                  <span className="text-[12px] text-white/90 font-medium">{selectedIds.size} selected</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[12px] text-white/90 font-medium">{selectedIds.size} selected</span>
+                    {(() => {
+                      const selected = items.filter((i) => selectedIds.has(i.id));
+                      const avgConf = selected.length ? Math.round(selected.reduce((s, i) => s + (i.confidence ?? 0), 0) / selected.length) : 0;
+                      const lowConfCount = selected.filter((i) => (i.confidence ?? 100) < 70).length;
+                      return (
+                        <span className="text-[10px] text-slate-light/70">
+                          Avg confidence {avgConf}%{lowConfCount > 0 ? ` \u00b7 ${lowConfCount} below 70%` : ""}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleBulkSkip}
