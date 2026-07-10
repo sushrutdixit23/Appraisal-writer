@@ -19,7 +19,8 @@ export default function EngagePage() {
         <header className="relative pt-[70px] pb-24 text-white">
           <div className="relative z-10 max-w-6xl mx-auto px-6 pt-16 grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
             <div className="text-center md:text-left">
-              <div className="font-serif italic text-[14px] tracking-wide text-slate-light mb-7">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
+              <div className="font-serif italic text-[14px] tracking-wide text-slate-light mb-4">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
+              <div className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,38px)] mb-3 text-white">Engage<span style={{ color: "#8a6ff0" }}>.</span></div>
               <h1 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(34px,4.6vw,54px)] mb-6 text-white">
                 Reply faster. Stay consistent.<br />Keep every decision <span style={{ color: "#8a6ff0" }}>yours</span>.
               </h1>
