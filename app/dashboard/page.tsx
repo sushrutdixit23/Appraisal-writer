@@ -407,6 +407,7 @@ export default function Dashboard() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkAction, setBulkAction] = useState<"approve" | "skip" | null>(null);
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -639,6 +640,7 @@ export default function Dashboard() {
 
   const handleBulkApprove = async () => {
     setBulkBusy(true);
+    setBulkAction("approve");
     const ids = Array.from(selectedIds);
     let failed = 0;
     for (const id of ids) {
@@ -658,11 +660,13 @@ export default function Dashboard() {
     setSelectedIds(new Set());
     setSelectMode(false);
     setBulkBusy(false);
+    setBulkAction(null);
     if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
   };
 
   const handleBulkSkip = async () => {
     setBulkBusy(true);
+    setBulkAction("skip");
     const ids = Array.from(selectedIds);
     let failed = 0;
     for (const id of ids) {
@@ -681,6 +685,7 @@ export default function Dashboard() {
     setSelectedIds(new Set());
     setSelectMode(false);
     setBulkBusy(false);
+    setBulkAction(null);
     if (myClientId) { await loadMeta(myClientId); await loadQueue(myClientId, view); }
   };
 
@@ -1007,7 +1012,10 @@ export default function Dashboard() {
                 </div>
               )}
               {selectMode && selectedIds.size > 0 && (
-                <div className="px-4 md:px-5 py-3 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-indigo/10 sticky top-0 z-10">
+                <div
+                  className="px-4 md:px-5 py-3.5 flex items-center justify-between gap-3 border-b border-white/[0.1] sticky top-0 z-10 backdrop-blur-xl"
+                  style={{ background: "linear-gradient(135deg, rgba(91,75,255,0.16), rgba(138,111,240,0.09))", boxShadow: "0 4px 24px rgba(91,75,255,0.10)" }}
+                >
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[12px] text-white/90 font-medium">{selectedIds.size} selected</span>
                     {(() => {
@@ -1025,16 +1033,23 @@ export default function Dashboard() {
                     <button
                       onClick={handleBulkSkip}
                       disabled={bulkBusy}
-                      className="text-[11px] font-medium px-3 py-1.5 rounded-full border border-white/15 text-slate-light hover:border-white/40 hover:text-white transition-colors disabled:opacity-50"
+                      className="text-[11px] font-medium px-3 py-1.5 rounded-full border border-white/15 text-slate-light hover:border-white/40 hover:text-white transition-colors disabled:opacity-40 flex items-center gap-1.5"
                     >
-                      Skip ({selectedIds.size})
+                      {bulkAction === "skip" && (
+                        <span className="w-2.5 h-2.5 border-[1.5px] border-white/40 border-t-white rounded-full animate-spin" />
+                      )}
+                      {bulkAction === "skip" ? "Skipping..." : `Skip (${selectedIds.size})`}
                     </button>
                     <button
                       onClick={handleBulkApprove}
                       disabled={bulkBusy}
-                      className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-indigo text-white hover:bg-indigo/80 transition-colors disabled:opacity-50"
+                      className="text-[11px] font-semibold px-3.5 py-1.5 rounded-full text-white transition-all disabled:opacity-60 flex items-center gap-1.5"
+                      style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)", boxShadow: "0 2px 12px rgba(91,75,255,0.35)" }}
                     >
-                      Approve ({selectedIds.size})
+                      {bulkAction === "approve" && (
+                        <span className="w-2.5 h-2.5 border-[1.5px] border-white/40 border-t-white rounded-full animate-spin" />
+                      )}
+                      {bulkAction === "approve" ? "Approving..." : `Approve (${selectedIds.size})`}
                     </button>
                   </div>
                 </div>
@@ -1055,13 +1070,22 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2.5 min-w-0">
                         {selectMode && item.type !== "post_draft" && !item.requires_human && (
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(item.id)}
-                            onChange={() => toggleSelected(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-shrink-0 w-4 h-4 rounded accent-indigo cursor-pointer"
-                          />
+                          <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(item.id)}
+                              onChange={() => toggleSelected(item.id)}
+                              className="appearance-none w-[19px] h-[19px] rounded-[7px] border cursor-pointer transition-all duration-200"
+                              style={selectedIds.has(item.id)
+                                ? { background: "linear-gradient(135deg,#5B4BFF,#8a6ff0)", borderColor: "transparent", boxShadow: "0 2px 10px rgba(91,75,255,0.45)" }
+                                : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.22)" }}
+                            />
+                            {selectedIds.has(item.id) && (
+                              <svg viewBox="0 0 20 20" className="w-3 h-3 stroke-white stroke-[3] fill-none absolute top-[3.5px] left-[3.5px] pointer-events-none" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 10.5 8.5 15 16 5.5" />
+                              </svg>
+                            )}
+                          </div>
                         )}
                         <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 text-white px-2 py-1 rounded-md flex-shrink-0">
                           {item.type === "post_draft" ? "Post" : item.type === "dm" ? "DM" : "Comment"}
