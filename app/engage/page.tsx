@@ -16,19 +16,22 @@ export default function EngagePage() {
         <EngageNav />
 
         <header className="relative pt-[70px] pb-24 text-white">
-          <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-16">
-            <div className="font-serif italic text-[15px] tracking-wide text-slate-light mb-8">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
-            <h1 className="font-serif font-semibold tracking-tight leading-[1.0] text-[clamp(52px,9vw,108px)] mb-3 text-white">Engage<span style={{ color: "#8a6ff0" }}>.</span></h1>
-            <p className="font-mono text-[11.5px] tracking-[0.22em] uppercase text-slate-light mb-10">Your LinkedIn presence, run for you</p>
-            <h2 className="font-display font-semibold tracking-tight leading-[1.1] text-[clamp(26px,3.6vw,38px)] mb-7 text-white/95 max-w-[22ch] mx-auto">A complete LinkedIn presence, without living on LinkedIn.</h2>
-            <p className="text-[18px] text-slate-light max-w-[54ch] mx-auto mb-10 leading-relaxed">Engage drafts your replies, plans what to post and when, watches which leads are hot, and learns to sound like you with every conversation. Nothing goes out until you say yes.</p>
-            <div className="flex gap-3.5 flex-wrap items-center justify-center">
-              <a href="/setup" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg ${btn}`}>Start free trial</a>
-              <a href="#how" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base text-white border border-white/20 hover:border-white/40 ${btn}`}>See how it works</a>
-              <a href="/engage/features" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base text-white border border-white/20 hover:border-white/40 ${btn}`}>See all features</a>
+          <div className="relative z-10 max-w-6xl mx-auto px-6 pt-16 grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
+            <div className="text-center md:text-left">
+              <div className="font-serif italic text-[14px] tracking-wide text-slate-light mb-7">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
+              <h1 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(34px,4.6vw,54px)] mb-6 text-white">
+                Reply faster. Stay consistent.<br />Keep every decision <span style={{ color: "#8a6ff0" }}>yours</span>.
+              </h1>
+              <p className="text-[17px] text-slate-light max-w-[46ch] mx-auto md:mx-0 mb-9 leading-relaxed">
+                Engage drafts replies, comments and posts in your own voice while you stay in complete control. No autonomous sending. No generic AI.
+              </p>
+              <div className="flex gap-3.5 flex-wrap items-center justify-center md:justify-start">
+                <a href="/setup" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base bg-white text-ink hover:-translate-y-0.5 hover:shadow-zy-lg ${btn}`}>Start free trial</a>
+                <a href="#how" className={`inline-flex px-7 py-3.5 rounded-[13px] text-base text-white border border-white/20 hover:border-white/40 ${btn}`}>See how it works</a>
+              </div>
             </div>
 
-            <div className="relative z-10 max-w-md mx-auto mt-16 text-left">
+            <div className="relative z-10 max-w-md mx-auto md:mx-0 text-left">
               <div className="bg-white/[0.06] border border-white/10 rounded-[20px] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
                 <div className="flex items-center gap-2.5 mb-3.5">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-[13px] text-white flex-shrink-0" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}>R</div>
