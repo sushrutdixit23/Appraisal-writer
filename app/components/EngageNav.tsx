@@ -4,7 +4,8 @@
       <div className="max-w-6xl mx-auto px-4 md:px-8 h-[62px] md:h-[72px] flex items-center justify-between gap-6">
         <a href="/" className="font-serif font-semibold text-xl md:text-2xl text-white tracking-tight">Zyntask</a>
         <div className="hidden md:flex items-center gap-8">
-          <a href="/engage" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Engage</a>
+          <a href="/engage#features" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Features</a>
+          <a href="/engage#pricing" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Pricing</a>
           <a href="/#agents" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Agents</a>
           <a href="/appraisal-writer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Appraisal Writer</a>
         </div>

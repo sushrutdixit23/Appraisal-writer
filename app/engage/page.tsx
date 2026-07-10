@@ -37,7 +37,7 @@ export default function EngagePage() {
         </header>
 
         <Reveal>
-          <section className="py-20">
+          <section id="features" className="py-20">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[620px] mx-auto mb-14 text-center">
                 <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Major features</span>
@@ -106,33 +106,6 @@ export default function EngagePage() {
         <Reveal>
           <section className="py-24">
             <div className="max-w-6xl mx-auto px-6">
-              <div className="max-w-[680px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">One system, not a pile of tools</span>
-                <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">Everything connects to the same workflow.</h2>
-                <p className="text-slate-light text-[16px] mt-4 leading-relaxed max-w-[56ch] mx-auto">Most AI tools give you one feature in isolation. Engage runs one continuous loop - what to say, when to say it, and how it lands - all feeding back into how well it knows you.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                {[
-                  { step: "01", label: "Ideas", body: "Weekly post ideas grounded in your role" },
-                  { step: "02", label: "Drafts", body: "Posts and replies written in your voice" },
-                  { step: "03", label: "Schedule", body: "Queued for the best time to publish" },
-                  { step: "04", label: "Engage", body: "Replies and hot leads surfaced daily" },
-                  { step: "05", label: "Learn", body: "Every edit sharpens your voice profile" },
-                ].map((s, i) => (
-                  <div key={s.step} className="relative bg-white/[0.05] border border-white/10 rounded-[18px] p-5">
-                    <span className="font-mono text-[10px] text-indigo tracking-wider">{s.step}</span>
-                    <h3 className="font-semibold text-[15px] text-white mt-2 mb-1.5">{s.label}</h3>
-                    <p className="text-[12.5px] text-slate-light leading-relaxed">{s.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        </Reveal>
-
-        <Reveal>
-          <section className="py-24">
-            <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[660px] mx-auto mb-14 text-center">
                 <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">New</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">Know which leads to chase first.</h2>
@@ -159,36 +132,6 @@ export default function EngagePage() {
                     <span className="font-bold text-[13px] uppercase tracking-wide" style={{ color: "#4A9EFF" }}>Cold</span>
                   </div>
                   <p className="text-[14px] text-slate-light leading-relaxed">Praise, a quick hello, or no clear intent. Still answered in your voice, just lower priority.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </Reveal>
-
-        <Reveal>
-          <section className="py-24">
-            <div className="max-w-6xl mx-auto px-6">
-              <div className="max-w-[660px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Posting, handled</span>
-                <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">Never stare at a blank box again.</h2>
-                <p className="text-slate-light text-[16px] mt-4 leading-relaxed max-w-[54ch] mx-auto">Most professionals know they should post on LinkedIn. Almost none have the time to sit down and figure out what to say. Engage removes that decision entirely.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <h3 className="font-semibold text-[17px] mb-2 text-white">Weekly post ideas</h3>
-                  <p className="text-[14.5px] text-slate-light leading-relaxed">Every week, Engage suggests a handful of post ideas grounded in your role and what you've already shared - never generic, never repeated.</p>
-                </div>
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <h3 className="font-semibold text-[17px] mb-2 text-white">A real content calendar</h3>
-                  <p className="text-[14.5px] text-slate-light leading-relaxed">See what's drafted, what's scheduled, and what's gone out - all on one weekly view, with the best times to post worked out for you.</p>
-                </div>
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <h3 className="font-semibold text-[17px] mb-2 text-white">One tap to schedule</h3>
-                  <p className="text-[14.5px] text-slate-light leading-relaxed">Approve a draft and send it now, or queue it for the next high-engagement window. Either way, it publishes itself - you don't have to remember.</p>
-                </div>
-                <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <h3 className="font-semibold text-[17px] mb-2 text-white">Old posts, new angles</h3>
-                  <p className="text-[14.5px] text-slate-light leading-relaxed">A post that landed well doesn't have to be a one-off. Engage can take it and write a fresh version with a different hook, whenever you want more mileage from an idea that worked.</p>
                 </div>
               </div>
             </div>
@@ -251,35 +194,14 @@ export default function EngagePage() {
         </Reveal>
 
         <Reveal>
-          <section className="py-24">
-            <div className="max-w-6xl mx-auto px-6">
-              <div className="max-w-[660px] mx-auto mb-12 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Trust, by design</span>
-                <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">AI assists. It never decides.</h2>
+          <section className="pt-4 pb-24">
+            <div className="max-w-3xl mx-auto px-6 flex items-center justify-center gap-4 text-center">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}>
+                <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-white stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 10.5 8.5 15 16 5.5" />
+                </svg>
               </div>
-              <div className="bg-white/[0.06] border border-white/10 rounded-[24px] p-8 mb-5 flex items-start gap-5">
-                <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF)" }}>
-                  <svg viewBox="0 0 20 20" className="w-5 h-5 stroke-white stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 10.5 8.5 15 16 5.5" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-[19px] mb-1.5 text-white">Nothing sends without you</h3>
-                  <p className="text-[14.5px] text-white/80 leading-relaxed max-w-[60ch]">Every reply and every post is read and approved by you before it reaches anyone or goes live. There is no setting that changes that - it is the core of how Engage works.</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                  { title: "A daily limit, always on", body: "Engage will never send more than a set number of messages a day, keeping your activity well inside what LinkedIn treats as normal." },
-                  { title: "Spam stays out", body: "Promotional blasts, cold sales pitches, and messages from company pages are filtered out before they ever reach your queue." },
-                  { title: "Big moments come to you", body: "Any message about a call, a meeting, or working together is always set aside for your personal attention." },
-                ].map((g) => (
-                  <div key={g.title} className="bg-white/[0.05] border border-white/10 rounded-[20px] p-7 transition-all duration-300 hover:-translate-y-1">
-                    <h3 className="font-semibold text-[16px] mb-2 text-white">{g.title}</h3>
-                    <p className="text-[14px] text-slate-light leading-relaxed">{g.body}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[15px] text-white/80">Nothing sends without you - every reply and post is approved by you, always. No setting changes that.</p>
             </div>
           </section>
         </Reveal>
