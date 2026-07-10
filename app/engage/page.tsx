@@ -1,7 +1,12 @@
-﻿import type { Metadata } from "next";
+﻿import type { Metadata, Viewport } from "next";
 export const metadata: Metadata = {
   title: "Engage by Zyntask - Your LinkedIn presence, on autopilot, with you in control",
   description: "Engage drafts your replies, plans your posts, and learns your voice - then waits for your approval before anything goes out. Start with a free trial.",
+};
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#16181F",
 };
 import EngageNav from "../components/EngageNav";
 import Reveal from "../components/Reveal";
@@ -20,7 +25,7 @@ export default function EngagePage() {
           <div className="relative z-10 max-w-6xl mx-auto px-6 pt-16 grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
             <div className="text-center md:text-left">
               <div className="font-serif italic text-[14px] tracking-wide text-slate-light mb-4">by <span className="text-white not-italic font-semibold">Zyntask</span></div>
-              <div className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,38px)] mb-3 text-white">Engage<span style={{ color: "#8a6ff0" }}>.</span></div>
+              <div className="font-serif font-semibold tracking-tight leading-none text-[clamp(44px,6vw,64px)] mb-4 text-white">Engage<span style={{ color: "#8a6ff0" }}>.</span></div>
               <h1 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(34px,4.6vw,54px)] mb-6 text-white">
                 Reply faster. Stay consistent.<br />Keep every decision <span style={{ color: "#8a6ff0" }}>yours</span>.
               </h1>
@@ -288,7 +293,7 @@ export default function EngagePage() {
 
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Core communication</p>
                   <ul className="space-y-2 mb-4">
-                    {["50 approvals per day", "Reply drafting for DMs and comments", "AI post drafting, 3 ideas a week", "Approval-first workflow", "Bulk approve and skip", "Preview before you send", "Replies to your replies, caught automatically"].map(f => (
+                    {["150 approvals per day", "Reply drafting for DMs and comments", "AI post drafting, 6 ideas a week", "Approval-first workflow", "Bulk approve and skip", "Preview before you send", "Replies to your replies, caught automatically", "Temperature sorting - hot, warm, cold", "Outcome tracking - wins, not just activity", "Response time tracking"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
@@ -331,7 +336,7 @@ export default function EngagePage() {
 
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Workflow intelligence</p>
                   <ul className="space-y-2 mb-4">
-                    {["150 approvals per day", "Unlimited post ideas", "Comment opportunity detection", "Temperature sorting - hot, warm, cold"].map(f => (
+                    {["Unlimited approvals", "Unlimited post ideas", "Comment opportunity detection"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
@@ -348,16 +353,6 @@ export default function EngagePage() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Content intelligence</p>
                   <ul className="space-y-2 mb-4">
                     {["Repurpose old posts with fresh angles", "Best-time posting recommendations"].map(f => (
-                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
-                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Business intelligence</p>
-                  <ul className="space-y-2 mb-4">
-                    {["Outcome tracking - wins, not just activity", "Response time tracking"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
