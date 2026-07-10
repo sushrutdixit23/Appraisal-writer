@@ -63,6 +63,9 @@ export default function EngageFeaturesPage() {
             { title: "Approval-first, always", body: "Nothing sends until you read it and say yes. Skip, edit, or approve on every single draft." },
             { title: "Learns from your real edits", body: "The feedback loop studies what you actually changed and why, not just how often you changed it." },
             { title: "Reach-strategy framing", body: "Comment replies are flagged with the reasoning that replying fast extends your post's reach." },
+            { title: "Bulk approve, in seconds", body: "Select several drafts at once and clear them together. Anything requiring your personal attention is automatically excluded from the batch." },
+            { title: "Preview before you send", body: "See exactly how a reply, comment, or post will render - not just raw text in an edit box." },
+            { title: "Replies to your replies", body: "When someone responds to a comment you already sent, Engage detects it and drafts the follow-up, not just the first message in a thread." },
           ]}
         />
 

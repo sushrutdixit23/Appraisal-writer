@@ -67,6 +67,39 @@ export default function EngagePage() {
         </header>
 
         <Reveal>
+          <section className="py-20">
+            <div className="max-w-6xl mx-auto px-6">
+              <div className="max-w-[620px] mx-auto mb-14 text-center">
+                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Major features</span>
+                <h2 className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,42px)] text-white">What Engage actually does for you.</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { icon: "M4 8h8M4 12h5M4 16h8M15 6l3 3-3 3", title: "Bulk approve, in seconds", body: "Clear a full queue at once. Anything that needs your personal attention is automatically excluded." },
+                  { icon: "M2 10s3-5.5 8-5.5 8 5.5 8 5.5-3 5.5-8 5.5-8-5.5-8-5.5zM10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z", title: "Preview before you send", body: "See exactly how a reply, comment, or post will look - not just raw text in a box." },
+                  { icon: "M10 2a8 8 0 100 16 8 8 0 000-16zm0 4v4l2.5 2.5", title: "Lead temperature, at a glance", body: "Hot, warm, or cold, with the reasoning shown - never a guess you have to trust blindly." },
+                  { icon: "M10 2c-2 3-3 5.5-3 8a3 3 0 006 0c0-2.5-1-5-3-8z", title: "Learns your real voice", body: "Built from your actual writing samples, refined a little more with every edit you make." },
+                  { icon: "M6 8l-3 3 3 3M3 11h9a4 4 0 004-4", title: "Replies to your replies", body: "When someone responds to your own comment, Engage catches it and drafts the follow-up - not just first contact." },
+                  { icon: "M10 3v3M10 14v3M3 10h3M14 10h3M5.5 5.5l2 2M12.5 12.5l2 2M14.5 5.5l-2 2M7.5 12.5l-2 2", title: "Comment opportunities, on your terms", body: "Pick exactly who to watch. Skips a post entirely when there is nothing real to say." },
+                  { icon: "M10 2l6.5 3v5c0 4.5-2.8 7-6.5 8-3.7-1-6.5-3.5-6.5-8V5L10 2z", title: "A daily send cap, always on", body: "Stays well inside what LinkedIn treats as normal activity - no matter how full the queue gets." },
+                  { icon: "M10 6v5M10 14h.01M10 2a8 8 0 100 16 8 8 0 000-16z", title: "Full reasoning, never a black box", body: "Every classification comes with the plain-language why behind it, visible on every item." },
+                ].map((f) => (
+                  <div key={f.title} className="relative rounded-[22px] p-6 overflow-hidden transition-all duration-300 hover:-translate-y-1"
+                    style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 100%)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
+                    <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full opacity-0 hover:opacity-100 transition-opacity duration-500" style={{ background: "radial-gradient(circle, rgba(138,111,240,0.25), transparent 70%)" }} />
+                    <div className="relative w-9 h-9 rounded-[10px] flex items-center justify-center mb-4" style={{ background: "rgba(138,111,240,0.12)" }}>
+                      <svg viewBox="0 0 20 20" className="w-4.5 h-4.5 stroke-[#a996ff] stroke-[1.7] fill-none" strokeLinecap="round" strokeLinejoin="round"><path d={f.icon} /></svg>
+                    </div>
+                    <h3 className="relative font-display font-semibold text-[15.5px] text-white mb-2 tracking-tight leading-snug">{f.title}</h3>
+                    <p className="relative text-[13px] text-slate-light leading-relaxed">{f.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </Reveal>
+
+        <Reveal>
           <section className="py-24">
             <div className="max-w-3xl mx-auto px-6 text-center">
               <h2 className="font-display font-bold tracking-tight text-[clamp(28px,3.5vw,40px)] mb-5 text-white">Stay present without living in your inbox.</h2>
