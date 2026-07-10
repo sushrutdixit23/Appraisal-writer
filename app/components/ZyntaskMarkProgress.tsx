@@ -9,8 +9,15 @@ const RING2 = "M93.83,33.90 C83.44,36.11 74.05,42.03 68.13,49.96 C66.68,51.91 62
 const RING3 = "M94.65,54.18 C90.30,55.06 84.19,58.59 80.16,62.62 C77.01,65.71 74.93,68.86 70.27,77.23 C67.00,83.15 60.95,93.67 56.92,100.66 C48.36,115.34 46.91,119.11 46.84,126.55 C46.78,140.09 55.16,151.49 68.70,156.34 C72.23,157.60 73.67,157.72 98.55,157.85 C112.91,157.91 126.20,157.72 128.09,157.47 C133.38,156.65 141.13,152.56 145.35,148.28 C151.96,141.60 155.05,133.35 154.42,123.52 C154.04,116.85 153.03,114.20 146.29,102.42 C143.33,97.20 137.91,87.44 134.20,80.63 C125.63,64.95 122.55,61.24 114.86,56.89 C109.70,53.99 101.39,52.92 94.65,54.18 Z M113.10,58.21 C117.70,60.48 121.67,63.75 124.63,67.66 C125.44,68.79 130.42,77.30 135.58,86.68 C140.81,96.00 146.48,106.20 148.24,109.35 C152.53,116.97 153.85,122.58 152.84,129.38 C151.01,142.10 142.01,152.12 129.73,155.20 C126.70,156.02 121.16,156.21 101.07,156.21 C86.46,156.21 74.74,155.96 72.73,155.58 C57.55,152.68 46.47,137.51 48.80,122.70 C49.62,117.41 51.69,112.88 59.88,98.96 C63.03,93.61 68.38,84.29 71.78,78.24 C78.71,65.90 82.55,61.42 88.79,58.40 C94.02,55.82 95.53,55.57 102.39,55.69 C108.00,55.82 108.82,56.07 113.10,58.21 Z";
 const CORE = "M95.09,73.26 C89.48,75.28 84.82,80.13 80.54,88.44 C78.90,91.53 74.87,98.71 71.47,104.38 C66.68,112.31 65.17,115.46 64.60,118.48 C62.53,128.81 68.76,139.08 79.34,142.73 C82.05,143.68 85.14,143.80 100.76,143.80 C110.83,143.87 120.03,143.61 121.22,143.36 C127.14,142.10 133.88,136.43 136.47,130.64 C138.10,126.92 138.61,121.26 137.66,117.41 C137.22,115.78 134.51,110.42 131.62,105.57 C128.78,100.72 124.50,93.29 122.17,89.01 C115.43,76.67 110.08,72.45 101.20,72.57 C98.87,72.57 96.16,72.89 95.09,73.26 Z";
 
-export default function ZyntaskMarkProgress({ size = 64, litRings = 0, corePulse = false }: Props) {
-  const ringOpacity = (index: number) => (litRings > index ? 1 : 0.12);
+export default function ZyntaskMarkProgress({ size = 76, litRings = 0, corePulse = false }: Props) {
+  const isLit = (index: number) => litRings > index;
+  const ringStyle = (index: number) => ({
+    transition: "opacity 900ms ease, filter 900ms ease",
+    opacity: isLit(index) ? 1 : 0.16,
+    filter: isLit(index) ? "drop-shadow(0 0 6px rgba(91,75,255,0.55))" : "none",
+  });
+  const coreLit = litRings >= 3;
+
   return (
     <svg viewBox="0 0 200 200" width={size} height={size} style={{ flexShrink: 0, overflow: "visible" }}>
       <defs>
@@ -19,15 +26,16 @@ export default function ZyntaskMarkProgress({ size = 64, litRings = 0, corePulse
           <stop offset="100%" stopColor="#2F8CF0" />
         </linearGradient>
       </defs>
-      <path d={RING1} fill="#5B4BFF" fillRule="evenodd" opacity={ringOpacity(0)} style={{ transition: "opacity 900ms ease" }} />
-      <path d={RING2} fill="#5B4BFF" fillRule="evenodd" opacity={ringOpacity(1)} style={{ transition: "opacity 900ms ease" }} />
-      <path d={RING3} fill="#5B4BFF" fillRule="evenodd" opacity={ringOpacity(2)} style={{ transition: "opacity 900ms ease" }} />
+      <path d={RING1} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(0)} />
+      <path d={RING2} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(1)} />
+      <path d={RING3} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(2)} />
       <path
         d={CORE}
         fill="url(#zyntaskMarkProgressGrad)"
-        opacity={litRings >= 3 ? 1 : 0.12}
         style={{
-          transition: "opacity 900ms ease",
+          transition: "opacity 900ms ease, filter 900ms ease",
+          opacity: coreLit ? 1 : 0.16,
+          filter: coreLit ? "drop-shadow(0 0 10px rgba(47,140,240,0.6))" : "none",
           animation: corePulse ? "zyntaskCorePulse 1.4s ease-out 1" : "none",
           transformOrigin: "100px 108px",
         }}
