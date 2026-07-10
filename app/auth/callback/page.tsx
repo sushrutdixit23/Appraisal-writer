@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import ZyntaskLoader from "../../components/ZyntaskLoader";
 
 async function findProfile(userId: string) {
   const result = await supabase.from("profiles").select("id").eq("auth_user_id", userId).maybeSingle();
@@ -63,25 +64,12 @@ export default function AuthCallback() {
   return (
     <main className="min-h-screen flex items-center justify-center" style={{ background: "#16181F" }}>
       <div className="text-center px-6">
-        <div className="w-14 h-14 rounded-[16px] flex items-center justify-center mx-auto mb-8 shadow-[0_8px_28px_rgba(91,75,255,0.4)]" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>
-          <svg viewBox="0 0 20 20" className="w-7 h-7 stroke-white fill-none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 10.5 8.5 15 16 5.5" />
-          </svg>
+        <div className="flex justify-center mb-6">
+          <ZyntaskLoader size={72} />
         </div>
         <p className="font-display font-semibold text-white text-[18px] mb-2">Zyntask</p>
-        <p className="text-[14px] mb-6" style={{ color: "#6b6880" }}>Signing you in</p>
-        <div className="flex items-center justify-center gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full" style={{
-              background: "#5B4BFF",
-              animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-              opacity: 0.4,
-            }} />
-          ))}
-        </div>
-        <style>{`@keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1.2)} }`}</style>
+        <p className="text-[14px]" style={{ color: "#6b6880" }}>Signing you in</p>
       </div>
     </main>
   );
 }
-
