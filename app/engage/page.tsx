@@ -280,20 +280,44 @@ export default function EngagePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Basic</p>
+                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Starter</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 3,999<span className="text-[15px] text-slate-light font-sans">/mo</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Rs 39,990/yr - 2 months free</p>
-                  <p className="text-[12px] text-indigo italic mb-5">Help me stay consistently visible.</p>
-                  <ul className="space-y-2 mb-6">
-                    {["Reply drafting for DMs and comments", "Bulk approve and skip", "Preview before you send", "Replies to your replies, caught automatically", "Post drafting, 3 ideas a week", "Scheduling and content calendar", "Approval-first workflow", "Basic analytics", "One LinkedIn profile"].map(f => (
+                  <p className="text-[12px] text-indigo italic mb-1">Stay consistently visible.</p>
+                  <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything needed to run your professional communication confidently.</p>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Core communication</p>
+                  <ul className="space-y-2 mb-4">
+                    {["50 approvals per day", "Reply drafting for DMs and comments", "AI post drafting, 3 ideas a week", "Approval-first workflow", "Bulk approve and skip", "Preview before you send", "Replies to your replies, caught automatically"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
                       </li>
                     ))}
                   </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Voice</p>
+                  <ul className="space-y-2 mb-4">
+                    {["Editable voice profile", "Voice learning from your edits", "Communication rules"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Organization</p>
+                  <ul className="space-y-2 mb-6">
+                    {["Daily communication summary", "Scheduling and content calendar", "One LinkedIn profile"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
                   <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/20 text-white hover:border-white/40 ${btn}`}>
-                    Choose Basic
+                    Choose Starter
                   </a>
                 </div>
 
@@ -302,33 +326,97 @@ export default function EngagePage() {
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Professional</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 8,999<span className="text-[15px] text-slate-light font-sans">/mo</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Rs 89,990/yr - 2 months free</p>
-                  <p className="text-[12px] text-indigo italic mb-5">Help me run my communication workflow.</p>
-                  <ul className="space-y-2 mb-6">
-                    {["Everything in Basic", "Unlimited post ideas", "Comment opportunity detection", "Voice profile, visible and editable", "Repurpose old posts with fresh angles", "Outcome tracking", "Advanced analytics and best-time posting"].map(f => (
+                  <p className="text-[12px] text-indigo italic mb-1">Run your entire communication workflow.</p>
+                  <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything in Starter, plus:</p>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Workflow intelligence</p>
+                  <ul className="space-y-2 mb-4">
+                    {["150 approvals per day", "Unlimited post ideas", "Comment opportunity detection", "Temperature sorting - hot, warm, cold"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                    {["Relationship memory", "Opportunity resurfacing"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light/50 leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-slate-light/50 stroke-[2] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7" strokeDasharray="2.5 2.5" /></svg>
+                        {f} <span className="italic text-slate-light/40">- soon</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Content intelligence</p>
+                  <ul className="space-y-2 mb-4">
+                    {["Repurpose old posts with fresh angles", "Best-time posting recommendations"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
                       </li>
                     ))}
                   </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Business intelligence</p>
+                  <ul className="space-y-2 mb-4">
+                    {["Outcome tracking - wins, not just activity", "Response time tracking"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Premium experience</p>
+                  <ul className="space-y-2 mb-6">
+                    {["Priority support", "Early access to new features"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
                   <a href="/onboard" className={`block text-center w-full py-2.5 rounded-xl text-[14px] text-white hover:opacity-90 ${btn}`} style={{background:"linear-gradient(115deg,#5B4BFF,#8a6ff0)"}}>
                     Choose Professional
                   </a>
                 </div>
 
                 <div className="bg-white/[0.05] border border-white/10 rounded-[22px] p-7 transition-all duration-300 hover:-translate-y-1">
-                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Founding Access</p>
+                  <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Founding Circle</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 60,000<span className="text-[15px] text-slate-light font-sans"> setup</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Then Rs 5,999/mo, locked for life</p>
-                  <p className="text-[12px] text-indigo italic mb-5">Help me operationalize this deeply.</p>
-                  <ul className="space-y-2 mb-6">
-                    {["Everything in Professional", "White-glove onboarding", "Voice and workflow tuned with you directly", "Founding-rate pricing locked permanently", "A direct line to the founder"].map(f => (
+                  <p className="text-[12px] text-indigo italic mb-1">Build Engage around your workflow.</p>
+                  <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything in Professional, plus:</p>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">White-glove setup</p>
+                  <ul className="space-y-2 mb-4">
+                    {["Concierge onboarding", "Voice profile tuned with you directly", "Rules configured together"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
                       </li>
                     ))}
                   </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Founder access</p>
+                  <ul className="space-y-2 mb-4">
+                    {["Direct access to the founder", "Private feedback channel", "Feature request priority"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2">Exclusive benefits</p>
+                  <ul className="space-y-2 mb-6">
+                    {["Lifetime founding pricing, locked permanently", "Early access to every future agent"].map(f => (
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
+                        <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
                   <a href="mailto:hello@zyntask.in" className={`block text-center w-full py-2.5 rounded-xl text-[14px] border border-white/20 text-white hover:border-white/40 ${btn}`}>
                     Talk to us
                   </a>
