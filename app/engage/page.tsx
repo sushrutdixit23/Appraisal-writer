@@ -284,7 +284,7 @@ export default function EngagePage() {
                   <p className="text-[13px] text-slate-light mb-1">Rs 39,990/yr - 2 months free</p>
                   <p className="text-[12px] text-indigo italic mb-5">Help me stay consistently visible.</p>
                   <ul className="space-y-2 mb-6">
-                    {["Reply drafting for DMs and comments", "Post drafting, 3 ideas a week", "Scheduling and content calendar", "Approval-first workflow", "Basic analytics", "One LinkedIn profile"].map(f => (
+                    {["Reply drafting for DMs and comments", "Bulk approve and skip", "Preview before you send", "Replies to your replies, caught automatically", "Post drafting, 3 ideas a week", "Scheduling and content calendar", "Approval-first workflow", "Basic analytics", "One LinkedIn profile"].map(f => (
                       <li key={f} className="flex items-start gap-2 text-[13px] text-slate-light leading-relaxed">
                         <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 mt-0.5 stroke-indigo stroke-[2.5] fill-none flex-shrink-0" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8.5 15 16 5.5" /></svg>
                         {f}
