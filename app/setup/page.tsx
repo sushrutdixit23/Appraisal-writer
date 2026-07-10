@@ -379,8 +379,8 @@ export default function SetupWizard() {
                     value={samples[i]}
                     onChange={(e) => setSample(i, e.target.value)}
                     placeholder={`Example ${i + 1}...`}
-                    rows={2}
-                    className={inputClass + " resize-none"}
+                    rows={5}
+                    className={inputClass + " resize-y"}
                   />
                 ))}
               </div>
@@ -394,7 +394,7 @@ export default function SetupWizard() {
             <motion.div key="step7" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.45 }} className="text-center">
               <h1 className="font-serif font-semibold text-[28px] text-ink mb-2">Stay ready before conversations happen.</h1>
               <p className="text-slate text-[14px] mb-7 max-w-[42ch] mx-auto">Add people whose posts matter to your work - a boss, a client, a peer. Optional.</p>
-              <div className="max-w-md mx-auto mb-8 text-left">
+              <div className="max-w-xl mx-auto mb-8 text-left">
                 <CommentTargets />
               </div>
               <button onClick={() => setStep(8)} className={btnClass} style={{ background: "var(--grad)" }}>

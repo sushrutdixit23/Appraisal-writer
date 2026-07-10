@@ -10,43 +10,61 @@ const RING3 = "M94.65,54.18 C90.30,55.06 84.19,58.59 80.16,62.62 C77.01,65.71 74
 const CORE = "M95.09,73.26 C89.48,75.28 84.82,80.13 80.54,88.44 C78.90,91.53 74.87,98.71 71.47,104.38 C66.68,112.31 65.17,115.46 64.60,118.48 C62.53,128.81 68.76,139.08 79.34,142.73 C82.05,143.68 85.14,143.80 100.76,143.80 C110.83,143.87 120.03,143.61 121.22,143.36 C127.14,142.10 133.88,136.43 136.47,130.64 C138.10,126.92 138.61,121.26 137.66,117.41 C137.22,115.78 134.51,110.42 131.62,105.57 C128.78,100.72 124.50,93.29 122.17,89.01 C115.43,76.67 110.08,72.45 101.20,72.57 C98.87,72.57 96.16,72.89 95.09,73.26 Z";
 
 export default function ZyntaskMarkProgress({ size = 76, litRings = 0, corePulse = false }: Props) {
+  const clampedRings = Math.min(Math.max(litRings, 0), 3);
+  const progress = clampedRings / 3;
   const isLit = (index: number) => litRings > index;
-  const ringStyle = (index: number) => ({
-    transition: "opacity 900ms ease, filter 900ms ease",
-    opacity: isLit(index) ? 1 : 0.16,
-    filter: isLit(index) ? "drop-shadow(0 0 6px rgba(91,75,255,0.55))" : "none",
-  });
   const coreLit = litRings >= 3;
 
+  const ringStyle = (index: number) => ({
+    transition: "opacity 700ms ease, filter 700ms ease",
+    opacity: isLit(index) ? 1 : 0.10,
+    filter: isLit(index) ? "drop-shadow(0 0 5px rgba(91,75,255,0.6))" : "none",
+  });
+
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size} style={{ flexShrink: 0, overflow: "visible" }}>
-      <defs>
-        <linearGradient id="zyntaskMarkProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1E1EE0" />
-          <stop offset="100%" stopColor="#2F8CF0" />
-        </linearGradient>
-      </defs>
-      <path d={RING1} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(0)} />
-      <path d={RING2} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(1)} />
-      <path d={RING3} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(2)} />
-      <path
-        d={CORE}
-        fill="url(#zyntaskMarkProgressGrad)"
-        style={{
-          transition: "opacity 900ms ease, filter 900ms ease",
-          opacity: coreLit ? 1 : 0.16,
-          filter: coreLit ? "drop-shadow(0 0 10px rgba(47,140,240,0.6))" : "none",
-          animation: corePulse ? "zyntaskCorePulse 1.4s ease-out 1" : "none",
-          transformOrigin: "100px 108px",
-        }}
-      />
-      <style>{`
-        @keyframes zyntaskCorePulse {
-          0% { transform: scale(1); }
-          40% { transform: scale(1.12); }
-          100% { transform: scale(1); }
-        }
-      `}</style>
-    </svg>
+    <div style={{ position: "relative", width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Glow halo - the primary, reliably visible progress signal */}
+      <div style={{
+        position: "absolute",
+        width: size * 2.4,
+        height: size * 2.4,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(91,75,255,0.6) 0%, rgba(47,140,240,0.28) 42%, transparent 70%)",
+        filter: `blur(${10 + progress * 12}px)`,
+        opacity: 0.12 + progress * 0.68,
+        transition: "opacity 800ms ease, filter 800ms ease",
+        pointerEvents: "none",
+      }} />
+
+      <svg viewBox="0 0 200 200" width={size} height={size} style={{ position: "relative", overflow: "visible" }}>
+        <defs>
+          <linearGradient id="zyntaskMarkProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E1EE0" />
+            <stop offset="100%" stopColor="#2F8CF0" />
+          </linearGradient>
+        </defs>
+        <path d={RING1} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(0)} />
+        <path d={RING2} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(1)} />
+        <path d={RING3} fill="#5B4BFF" fillRule="evenodd" style={ringStyle(2)} />
+        <path
+          d={CORE}
+          fill="url(#zyntaskMarkProgressGrad)"
+          style={{
+            transition: "opacity 800ms ease, filter 800ms ease",
+            opacity: coreLit ? 1 : 0.15 + progress * 0.5,
+            filter: coreLit ? "drop-shadow(0 0 8px rgba(47,140,240,0.65))" : "none",
+            animation: corePulse ? "zyntaskCorePulse 1.4s ease-out 1" : "none",
+            transformOrigin: "100px 108px",
+          }}
+        />
+        <style>{`
+          @keyframes zyntaskCorePulse {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+          }
+        `}</style>
+      </svg>
+    </div>
   );
 }
