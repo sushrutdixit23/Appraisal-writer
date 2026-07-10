@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
-import ZyntaskMarkProgress from "../components/ZyntaskMarkProgress";
 import ZyntaskLoader from "../components/ZyntaskLoader";
 import CommentTargets from "../components/CommentTargets";
 
@@ -117,13 +116,16 @@ export default function SetupWizard() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const sample_replies = samples.map((s) => s.trim()).filter(Boolean);
+        const autoSignoff = fullName.trim() ? `- ${fullName.trim().split(" ")[0]}` : "";
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
             voice_tone: selectedTones.join(", "),
+            voice_signoff: autoSignoff,
             voice_rules: rules.trim(),
-            sample_replies,
+            sample1: samples[0]?.trim() || "",
+            sample2: samples[1]?.trim() || "",
+            sample3: samples[2]?.trim() || "",
           })
           .eq("auth_user_id", session.user.id);
 
@@ -179,7 +181,9 @@ export default function SetupWizard() {
         voice_tone: "",
         voice_signoff: "",
         voice_rules: "",
-        sample_replies: [],
+        sample1: "",
+        sample2: "",
+        sample3: "",
       });
       if (insertError) throw new Error(insertError.message);
       setStep(2);
@@ -239,7 +243,7 @@ export default function SetupWizard() {
       <div className="aurora-field" />
       <div className="relative z-10 w-full max-w-lg">
         <div className="flex justify-center mb-10">
-          <ZyntaskMarkProgress size={76} litRings={ringsForStep(step)} corePulse={step === 9} />
+          <ZyntaskLoader size={76} />
         </div>
 
         <AnimatePresence mode="wait">
@@ -394,7 +398,7 @@ export default function SetupWizard() {
             <motion.div key="step7" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.45 }} className="text-center">
               <h1 className="font-serif font-semibold text-[28px] text-ink mb-2">Stay ready before conversations happen.</h1>
               <p className="text-slate text-[14px] mb-7 max-w-[42ch] mx-auto">Add people whose posts matter to your work - a boss, a client, a peer. Optional.</p>
-              <div className="max-w-xl mx-auto mb-8 text-left">
+              <div className="max-w-2xl mx-auto mb-8 text-left">
                 <CommentTargets />
               </div>
               <button onClick={() => setStep(8)} className={btnClass} style={{ background: "var(--grad)" }}>
