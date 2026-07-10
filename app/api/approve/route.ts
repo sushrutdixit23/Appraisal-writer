@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
   const formData = new URLSearchParams();
   formData.append("text", text);
   formData.append("account_id", client.unipile_account_id);
+  if (interaction.type === "comment") {
+    formData.append("comment_id", interaction.id);
+  }
 
   const unipileRes = await fetch(unipileUrl, {
     method: "POST",
@@ -70,7 +73,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unipile error: ${errText}` }, { status: 502 });
   }
 
-  await supabase.from("interactions").update({ status: "sent" }).eq("id", id).eq("client_id", client_id);
+  let sentCommentId: string | null = null;
+  if (interaction.type !== "dm") {
+    try {
+      const unipileData = await unipileRes.json();
+      sentCommentId = unipileData?.id || unipileData?.object?.id || null;
+    } catch { /* non-fatal - threading detection just won't work for this one */ }
+  }
+
+  await supabase.from("interactions").update({ status: "sent", sent_comment_id: sentCommentId }).eq("id", id).eq("client_id", client_id);
   await supabase.from("send_log").insert({ client_id });
 
   // Log response time
