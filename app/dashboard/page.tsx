@@ -75,7 +75,7 @@ function TempDot({ temp }: { temp: string | null }) {
 
 // DetailPanel defined OUTSIDE Dashboard to prevent re-mount on every render
 function DetailPanel({
-  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, attachments, uploadingAttachment, onUploadFiles, onRemoveAttachment, view
+  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, attachments, uploadingAttachment, onUploadFiles, onRemoveAttachment, onReorder, view
 }: {
   item: Interaction;
   drafts: Record<string, string>;
@@ -94,6 +94,7 @@ function DetailPanel({
   uploadingAttachment: boolean;
   onUploadFiles: (files: FileList | File[]) => void;
   onRemoveAttachment: (url: string) => void;
+  onReorder: (index: number, direction: -1 | 1) => void;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
@@ -263,12 +264,27 @@ function DetailPanel({
               {isPost ? (
                 <div className="space-y-3">
                   <p className="text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap">{drafts[item.id] || "Nothing written yet."}</p>
-                  {attachments.map(a => (
-                    <div key={a.url} className="rounded-lg border border-white/10 px-3 py-2 text-[11.5px] text-slate-light flex items-center gap-2">
-                      <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
-                      {a.name}
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {attachments.map((a, i) => (
+                        <div key={a.url} className="relative group">
+                          {a.type.startsWith("image/") ? (
+                            <img src={a.previewUrl} alt={a.name} className="rounded-lg w-20 h-20 object-cover border border-white/10" />
+                          ) : (
+                            <div className="w-20 h-20 rounded-lg border border-white/10 bg-black/25 flex flex-col items-center justify-center gap-1 px-1.5">
+                              <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-slate-light stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
+                              <span className="text-[9px] text-slate-light text-center leading-tight line-clamp-2">{a.name}</span>
+                            </div>
+                          )}
+                          <button onClick={() => onRemoveAttachment(a.url)} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose text-white text-[9px] flex items-center justify-center">&times;</button>
+                          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => onReorder(i, -1)} disabled={i === 0} className="w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center disabled:opacity-30">&lsaquo;</button>
+                            <button onClick={() => onReorder(i, 1)} disabled={i === attachments.length - 1} className="w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center disabled:opacity-30">&rsaquo;</button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : item.type === "comment" ? (
                 <div className="space-y-3">
@@ -345,7 +361,7 @@ function DetailPanel({
                 <span className="text-[12px] text-slate-light flex-1 truncate">
                   {uploadingAttachment ? "Uploading..." : attachments.length > 0 ? `${attachments[0].name}${attachments.length > 1 ? ` +${attachments.length - 1} more` : ""}` : "Attach images, video, or documents"}
                 </span>
-                {attachments.length > 0 && <button onClick={() => attachments.forEach(a => onRemoveAttachment(a.url))} className="text-rose text-[10px]">Remove</button>}
+                
                 <input type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple className="hidden"
                   onChange={e => {
                     if (e.target.files && e.target.files.length > 0) onUploadFiles(e.target.files);
@@ -473,6 +489,16 @@ export default function Dashboard() {
       const found = prev.find(a => a.url === url);
       if (found) URL.revokeObjectURL(found.previewUrl);
       return prev.filter(a => a.url !== url);
+    });
+  };
+
+  const moveAttachment = (index: number, direction: -1 | 1) => {
+    setAttachments(prev => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
     });
   };
   const [showChecklist, setShowChecklist] = useState(false);
@@ -1160,7 +1186,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="rounded-[24px] p-8 overflow-hidden border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
-                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} view={view} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} onReorder={moveAttachment} view={view} />
                 </div>
               ) : null}
             </div>
@@ -1181,7 +1207,7 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} onReorder={moveAttachment} view={view} />
             </div>
           </div>
         </div>
@@ -1307,14 +1333,18 @@ export default function Dashboard() {
                 </label>
                 {attachments.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-2">
-                    {attachments.map(a => (
-                      <div key={a.url} className="relative">
+                    {attachments.map((a, i) => (
+                      <div key={a.url} className="relative group">
                         {a.type.startsWith("image/") ? (
                           <img src={a.previewUrl} alt={a.name} className="rounded-lg max-h-[100px] object-cover border border-white/10" />
                         ) : (
                           <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-[11px] text-slate-light">{a.name}</div>
                         )}
                         <button onClick={() => removeAttachment(a.url)} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose text-white text-[9px] flex items-center justify-center">&times;</button>
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => moveAttachment(i, -1)} disabled={i === 0} className="w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center disabled:opacity-30">&lsaquo;</button>
+                          <button onClick={() => moveAttachment(i, 1)} disabled={i === attachments.length - 1} className="w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center disabled:opacity-30">&rsaquo;</button>
+                        </div>
                       </div>
                     ))}
                   </div>
