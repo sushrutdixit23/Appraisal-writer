@@ -1,4 +1,5 @@
 "use client";
+import { upload } from "@vercel/blob/client";
 export const dynamic = "force-dynamic";
 
 import ZyntaskLoader from "../components/ZyntaskLoader";
@@ -74,7 +75,7 @@ function TempDot({ temp }: { temp: string | null }) {
 
 // DetailPanel defined OUTSIDE Dashboard to prevent re-mount on every render
 function DetailPanel({
-  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, attachmentData, attachmentName, attachmentType, setAttachmentData, setAttachmentName, setAttachmentType, view
+  item, drafts, setDrafts, busyId, handleApprove, handleSkip, handlePublishPost, handleSchedulePost, schedulingPost, handleMarkOutcome, outcomeMenuId, setOutcomeMenuId, markingOutcome, attachments, uploadingAttachment, onUploadFiles, onRemoveAttachment, view
 }: {
   item: Interaction;
   drafts: Record<string, string>;
@@ -89,12 +90,10 @@ function DetailPanel({
   outcomeMenuId: string | null;
   setOutcomeMenuId: (id: string | null) => void;
   markingOutcome: string | null;
-  attachmentData: string | null;
-  attachmentName: string | null;
-  attachmentType: string | null;
-  setAttachmentData: (v: string | null) => void;
-  setAttachmentName: (v: string | null) => void;
-  setAttachmentType: (v: string | null) => void;
+  attachments: { url: string; name: string; type: string; previewUrl: string }[];
+  uploadingAttachment: boolean;
+  onUploadFiles: (files: FileList | File[]) => void;
+  onRemoveAttachment: (url: string) => void;
   view: string;
 }) {
   const isPost = item.type === "post_draft";
@@ -264,12 +263,12 @@ function DetailPanel({
               {isPost ? (
                 <div className="space-y-3">
                   <p className="text-[14.5px] text-white/90 leading-relaxed whitespace-pre-wrap">{drafts[item.id] || "Nothing written yet."}</p>
-                  {attachmentName && (
-                    <div className="rounded-lg border border-white/10 px-3 py-2 text-[11.5px] text-slate-light flex items-center gap-2">
+                  {attachments.map(a => (
+                    <div key={a.url} className="rounded-lg border border-white/10 px-3 py-2 text-[11.5px] text-slate-light flex items-center gap-2">
                       <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[1.8] fill-none flex-shrink-0" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
-                      {attachmentName}
+                      {a.name}
                     </div>
-                  )}
+                  ))}
                 </div>
               ) : item.type === "comment" ? (
                 <div className="space-y-3">
@@ -343,20 +342,14 @@ function DetailPanel({
             <div className="mb-2">
               <label className="flex items-center gap-2 cursor-pointer w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-black/20 hover:border-white/25 transition-colors">
                 <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 stroke-current stroke-[1.8] fill-none flex-shrink-0 text-slate-light" strokeLinecap="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
-                <span className="text-[12px] text-slate-light flex-1 truncate">{attachmentName || "Attach image or document"}</span>
-                {attachmentName && <button onClick={() => { setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[10px]">Remove</button>}
-                <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden"
+                <span className="text-[12px] text-slate-light flex-1 truncate">
+                  {uploadingAttachment ? "Uploading..." : attachments.length > 0 ? `${attachments[0].name}${attachments.length > 1 ? ` +${attachments.length - 1} more` : ""}` : "Attach images, video, or documents"}
+                </span>
+                {attachments.length > 0 && <button onClick={() => attachments.forEach(a => onRemoveAttachment(a.url))} className="text-rose text-[10px]">Remove</button>}
+                <input type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple className="hidden"
                   onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) return;
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                      setAttachmentData(ev.target?.result as string);
-                      setAttachmentName(file.name);
-                      setAttachmentType(file.type);
-                    };
-                    reader.readAsDataURL(file);
+                    if (e.target.files && e.target.files.length > 0) onUploadFiles(e.target.files);
+                    e.target.value = "";
                   }}
                 />
               </label>
@@ -444,10 +437,44 @@ export default function Dashboard() {
   const [postTopic, setPostTopic] = useState("");
   const [postNotes, setPostNotes] = useState("");
   const [draftingPost, setDraftingPost] = useState(false);
-  const [attachmentData, setAttachmentData] = useState<string | null>(null);
-  const [attachmentName, setAttachmentName] = useState<string | null>(null);
-  const [attachmentType, setAttachmentType] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<{ url: string; name: string; type: string; previewUrl: string }[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  const uploadAttachmentFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+    setUploadingAttachment(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      for (const file of fileArray) {
+        if (file.size > 15 * 1024 * 1024) {
+          showToast(`${file.name} is too large. Max 15MB.`);
+          continue;
+        }
+        try {
+          const blob = await upload(file.name, file, {
+            access: "private",
+            handleUploadUrl: "/api/blob-upload-token",
+            clientPayload: JSON.stringify({ access_token: session?.access_token }),
+          });
+          setAttachments(prev => [...prev, { url: blob.url, name: file.name, type: file.type, previewUrl: URL.createObjectURL(file) }]);
+        } catch (err: any) {
+          showToast(err?.message || `Could not upload ${file.name}.`);
+        }
+      }
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const removeAttachment = (url: string) => {
+    setAttachments(prev => {
+      const found = prev.find(a => a.url === url);
+      if (found) URL.revokeObjectURL(found.previewUrl);
+      return prev.filter(a => a.url !== url);
+    });
+  };
   const [showChecklist, setShowChecklist] = useState(false);
 
   const loadMeta = async (clientId: string) => {
@@ -698,12 +725,13 @@ export default function Dashboard() {
       const res = await fetch("/api/create-post", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ id: item.id, text, attachment_data: attachmentData, attachment_name: attachmentName, attachment_type: attachmentType }),
+        body: JSON.stringify({ id: item.id, text, attachments: attachments.map(a => ({ url: a.url, name: a.name, type: a.type })) }),
       });
       const result = await res.json();
       if (!res.ok) { showToast(result.error || "Failed to publish."); return; }
       showToast("Published to LinkedIn.");
-      setAttachmentData(null); setAttachmentName(null); setAttachmentType(null);
+      attachments.forEach(a => URL.revokeObjectURL(a.previewUrl));
+      setAttachments([]);
       setSheetOpen(false);
       if (myClientId) await loadQueue(myClientId, "posts");
     } catch { showToast("Could not reach the server."); }
@@ -1132,7 +1160,7 @@ export default function Dashboard() {
                 </div>
               ) : selected ? (
                 <div className="rounded-[24px] p-8 overflow-hidden border border-white/[0.10] md:h-[calc(100vh-160px)] md:flex md:flex-col" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)", boxShadow: "0 1px 0 rgba(255,255,255,0.10) inset, 0 1px 24px rgba(122,108,255,0.04), 0 30px 70px -25px rgba(0,0,0,0.7)" }}>
-                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
+                  <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} view={view} />
                 </div>
               ) : null}
             </div>
@@ -1153,7 +1181,7 @@ export default function Dashboard() {
               </svg>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachmentData={attachmentData} attachmentName={attachmentName} attachmentType={attachmentType} setAttachmentData={setAttachmentData} setAttachmentName={setAttachmentName} setAttachmentType={setAttachmentType} view={view} />
+              <DetailPanel item={selected} drafts={drafts} setDrafts={setDrafts} busyId={busyId} handleApprove={handleApprove} handleSkip={handleSkip} handlePublishPost={handlePublishPost} handleSchedulePost={handleSchedulePost} schedulingPost={schedulingPost} handleMarkOutcome={handleMarkOutcome} outcomeMenuId={outcomeMenuId} setOutcomeMenuId={setOutcomeMenuId} markingOutcome={markingOutcome} attachments={attachments} uploadingAttachment={uploadingAttachment} onUploadFiles={uploadAttachmentFiles} onRemoveAttachment={removeAttachment} view={view} />
             </div>
           </div>
         </div>
@@ -1247,7 +1275,7 @@ export default function Dashboard() {
               </div>
               {/* File attachment - full width, own row, drag/drop + paste enabled */}
               <div className="mt-4">
-                <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Attach image <span className="normal-case opacity-60">(optional)</span></p>
+                <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Attach images, video, or documents <span className="normal-case opacity-60">(optional)</span></p>
                 <label
                   className={`flex items-center gap-2 cursor-pointer w-full px-4 py-3 rounded-xl border-2 border-dashed transition-colors ${dragOver ? "border-indigo/60 bg-indigo/[0.06]" : "border-white/15 bg-black/20 hover:border-white/25"}`}
                   onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1255,53 +1283,41 @@ export default function Dashboard() {
                   onDrop={e => {
                     e.preventDefault();
                     setDragOver(false);
-                    const file = e.dataTransfer.files?.[0];
-                    if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                      setAttachmentData(ev.target?.result as string);
-                      setAttachmentName(file.name);
-                      setAttachmentType(file.type);
-                    };
-                    reader.readAsDataURL(file);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) onUploadFiles(e.dataTransfer.files);
                   }}
                   onPaste={e => {
                     const clipItem = Array.from(e.clipboardData.items).find(it => it.type.startsWith("image/"));
                     if (!clipItem) return;
                     const file = clipItem.getAsFile();
                     if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                      setAttachmentData(ev.target?.result as string);
-                      setAttachmentName(file.name);
-                      setAttachmentType(file.type);
-                    };
-                    reader.readAsDataURL(file);
+                    onUploadFiles([file]);
                   }}
                   tabIndex={0}
                 >
                   <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none flex-shrink-0 text-slate-light" strokeLinecap="round" strokeLinejoin="round"><path d="M4 16l4-4 3 3 4-5 5 6H4z"/><circle cx="7" cy="7" r="1.5"/><rect x="2" y="2" width="16" height="16" rx="2"/></svg>
-                  <span className="text-[13px] text-slate-light flex-1 truncate">{attachmentName || "Drop, paste, or click to choose an image"}</span>
-                  {attachmentName && <button onClick={(e) => { e.preventDefault(); setAttachmentData(null); setAttachmentName(null); setAttachmentType(null); }} className="text-rose text-[11px] hover:underline flex-shrink-0">Remove</button>}
-                  <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden"
+                  <span className="text-[13px] text-slate-light flex-1 truncate">
+                    {uploadingAttachment ? "Uploading..." : attachments.length > 0 ? `${attachments.length} file${attachments.length > 1 ? "s" : ""} attached` : "Drop, paste, or click to choose files"}
+                  </span>
+                  <input type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple className="hidden"
                     onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 5 * 1024 * 1024) { showToast("File too large. Max 5MB."); return; }
-                      const reader = new FileReader();
-                      reader.onload = ev => {
-                        setAttachmentData(ev.target?.result as string);
-                        setAttachmentName(file.name);
-                        setAttachmentType(file.type);
-                      };
-                      reader.readAsDataURL(file);
+                      if (e.target.files && e.target.files.length > 0) onUploadFiles(e.target.files);
+                      e.target.value = "";
                     }}
                   />
                 </label>
-                {attachmentData && (attachmentType || "").startsWith("image/") && (
-                  <img src={attachmentData} alt="attachment preview" className="mt-2.5 rounded-lg max-h-[140px] object-cover border border-white/10" />
+                {attachments.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {attachments.map(a => (
+                      <div key={a.url} className="relative">
+                        {a.type.startsWith("image/") ? (
+                          <img src={a.previewUrl} alt={a.name} className="rounded-lg max-h-[100px] object-cover border border-white/10" />
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-[11px] text-slate-light">{a.name}</div>
+                        )}
+                        <button onClick={() => onRemoveAttachment(a.url)} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose text-white text-[9px] flex items-center justify-center">&times;</button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

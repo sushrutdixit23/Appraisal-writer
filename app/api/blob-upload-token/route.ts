@@ -9,11 +9,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async () => {
-        // Authenticate the user before issuing an upload token.
-        // Without this check, anyone could upload arbitrary files to the store.
-        const authHeader = request.headers.get("authorization");
-        const token = authHeader?.replace("Bearer ", "");
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // The Blob client SDK cannot attach custom headers to this request,
+        // so the auth token travels via clientPayload instead of a header.
+        let token: string | undefined;
+        try {
+          token = JSON.parse(clientPayload || "{}").access_token;
+        } catch {
+          // fall through, token stays undefined
+        }
         if (!token) throw new Error("Not authenticated.");
 
         const supabase = createClient(
