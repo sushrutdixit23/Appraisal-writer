@@ -1283,14 +1283,14 @@ export default function Dashboard() {
                   onDrop={e => {
                     e.preventDefault();
                     setDragOver(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) onUploadFiles(e.dataTransfer.files);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) uploadAttachmentFiles(e.dataTransfer.files);
                   }}
                   onPaste={e => {
                     const clipItem = Array.from(e.clipboardData.items).find(it => it.type.startsWith("image/"));
                     if (!clipItem) return;
                     const file = clipItem.getAsFile();
                     if (!file) return;
-                    onUploadFiles([file]);
+                    uploadAttachmentFiles([file]);
                   }}
                   tabIndex={0}
                 >
@@ -1300,7 +1300,7 @@ export default function Dashboard() {
                   </span>
                   <input type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple className="hidden"
                     onChange={e => {
-                      if (e.target.files && e.target.files.length > 0) onUploadFiles(e.target.files);
+                      if (e.target.files && e.target.files.length > 0) uploadAttachmentFiles(e.target.files);
                       e.target.value = "";
                     }}
                   />
@@ -1314,7 +1314,7 @@ export default function Dashboard() {
                         ) : (
                           <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-black/20 text-[11px] text-slate-light">{a.name}</div>
                         )}
-                        <button onClick={() => onRemoveAttachment(a.url)} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose text-white text-[9px] flex items-center justify-center">&times;</button>
+                        <button onClick={() => removeAttachment(a.url)} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose text-white text-[9px] flex items-center justify-center">&times;</button>
                       </div>
                     ))}
                   </div>
