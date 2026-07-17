@@ -1,4 +1,5 @@
 "use client";
+import { motion, AnimatePresence } from "framer-motion";
 import { upload } from "@vercel/blob/client";
 export const dynamic = "force-dynamic";
 
@@ -413,6 +414,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Interaction[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exitingId, setExitingId] = useState<string | null>(null);
+  const [exitDirection, setExitDirection] = useState<"right" | "left">("right");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -635,6 +638,8 @@ export default function Dashboard() {
   const handleApprove = async (item: Interaction) => {
     const text = drafts[item.id]?.trim();
     if (!text) { showToast("Write a reply before approving."); return; }
+    setExitingId(item.id);
+    setExitDirection("right");
     setBusyId(item.id);
     try {
       const res = await fetch("/api/approve", {
@@ -676,6 +681,8 @@ export default function Dashboard() {
   };
 
   const handleSkip = async (item: Interaction, reason?: string) => {
+    setExitingId(item.id);
+    setExitDirection("left");
     setBusyId(item.id);
     try {
       const res = await fetch("/api/skip", {
@@ -1129,9 +1136,13 @@ export default function Dashboard() {
                   {items.length === 0 ? emptyCopy.body : "Nothing matches this filter."}
                 </div>
               ) : (
-                visibleItems.map((item) => (
-                  <button
+                <AnimatePresence>
+                {visibleItems.map((item) => (
+                  <motion.button
                     key={item.id}
+                    layout
+                    exit={{ x: exitingId === item.id ? (exitDirection === "right" ? 320 : -320) : 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
                     onClick={() => handleSelectItem(item.id)}
                     className="w-full text-left px-4 md:px-5 py-4 border-b border-white/10 last:border-0 transition-colors active:bg-white/5"
                     style={item.id === selectedId ? { background: "linear-gradient(90deg, rgba(91,75,255,0.10), rgba(91,75,255,0.02))", borderLeft: "3px solid #7A6CFF", boxShadow: "inset 0 0 0 1px rgba(122,108,255,0.08)" } : { borderLeft: "3px solid transparent", opacity: 0.82 }}
@@ -1186,8 +1197,9 @@ export default function Dashboard() {
                         )}
                       </div>
                     )}
-                  </button>
-                ))
+                  </motion.button>
+                ))}
+                </AnimatePresence>
               )}
               </div>
             </div>
