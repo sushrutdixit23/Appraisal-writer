@@ -46,7 +46,7 @@ export default function EngagePage() {
           <section id="features" className="py-20">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[620px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Major features</span>
+                <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">Major features</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,42px)] text-white">What Engage actually does for you.</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -89,7 +89,7 @@ export default function EngagePage() {
           <section id="how" className="py-24">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[660px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">How it works</span>
+                <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">How it works</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">Three simple steps.</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -113,7 +113,7 @@ export default function EngagePage() {
           <section className="py-24">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[660px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">New</span>
+                <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">New</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] text-white">Know which leads to chase first.</h2>
                 <p className="text-slate-light text-[16px] mt-4 leading-relaxed max-w-[52ch] mx-auto">Not every message is equal. Engage reads intent and tells you where the real opportunities are - so your time goes to the conversations that matter.</p>
               </div>
@@ -149,7 +149,7 @@ export default function EngagePage() {
             <div className="max-w-6xl mx-auto px-6">
               <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr] gap-10 items-center">
                 <div>
-                  <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">The part that compounds</span>
+                  <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">The part that compounds</span>
                   <h2 className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,42px)] mb-5 text-white">It sounds more like you every week.</h2>
                   <p className="text-[16px] text-slate-light leading-relaxed mb-4">Most AI writing tools produce the same generic voice for everyone. Engage learns yours from your last 100 messages in under 60 seconds, then gets sharper every time you edit a draft.</p>
                   <p className="text-[16px] text-slate-light leading-relaxed">This is not a setting you configure once. It is a profile that keeps building - your tone, your phrasing, your rhythm - and it is yours to see and edit at any time, never a black box.</p>
@@ -185,12 +185,12 @@ export default function EngagePage() {
             <div className="max-w-6xl mx-auto px-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="bg-white/[0.05] border border-white/10 rounded-[24px] p-9">
-                  <span className="block font-mono text-sky text-[11px] tracking-[0.12em] uppercase mb-3.5">Response time</span>
+                  <span className="block font-mono text-slate-light text-[11px] tracking-[0.12em] uppercase mb-3.5">Response time</span>
                   <h3 className="font-display font-semibold text-[24px] tracking-tight mb-3 text-white">See how fast you really reply.</h3>
                   <p className="text-[15px] text-slate-light leading-relaxed">Every approval is timed, so you can see how quickly conversations get answered and watch that number improve. Speed is what turns a warm lead into a real one.</p>
                 </div>
                 <div className="bg-white/[0.05] border border-white/10 rounded-[24px] p-9">
-                  <span className="block font-mono text-sky text-[11px] tracking-[0.12em] uppercase mb-3.5">Set up in minutes</span>
+                  <span className="block font-mono text-slate-light text-[11px] tracking-[0.12em] uppercase mb-3.5">Set up in minutes</span>
                   <h3 className="font-display font-semibold text-[24px] tracking-tight mb-3 text-white">Connect yourself, start today.</h3>
                   <p className="text-[15px] text-slate-light leading-relaxed">No onboarding calls to wait for. Connect your LinkedIn securely and Engage scans your last 100 sent messages to learn your tone in under 60 seconds - your free trial begins the moment you are set up, all from your own dashboard.</p>
                 </div>
@@ -215,7 +215,7 @@ export default function EngagePage() {
         <Reveal>
           <section className="py-24">
             <div className="max-w-4xl mx-auto px-6 text-center">
-              <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Beyond content generated</span>
+              <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">Beyond content generated</span>
               <h2 className="font-serif font-semibold tracking-tight text-[clamp(28px,3.6vw,42px)] mb-5 text-white">What matters isn't what got posted. It's what it led to.</h2>
               <p className="text-slate-light text-[16px] leading-relaxed max-w-[58ch] mx-auto mb-10">Mark any conversation as a win - a client, a meeting, a referral - and Engage keeps a running record. Not impressions. Outcomes.</p>
               <div className="inline-flex items-center gap-3 bg-white/[0.06] border border-white/10 rounded-[18px] px-7 py-5">
@@ -230,7 +230,7 @@ export default function EngagePage() {
           <section className="py-24">
             <div className="max-w-5xl mx-auto px-6">
               <div className="max-w-[640px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">What this replaces</span>
+                <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">What this replaces</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] mb-5 text-white">The honest comparison.</h2>
                 <p className="text-slate-light text-[16px] leading-relaxed max-w-[52ch] mx-auto">Here is what a consistent, well-managed LinkedIn presence normally costs, and what you actually get for it.</p>
               </div>
@@ -266,7 +266,7 @@ export default function EngagePage() {
           <section id="pricing" className="py-24">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[640px] mx-auto mb-14 text-center">
-                <span className="block font-mono text-sky text-xs tracking-[0.12em] uppercase mb-3.5">Pricing</span>
+                <span className="block font-mono text-slate-light text-xs tracking-[0.12em] uppercase mb-3.5">Pricing</span>
                 <h2 className="font-serif font-semibold tracking-tight text-[clamp(30px,4vw,46px)] mb-5 text-white">Start free. Decide later.</h2>
                 <p className="text-slate-light text-[16px] leading-relaxed max-w-[50ch] mx-auto">Try Engage free for a week, no payment needed. Keep going only if it earns its place in your day.</p>
               </div>
@@ -288,7 +288,7 @@ export default function EngagePage() {
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Starter</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 3,999<span className="text-[15px] text-slate-light font-sans">/mo</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Rs 39,990/yr - 2 months free</p>
-                  <p className="text-[12px] text-indigo italic mb-1">Stay consistently visible.</p>
+                  <p className="text-[12px] text-slate-light italic mb-1">Stay consistently visible.</p>
                   <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything needed to run your professional communication confidently.</p>
 
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Core communication</p>
@@ -331,7 +331,7 @@ export default function EngagePage() {
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Professional</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 8,999<span className="text-[15px] text-slate-light font-sans">/mo</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Rs 89,990/yr - 2 months free</p>
-                  <p className="text-[12px] text-indigo italic mb-1">Run your entire communication workflow.</p>
+                  <p className="text-[12px] text-slate-light italic mb-1">Run your entire communication workflow.</p>
                   <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything in Starter, plus:</p>
 
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">Workflow intelligence</p>
@@ -379,7 +379,7 @@ export default function EngagePage() {
                   <p className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-3">Founding Circle</p>
                   <div className="font-serif font-semibold text-[32px] tracking-tight leading-none mb-1 text-white">Rs 60,000<span className="text-[15px] text-slate-light font-sans"> setup</span></div>
                   <p className="text-[13px] text-slate-light mb-1">Then Rs 5,999/mo, locked for life</p>
-                  <p className="text-[12px] text-indigo italic mb-1">Build Engage around your workflow.</p>
+                  <p className="text-[12px] text-slate-light italic mb-1">Build Engage around your workflow.</p>
                   <p className="text-[11.5px] text-slate-light mb-5 leading-relaxed">Everything in Professional, plus:</p>
 
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-light/70 mb-2 mt-4">White-glove setup</p>

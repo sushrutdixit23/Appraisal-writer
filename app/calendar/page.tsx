@@ -139,7 +139,7 @@ export default function CalendarPage() {
 
         <div className="max-w-6xl mx-auto px-6 pt-8 pb-20">
           <div className="mb-8">
-            <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-1">Content calendar</p>
+            <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-slate-light mb-1">Content calendar</p>
             <h1 className="font-display font-bold text-[28px] tracking-tight text-white">Your LinkedIn posts</h1>
           </div>
 
@@ -174,7 +174,7 @@ export default function CalendarPage() {
 
           {unscheduled.length > 0 && bestTimes.length > 0 && (
             <div className="rounded-[20px] p-5 mb-6 border border-white/[0.10]" style={{ background: "linear-gradient(165deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.015) 100%)" }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-indigo mb-1">Best times to post this week</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-light mb-1">Best times to post this week</p>
               <p className="text-[12px] text-slate-light mb-3">Your audience is most active Tuesday to Thursday, morning and early evening. The first hour after posting matters most for reach, so a good time to post is a good time to also check back in.</p>
               <div className="flex gap-3 flex-wrap">
                 {bestTimes.map((t, i) => (

@@ -342,7 +342,7 @@ function DetailPanel({
                 </div>
               ) : item.scheduled_at ? (
                 <div className="flex items-center justify-between gap-2 bg-indigo/10 border border-indigo/25 rounded-xl px-3.5 py-2.5">
-                  <span className="text-[12px] text-indigo font-medium">
+                  <span className="text-[12px] text-slate-light font-medium">
                     Scheduled {new Date(item.scheduled_at!).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {new Date(item.scheduled_at!).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <button onClick={() => setShowScheduler(true)} className="text-[11px] text-indigo hover:underline flex-shrink-0">Change</button>
@@ -958,7 +958,7 @@ export default function Dashboard() {
                 >
                   <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2] fill-none" strokeLinecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
                 </button>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo mb-3">New here? Start with these</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-light mb-3">New here? Start with these</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <button onClick={() => setDraftModalOpen(true)} className="text-left px-4 py-3 rounded-xl border border-white/[0.08] hover:border-indigo/40 transition-all" style={{ background: "rgba(255,255,255,0.02)" }}>
                     <p className="text-[13px] font-semibold text-white mb-0.5">Draft your first post</p>
@@ -1056,12 +1056,27 @@ export default function Dashboard() {
                       Select
                     </button>
                   ) : (
-                    <button
-                      onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
-                      className="text-[11px] font-medium text-slate-light hover:text-white transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => {
+                          const eligible = visibleItems.filter((i) => i.type !== "post_draft" && !i.requires_human).map((i) => i.id);
+                          const allSelected = eligible.length > 0 && eligible.every((id) => selectedIds.has(id));
+                          setSelectedIds(allSelected ? new Set() : new Set(eligible));
+                        }}
+                        className="text-[11px] font-medium text-indigo hover:text-white transition-colors"
+                      >
+                        {(() => {
+                          const eligible = visibleItems.filter((i) => i.type !== "post_draft" && !i.requires_human);
+                          return eligible.length > 0 && eligible.every((i) => selectedIds.has(i.id)) ? "Deselect all" : "Select all";
+                        })()}
+                      </button>
+                      <button
+                        onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+                        className="text-[11px] font-medium text-slate-light hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
