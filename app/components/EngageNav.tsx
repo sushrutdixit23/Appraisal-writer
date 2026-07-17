@@ -9,7 +9,10 @@
           <a href="/#agents" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Agents</a>
           <a href="/appraisal-writer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Appraisal Writer</a>
         </div>
-        <a href="/dashboard" className="px-4 py-2 rounded-xl text-[13.5px] font-semibold text-white whitespace-nowrap transition-all hover:opacity-90" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF,#8a6ff0)" }}>Dashboard</a>
+        <div className="flex items-center gap-3">
+          <a href="/?signin=true" className="hidden sm:inline text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap">Sign in</a>
+          <a href="/dashboard" className="px-4 py-2 rounded-xl text-[13.5px] font-semibold text-white whitespace-nowrap transition-all hover:opacity-90" style={{ background: "linear-gradient(115deg,#0A66C2,#5B4BFF,#8a6ff0)" }}>Dashboard</a>
+        </div>
       </div>
     </div>
   );

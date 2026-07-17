@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import ZyntaskMark from "./ZyntaskMark";
 
@@ -38,6 +39,14 @@ export default function SiteNav() {
   const [session, setSession] = useState<{ user: { id: string } } | null>(null);
   const [hasClient, setHasClient] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("signin") === "true") {
+      setTab("signin");
+      setAuthOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

@@ -595,7 +595,7 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) { router.replace("/"); return; }
+      if (!sessionData.session) { router.replace("/?signin=true"); return; }
       const { data: clientRow } = await supabase
         .from("clients")
         .select("id, status, trial_ends_at")
