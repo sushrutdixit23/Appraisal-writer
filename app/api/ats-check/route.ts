@@ -26,7 +26,7 @@ Scoring rules:
 
 export async function POST(req: Request) {
   try {
-    const { resumeText, jobDescription } = await req.json();
+    const { resumeText, jobDescription, targetRole } = await req.json();
 
     if (!resumeText?.trim()) {
       return NextResponse.json({ error: "Paste your resume text first." }, { status: 400 });
@@ -38,9 +38,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Job description too long. Keep it under 4000 characters." }, { status: 400 });
     }
 
-    const userMessage = jobDescription?.trim()
-      ? `RESUME:\n${resumeText}\n\nTARGET JOB DESCRIPTION:\n${jobDescription}`
-      : `RESUME:\n${resumeText}\n\n(No job description provided - skip keyword matching.)`;
+    let roleContext = "(No job description or target role provided - skip keyword matching.)";
+    if (jobDescription?.trim()) {
+      roleContext = `TARGET JOB DESCRIPTION:\n${jobDescription}`;
+    } else if (targetRole?.trim()) {
+      roleContext = `TARGET ROLE (no full job description given): ${targetRole}\n(Use this only for general context on phrasing and section relevance - skip keyword matching, there is no job description to match against.)`;
+    }
+
+    const userMessage = `RESUME:\n${resumeText}\n\n${roleContext}`;
 
     let raw: string;
     try {

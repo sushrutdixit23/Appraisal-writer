@@ -3,9 +3,6 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef } from "react";
 import SiteNav from "../components/SiteNav";
-import { supabase } from "../lib/supabase";
-
-const CREDIT_COST = 60;
 
 const ACCENT = "linear-gradient(115deg,#5B4BFF,#8a6ff0)";
 
@@ -116,8 +113,6 @@ export default function AppraisalWriter() {
     challenge: "", recognition: "", hidden: "",
   });
   const [current, setCurrent] = useState("");
-  const [credits, setCredits] = useState<number | null>(null);
-  const [session, setSession] = useState<any>(null);
   const [error, setError] = useState("");
   const [output, setOutput] = useState<Output | null>(null);
   const [rawOutput, setRawOutput] = useState("");
@@ -126,30 +121,6 @@ export default function AppraisalWriter() {
   const [editedGrowth, setEditedGrowth] = useState("");
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      setSession(s);
-      if (s) {
-        // Load credits
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("credits, voice_role, full_name")
-          .eq("auth_user_id", s.user.id)
-          .single();
-        if (profile) {
-          setCredits(profile.credits);
-          // Pre-fill role from voice profile if exists
-          if (profile.voice_role) {
-            setAnswers(prev => ({ ...prev, role: profile.voice_role }));
-            if (step === 0) setCurrent(profile.voice_role);
-          }
-        }
-      }
-    };
-    load();
-  }, []);
 
   useEffect(() => {
     // Focus input when step changes
@@ -208,29 +179,19 @@ export default function AppraisalWriter() {
     setError("");
 
     try {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (!s) { setError("Please sign in to continue."); setPhase("conversation"); return; }
-
       const rawInput = assembleRawInput(finalAnswers);
       const jobTitle = finalAnswers.role;
 
-      const res = await fetch("/api/generate-credits", {
+      const res = await fetch("/api/appraisal-generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${s.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobTitle, tone: "Confident", rawInput }),
       });
 
       const result = await res.json();
 
       if (!res.ok) {
-        if (result.code === "INSUFFICIENT_CREDITS") {
-          setError(`Not enough credits. You have ${result.credits}, this costs ${result.required}. Top up in your account settings.`);
-        } else {
-          setError(result.error || "Generation failed.");
-        }
+        setError(result.error || "Generation failed.");
         setPhase("conversation");
         return;
       }
@@ -241,7 +202,6 @@ export default function AppraisalWriter() {
       setEditedAchievements(parsed.achievements);
       setEditedSummary(parsed.summary);
       setEditedGrowth(parsed.growth);
-      setCredits(result.credits_remaining);
       setPhase("output");
 
     } catch (e: any) {
@@ -369,9 +329,7 @@ export default function AppraisalWriter() {
                 ← Start over
               </button>
               <div className="flex items-center gap-2">
-                {credits !== null && (
-                  <span className="text-[12px] text-slate font-mono">{credits} credits left</span>
-                )}
+                
                 <button
                   onClick={copyAll}
                   className="px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white hover:opacity-90 transition-all"
@@ -403,9 +361,7 @@ export default function AppraisalWriter() {
               <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo">
                 Question {step + 1} of {QUESTIONS.length}
               </p>
-              {credits !== null && (
-                <span className="font-mono text-[11px] text-slate">{credits} credits · costs {CREDIT_COST}</span>
-              )}
+              
             </div>
             <div className="h-[3px] bg-line rounded-full overflow-hidden">
               <div

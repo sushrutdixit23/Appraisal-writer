@@ -30,8 +30,36 @@ export default function AtsChecker() {
   const [phase, setPhase] = useState<Phase>("form");
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [targetRole, setTargetRole] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/parse-resume", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not read this file.");
+        setUploadedFileName("");
+      } else {
+        setResumeText(data.text);
+        setUploadedFileName(file.name);
+      }
+    } catch {
+      setError("Upload failed. Try pasting the text instead.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const analyze = async () => {
     if (!resumeText.trim()) {
@@ -45,7 +73,11 @@ export default function AtsChecker() {
       const res = await fetch("/api/ats-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText, jobDescription: jobDescription.trim() || undefined }),
+        body: JSON.stringify({
+          resumeText,
+          jobDescription: jobDescription.trim() || undefined,
+          targetRole: targetRole.trim() || undefined,
+        }),
       });
       const data = await res.json();
 
@@ -182,14 +214,32 @@ export default function AtsChecker() {
         <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
 
           <div className="mb-8 text-center">
-            <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-2">Free tool</p>
             <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Checker</h1>
-            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste your resume to get an ATS score, formatting fixes, and stronger phrasing. Add a job description for keyword matching.</p>
+            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume to get an ATS score, formatting fixes, and stronger phrasing. Add a target role or job description for sharper feedback.</p>
           </div>
 
           <div className="bg-cloud border border-line rounded-[24px] p-8 shadow-zy-sm mb-6">
             <label className="block mb-1.5">
-              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Resume text</span>
+              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Upload resume (PDF, DOCX, or TXT)</span>
+            </label>
+            <div className="flex items-center gap-3 mb-6">
+              <label className="cursor-pointer px-4 py-2.5 rounded-[11px] text-[13.5px] font-medium bg-mist border border-line text-ink hover:border-indigo/40 transition-colors">
+                {uploading ? "Reading file..." : "Choose file"}
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+              {uploadedFileName && !uploading && (
+                <span className="text-[13px] text-slate">{uploadedFileName} loaded</span>
+              )}
+            </div>
+
+            <label className="block mb-1.5">
+              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Or paste resume text</span>
             </label>
             <textarea
               value={resumeText}
@@ -199,6 +249,17 @@ export default function AtsChecker() {
               className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed mb-1"
             />
             <p className="text-[11px] text-slate-light mb-6">{resumeText.length}/8000</p>
+
+            <label className="block mb-1.5">
+              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Target role (optional)</span>
+            </label>
+            <input
+              type="text"
+              value={targetRole}
+              onChange={e => setTargetRole(e.target.value)}
+              placeholder="e.g. Business Analyst, Senior Product Manager..."
+              className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light focus:outline-none focus:border-indigo/40 transition-colors mb-6"
+            />
 
             <label className="block mb-1.5">
               <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Job description (optional)</span>
