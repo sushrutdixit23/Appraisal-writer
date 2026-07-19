@@ -76,9 +76,17 @@ export async function POST(req: Request) {
 
     let parsed;
     try {
-      const cleaned = raw.trim().replace(/^```json\s*/i, "").replace(/```$/, "");
+      let cleaned = raw.trim();
+      const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (fenceMatch) {
+        cleaned = fenceMatch[1];
+      } else {
+        const braceMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (braceMatch) cleaned = braceMatch[0];
+      }
       parsed = JSON.parse(cleaned);
     } catch {
+      console.error("ATS check: failed to parse model output:", raw);
       return NextResponse.json({ error: "Could not parse results. Please try again." }, { status: 500 });
     }
 
