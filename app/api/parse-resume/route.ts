@@ -1,10 +1,6 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { extractText, getDocumentProxy } from "unpdf";
 import mammoth from "mammoth";
-
-// pdf-parse ships inconsistent export shapes across ESM/CJS builds and
-// versions - require() sidesteps static ESM import resolution and resolves
-// the package's actual CommonJS entry point at runtime instead.
-const pdfParseFn: any = require("pdf-parse");
 
 export const runtime = "nodejs";
 
@@ -26,8 +22,9 @@ export async function POST(req: Request) {
     let text = "";
     try {
       if (name.endsWith(".pdf")) {
-        const data = await pdfParseFn(buffer);
-        text = data.text;
+        const pdf = await getDocumentProxy(new Uint8Array(buffer));
+        const result = await extractText(pdf, { mergePages: true });
+        text = Array.isArray(result.text) ? result.text.join("\n") : result.text;
       } else if (name.endsWith(".docx")) {
         const result = await mammoth.extractRawText({ buffer });
         text = result.value;

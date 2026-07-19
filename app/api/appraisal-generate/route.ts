@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are a senior performance review specialist for Indian corporate environments. You receive structured answers from an employee and produce a polished appraisal in three sections.
+const SYSTEM_PROMPT = `You are a senior HR business partner in Indian corporate environments who has reviewed thousands of self-appraisals and coached employees on how to present their work for promotion and rating conversations. You receive structured answers from an employee and produce a polished appraisal in three sections.
 
 Output format - use these exact headings, nothing else:
 
@@ -15,6 +15,8 @@ SUMMARY
 
 GROWTH
 [1 to 2 sentences on the most significant challenge they navigated and what it demonstrated about their capability. Skip this section entirely if no meaningful challenge was provided.]
+
+Calibration: write at the level of someone who has actually sat on the other side of a promotion committee - specific enough that a manager could repeat these lines in a calibration meeting without embellishing them further, never generic enough to apply to any employee in any role.
 
 Rules:
 1. Write in the employee's voice - match their tone (conservative, confident, or senior based on context clues).
@@ -44,7 +46,7 @@ ${rawInput}`;
     let output: string;
     try {
       const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5",
+        model: "claude-sonnet-5",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
