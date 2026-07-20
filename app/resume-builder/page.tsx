@@ -1,11 +1,26 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SiteNav from "../components/SiteNav";
 
 const ACCENT = "linear-gradient(115deg,#5B4BFF,#8a6ff0)";
 
 type Phase = "form" | "generating" | "output";
+
+type HandoffIssue = { issue: string; fix: string };
+type HandoffPhrasing = { original: string; fix: string };
+
+type Handoff = {
+  resumeText?: string;
+  targetRole?: string;
+  jobDescription?: string;
+  score?: number;
+  projected_score?: number;
+  verdict?: string;
+  formatting?: HandoffIssue[];
+  missing_sections?: string[];
+  phrasing?: HandoffPhrasing[];
+};
 
 function parseOutput(raw: string) {
   const changesMatch = raw.match(/CHANGES\s*([\s\S]*?)\s*(?:RESUME|$)/i);
@@ -17,17 +32,50 @@ function parseOutput(raw: string) {
   return { changes, resume };
 }
 
+function buildKnownIssuesText(h: Handoff): string {
+  const parts: string[] = [];
+  if (h.formatting?.length) {
+    parts.push("Formatting issues:\n" + h.formatting.map(f => `- ${f.issue} (fix: ${f.fix})`).join("\n"));
+  }
+  if (h.missing_sections?.length) {
+    parts.push("Missing sections: " + h.missing_sections.join(", "));
+  }
+  if (h.phrasing?.length) {
+    parts.push("Weak phrasing flagged:\n" + h.phrasing.map(p => `- "${p.original}" -> ${p.fix}`).join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
 export default function ResumeBuilder() {
   const [phase, setPhase] = useState<Phase>("form");
   const [resumeText, setResumeText] = useState("");
   const [targetRole, setTargetRole] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [additionalDetails, setAdditionalDetails] = useState("");
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [changes, setChanges] = useState<string[]>([]);
   const [editedResume, setEditedResume] = useState("");
   const [copied, setCopied] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
+  const [fromCheckerScore, setFromCheckerScore] = useState<number | null>(null);
+  const [knownIssuesText, setKnownIssuesText] = useState("");
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("ats_handoff");
+      if (raw) {
+        const h: Handoff = JSON.parse(raw);
+        if (h.resumeText) setResumeText(h.resumeText);
+        if (h.targetRole) setTargetRole(h.targetRole);
+        if (h.jobDescription) setJobDescription(h.jobDescription);
+        if (typeof h.score === "number") setFromCheckerScore(h.score);
+        setKnownIssuesText(buildKnownIssuesText(h));
+        sessionStorage.removeItem("ats_handoff");
+      }
+    } catch {}
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,13 +102,17 @@ export default function ResumeBuilder() {
     }
   };
 
-  const build = async () => {
+  const build = async (isRebuild: boolean = false) => {
     if (!resumeText.trim()) {
       setError("Paste or upload your resume first.");
       return;
     }
     setError("");
-    setPhase("generating");
+    if (isRebuild) {
+      setRebuilding(true);
+    } else {
+      setPhase("generating");
+    }
 
     try {
       const res = await fetch("/api/resume-build", {
@@ -70,13 +122,15 @@ export default function ResumeBuilder() {
           resumeText,
           targetRole: targetRole.trim() || undefined,
           jobDescription: jobDescription.trim() || undefined,
+          knownIssues: knownIssuesText.trim() || undefined,
+          additionalDetails: additionalDetails.trim() || undefined,
         }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error || "Generation failed.");
-        setPhase("form");
+        if (!isRebuild) setPhase("form");
         return;
       }
 
@@ -86,7 +140,9 @@ export default function ResumeBuilder() {
       setPhase("output");
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
-      setPhase("form");
+      if (!isRebuild) setPhase("form");
+    } finally {
+      setRebuilding(false);
     }
   };
 
@@ -100,6 +156,9 @@ export default function ResumeBuilder() {
     setPhase("form");
     setChanges([]);
     setEditedResume("");
+    setFromCheckerScore(null);
+    setKnownIssuesText("");
+    setAdditionalDetails("");
   };
 
   if (phase === "generating") {
@@ -152,7 +211,7 @@ export default function ResumeBuilder() {
             </div>
 
             {changes.length > 0 && (
-              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
+              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
                 <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed</p>
                 <div className="space-y-2.5">
                   {changes.map((c, i) => (
@@ -164,6 +223,28 @@ export default function ResumeBuilder() {
                 </div>
               </div>
             )}
+
+            <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
+              <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-2">Add or fix something else</p>
+              <p className="text-[13px] text-slate mb-4">Missed a project, wrong dates, a certification to add? Describe it and rebuild.</p>
+              <textarea
+                value={additionalDetails}
+                onChange={e => setAdditionalDetails(e.target.value)}
+                rows={4}
+                placeholder="e.g. Add my AWS certification from 2025, or: my role at X ended in March 2026, not May..."
+                className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed mb-4"
+              />
+              <div className="flex justify-end">
+                <button
+                  onClick={() => build(true)}
+                  disabled={rebuilding || !additionalDetails.trim()}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all disabled:opacity-40"
+                  style={{ background: ACCENT }}
+                >
+                  {rebuilding ? "Rebuilding..." : "Rebuild with these details"}
+                </button>
+              </div>
+            </div>
 
             <div className="flex items-center justify-between flex-wrap gap-3">
               <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">Start over</button>
@@ -187,6 +268,14 @@ export default function ResumeBuilder() {
             <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Builder</h1>
             <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume and get a rewritten, ATS-optimized version - stronger phrasing, cleaner structure, ready to copy.</p>
           </div>
+
+          {fromCheckerScore !== null && (
+            <div className="bg-cloud border border-indigo/30 rounded-[16px] p-4 mb-6 text-center">
+              <p className="text-[13.5px] text-ink">
+                Loaded from your ATS check (score: <span className="font-semibold">{fromCheckerScore}</span>) - the issues it found will be prioritized in this rewrite.
+              </p>
+            </div>
+          )}
 
           <div className="bg-cloud border border-line rounded-[24px] p-8 shadow-zy-sm mb-6">
             <label className="block mb-1.5">
@@ -241,14 +330,25 @@ export default function ResumeBuilder() {
               placeholder="Paste the job description to tailor toward it..."
               className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed mb-1"
             />
-            <p className="text-[11px] text-slate-light">{jobDescription.length}/4000</p>
+            <p className="text-[11px] text-slate-light mb-6">{jobDescription.length}/4000</p>
+
+            <label className="block mb-1.5">
+              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Anything to add or fix (optional)</span>
+            </label>
+            <textarea
+              value={additionalDetails}
+              onChange={e => setAdditionalDetails(e.target.value)}
+              rows={3}
+              placeholder="e.g. Add my AWS certification from 2025, correct my end date at X to March 2026..."
+              className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed"
+            />
 
             {error && <p className="text-rose text-[13px] mt-4">{error}</p>}
           </div>
 
           <div className="flex justify-end">
             <button
-              onClick={build}
+              onClick={() => build(false)}
               className="flex items-center gap-2 px-6 py-3 rounded-[13px] text-[15px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all"
               style={{ background: ACCENT }}
             >

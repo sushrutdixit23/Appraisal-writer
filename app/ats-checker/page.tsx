@@ -13,6 +13,7 @@ type KeywordMatches = { matched: string[]; missing: string[] } | null;
 
 type Result = {
   score: number;
+  projected_score: number;
   verdict: string;
   formatting: FormatIssue[];
   missing_sections: string[];
@@ -100,6 +101,24 @@ export default function AtsChecker() {
     setPhase("form");
   };
 
+  const goToBuilder = () => {
+    if (!result) return;
+    try {
+      sessionStorage.setItem("ats_handoff", JSON.stringify({
+        resumeText,
+        targetRole,
+        jobDescription,
+        score: result.score,
+        projected_score: result.projected_score,
+        verdict: result.verdict,
+        formatting: result.formatting,
+        missing_sections: result.missing_sections,
+        phrasing: result.phrasing,
+      }));
+    } catch {}
+    window.location.href = "/resume-builder";
+  };
+
   if (phase === "analyzing") {
     return (
       <main className="min-h-screen bg-mist relative overflow-x-hidden">
@@ -129,6 +148,11 @@ export default function AtsChecker() {
               <p className="font-display font-bold text-[56px] leading-none mb-3" style={{ color: scoreColor(result.score) }}>
                 {result.score}
               </p>
+              {result.projected_score > result.score && (
+                <p className="text-[13px] text-slate mb-3">
+                  Could reach <span className="font-semibold" style={{ color: scoreColor(result.projected_score) }}>{result.projected_score}</span> by fixing the issues below
+                </p>
+              )}
               <p className="text-[15px] text-ink max-w-[46ch] mx-auto leading-relaxed">{result.verdict}</p>
             </div>
 
@@ -197,7 +221,7 @@ export default function AtsChecker() {
 
             <div className="flex items-center justify-between flex-wrap gap-3">
               <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">&larr; Check another resume</button>
-              <a href="/resume-builder" className="text-[13px] text-indigo hover:underline">Build an ATS-optimized version &rarr;</a>
+              <button onClick={goToBuilder} className="text-[13px] text-indigo hover:underline">Fix these issues in the Resume Builder &rarr;</button>
             </div>
 
           </div>

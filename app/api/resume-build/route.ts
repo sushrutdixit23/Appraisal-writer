@@ -1,14 +1,15 @@
-import Anthropic from "@anthropic-ai/sdk";
+﻿import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are an expert resume writer and ATS optimization specialist for the Indian job market. You receive a candidate's existing resume text (and optionally a target role or job description) and produce a rewritten, ATS-optimized version.
+const SYSTEM_PROMPT = `You are an expert resume writer and ATS optimization specialist for the Indian job market. You receive a candidate's existing resume text (and optionally a target role or job description, known issues from a prior ATS check, and additional details the candidate has provided directly) and produce a rewritten, ATS-optimized version.
 
 CRITICAL RULES - never violate these:
-1. Never invent employers, job titles, dates, degrees, certifications, or any factual claim not present in the original resume. You may rephrase, restructure, and strengthen language, but every fact must trace back to something the candidate actually wrote.
-2. Never invent metrics or numbers that were not in the original. If the original has no numbers, express impact through scope or outcome language instead - do not fabricate percentages or figures.
+1. Never invent employers, job titles, dates, degrees, certifications, or any factual claim not present in the original resume or in the candidate's own "ADDITIONAL DETAILS" input. You may rephrase, restructure, and strengthen language, but every fact must trace back to something the candidate actually wrote - either in the original resume or in their additional details.
+2. Never invent metrics or numbers that were not in the original resume or additional details. If none exist, express impact through scope or outcome language instead - do not fabricate percentages or figures.
 3. Preserve all contact information exactly as given (name, email, phone, location) - do not alter or omit it.
+4. If the candidate's ADDITIONAL DETAILS section contradicts something in the original resume (e.g. a corrected date), trust the additional details - they are the candidate speaking directly and take priority over the original text.
 
 Your rewrite should:
 - Use a clean, single-column, ATS-parseable structure with standard section headers (Summary, Skills, Experience, Education, and others only if the original supports them)
@@ -16,6 +17,7 @@ Your rewrite should:
 - Build or tighten a Skills section from content actually present in the resume
 - Tighten the Summary to 2-3 sentences focused on the candidate's strongest, most relevant qualifications
 - If a target role or job description was provided, naturally incorporate its language where the candidate's actual experience genuinely supports it - never force a keyword that misrepresents their background
+- If KNOWN ISSUES from a prior ATS check are provided, prioritize fixing exactly those over any other polish
 - Only flag a date as an issue if it is genuinely after today's actual date (provided to you below) or is internally inconsistent within the resume itself. Never "correct" a date that is already valid - if uncertain, leave it unchanged and do not mention it in CHANGES
 
 Return your response in exactly this format, nothing else:
@@ -29,7 +31,7 @@ RESUME
 
 export async function POST(req: Request) {
   try {
-    const { resumeText, targetRole, jobDescription } = await req.json();
+    const { resumeText, targetRole, jobDescription, knownIssues, additionalDetails } = await req.json();
 
     if (!resumeText?.trim()) {
       return NextResponse.json({ error: "Paste or upload your resume first." }, { status: 400 });
@@ -40,6 +42,9 @@ export async function POST(req: Request) {
     if (jobDescription && jobDescription.length > 4000) {
       return NextResponse.json({ error: "Job description too long. Keep it under 4000 characters." }, { status: 400 });
     }
+    if (additionalDetails && additionalDetails.length > 2000) {
+      return NextResponse.json({ error: "Additional details too long. Keep it under 2000 characters." }, { status: 400 });
+    }
 
     let roleContext = "(No target role or job description provided - optimize generally.)";
     if (jobDescription?.trim()) {
@@ -48,8 +53,18 @@ export async function POST(req: Request) {
       roleContext = `TARGET ROLE: ${targetRole}`;
     }
 
+    let issuesContext = "";
+    if (knownIssues?.trim()) {
+      issuesContext = `\n\nKNOWN ISSUES FROM A PRIOR ATS CHECK (prioritize fixing these specifically):\n${knownIssues}`;
+    }
+
+    let detailsContext = "";
+    if (additionalDetails?.trim()) {
+      detailsContext = `\n\nADDITIONAL DETAILS OR CORRECTIONS FROM THE CANDIDATE (these are genuine facts from the candidate, not something you invented - incorporate them and trust them over the original resume text where they conflict):\n${additionalDetails}`;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
-    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth - do not "correct" any date that is already valid relative to today, and do not assume any other date is current)\n\nORIGINAL RESUME:\n${resumeText}\n\n${roleContext}`;
+    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth - do not "correct" any date that is already valid relative to today, and do not assume any other date is current)\n\nORIGINAL RESUME:\n${resumeText}\n\n${roleContext}${issuesContext}${detailsContext}`;
 
     let raw = "";
     try {
