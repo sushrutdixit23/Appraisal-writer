@@ -1,40 +1,33 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import SiteNav from "../components/SiteNav";
 
 const ACCENT = "linear-gradient(115deg,#5B4BFF,#8a6ff0)";
 
-type Phase = "form" | "analyzing" | "results";
+type Phase = "form" | "generating" | "output";
 
-type FormatIssue = { issue: string; fix: string };
-type PhrasingFix = { original: string; fix: string };
-type KeywordMatches = { matched: string[]; missing: string[] } | null;
-
-type Result = {
-  score: number;
-  verdict: string;
-  formatting: FormatIssue[];
-  missing_sections: string[];
-  keyword_matches: KeywordMatches;
-  phrasing: PhrasingFix[];
-};
-
-function scoreColor(score: number) {
-  if (score >= 80) return "#5B4BFF";
-  if (score >= 50) return "#8a6f1f";
-  return "#c0405a";
+function parseOutput(raw: string) {
+  const changesMatch = raw.match(/CHANGES\s*([\s\S]*?)\s*(?:RESUME|$)/i);
+  const resumeMatch = raw.match(/RESUME\s*([\s\S]*)/i);
+  const changes = changesMatch
+    ? changesMatch[1].split("\n").map(l => l.replace(/^[-\u2022]\s*/, "").trim()).filter(Boolean)
+    : [];
+  const resume = resumeMatch ? resumeMatch[1].trim() : raw.trim();
+  return { changes, resume };
 }
 
-export default function AtsChecker() {
+export default function ResumeBuilder() {
   const [phase, setPhase] = useState<Phase>("form");
   const [resumeText, setResumeText] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
   const [targetRole, setTargetRole] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [error, setError] = useState("");
-  const [result, setResult] = useState<Result | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [changes, setChanges] = useState<string[]>([]);
+  const [editedResume, setEditedResume] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,46 +54,55 @@ export default function AtsChecker() {
     }
   };
 
-  const analyze = async () => {
+  const build = async () => {
     if (!resumeText.trim()) {
-      setError("Paste your resume text first.");
+      setError("Paste or upload your resume first.");
       return;
     }
     setError("");
-    setPhase("analyzing");
+    setPhase("generating");
 
     try {
-      const res = await fetch("/api/ats-check", {
+      const res = await fetch("/api/resume-build", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resumeText,
-          jobDescription: jobDescription.trim() || undefined,
           targetRole: targetRole.trim() || undefined,
+          jobDescription: jobDescription.trim() || undefined,
         }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Analysis failed.");
+        setError(data.error || "Generation failed.");
         setPhase("form");
         return;
       }
 
-      setResult(data);
-      setPhase("results");
+      const parsed = parseOutput(data.output);
+      setChanges(parsed.changes);
+      setEditedResume(parsed.resume);
+      setPhase("output");
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
       setPhase("form");
     }
   };
 
-  const reset = () => {
-    setResult(null);
-    setPhase("form");
+  const copyAll = () => {
+    navigator.clipboard.writeText(editedResume);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  if (phase === "analyzing") {
+  const reset = () => {
+    setPhase("form");
+    setChanges([]);
+    setEditedResume("");
+  };
+
+  if (phase === "generating") {
     return (
       <main className="min-h-screen bg-mist relative overflow-x-hidden">
         <div className="aurora-field" />
@@ -108,15 +110,15 @@ export default function AtsChecker() {
           <SiteNav />
           <div className="min-h-[80vh] flex flex-col items-center justify-center px-6">
             <div className="w-10 h-10 rounded-full border-2 border-indigo border-t-transparent animate-spin mb-6" />
-            <p className="font-display font-semibold text-[22px] text-ink mb-2">Scanning your resume</p>
-            <p className="text-slate text-[15px]">Checking formatting, structure, and keyword match...</p>
+            <p className="font-display font-semibold text-[22px] text-ink mb-2">Rewriting your resume</p>
+            <p className="text-slate text-[15px]">Optimizing structure, phrasing, and ATS parseability...</p>
           </div>
         </div>
       </main>
     );
   }
 
-  if (phase === "results" && result) {
+  if (phase === "output") {
     return (
       <main className="min-h-screen bg-mist relative overflow-x-hidden">
         <div className="aurora-field" />
@@ -124,80 +126,48 @@ export default function AtsChecker() {
           <SiteNav />
           <div className="max-w-3xl mx-auto px-6 pt-28 pb-20">
 
-            <div className="bg-cloud border border-line rounded-[20px] p-8 mb-5 text-center">
-              <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-3">ATS score</p>
-              <p className="font-display font-bold text-[56px] leading-none mb-3" style={{ color: scoreColor(result.score) }}>
-                {result.score}
-              </p>
-              <p className="text-[15px] text-ink max-w-[46ch] mx-auto leading-relaxed">{result.verdict}</p>
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-1">Rewrite ready</p>
+                <h1 className="font-display font-bold text-[28px] tracking-tight text-ink">Your ATS-optimized resume</h1>
+                <p className="text-slate text-[14px] mt-1">Edit directly below, then copy into your document.</p>
+              </div>
+              <button
+                onClick={copyAll}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all"
+                style={{ background: ACCENT }}
+              >
+                {copied ? "Copied!" : "Copy all"}
+              </button>
             </div>
 
-            {result.formatting.length > 0 && (
+            {changes.length > 0 && (
               <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
-                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Formatting & structure</p>
-                <div className="space-y-4">
-                  {result.formatting.map((f, i) => (
-                    <div key={i}>
-                      <p className="text-[14.5px] text-ink font-medium mb-1">{f.issue}</p>
-                      <p className="text-[13.5px] text-slate leading-relaxed">{f.fix}</p>
+                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed</p>
+                <div className="space-y-2.5">
+                  {changes.map((c, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="text-indigo font-bold text-[16px] mt-0.5 flex-shrink-0">-</span>
+                      <p className="text-[14.5px] text-ink leading-relaxed">{c}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {result.missing_sections.length > 0 && (
-              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
-                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-4">Missing sections</p>
-                <div className="flex flex-wrap gap-2">
-                  {result.missing_sections.map((s, i) => (
-                    <span key={i} className="px-3 py-1.5 rounded-full text-[13px] bg-mist border border-line text-ink">{s}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {result.keyword_matches && (
-              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
-                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-4">Keyword match vs job description</p>
-                <div className="mb-4">
-                  <p className="text-[12.5px] text-slate mb-2">Matched</p>
-                  <div className="flex flex-wrap gap-2">
-                    {result.keyword_matches.matched.map((k, i) => (
-                      <span key={i} className="px-3 py-1.5 rounded-full text-[13px] bg-mist border border-indigo/30 text-indigo">{k}</span>
-                    ))}
-                  </div>
-                </div>
-                {result.keyword_matches.missing.length > 0 && (
-                  <div>
-                    <p className="text-[12.5px] text-slate mb-2">Missing</p>
-                    <div className="flex flex-wrap gap-2">
-                      {result.keyword_matches.missing.map((k, i) => (
-                        <span key={i} className="px-3 py-1.5 rounded-full text-[13px] bg-mist border border-rose/30 text-rose">{k}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {result.phrasing.length > 0 && (
-              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
-                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Weak phrasing</p>
-                <div className="space-y-5">
-                  {result.phrasing.map((p, i) => (
-                    <div key={i}>
-                      <p className="text-[14px] text-slate line-through mb-1.5 leading-relaxed">{p.original}</p>
-                      <p className="text-[14.5px] text-ink leading-relaxed">{p.fix}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
+              <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Resume</p>
+              <textarea
+                value={editedResume}
+                onChange={e => setEditedResume(e.target.value)}
+                rows={24}
+                className="w-full text-[14.5px] text-ink leading-relaxed bg-transparent resize-none focus:outline-none font-mono"
+              />
+            </div>
 
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">&larr; Check another resume</button>
-              <a href="/resume-builder" className="text-[13px] text-indigo hover:underline">Build an ATS-optimized version &rarr;</a>
+              <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">Start over</button>
+              <a href="/ats-checker" className="text-[13px] text-indigo hover:underline">Check the ATS score of this version</a>
             </div>
 
           </div>
@@ -214,8 +184,8 @@ export default function AtsChecker() {
         <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
 
           <div className="mb-8 text-center">
-            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Checker</h1>
-            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume to get an ATS score, formatting fixes, and stronger phrasing. Add a target role or job description for sharper feedback.</p>
+            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Builder</h1>
+            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume and get a rewritten, ATS-optimized version - stronger phrasing, cleaner structure, ready to copy.</p>
           </div>
 
           <div className="bg-cloud border border-line rounded-[24px] p-8 shadow-zy-sm mb-6">
@@ -268,7 +238,7 @@ export default function AtsChecker() {
               value={jobDescription}
               onChange={e => setJobDescription(e.target.value)}
               rows={5}
-              placeholder="Paste the job description to check keyword match..."
+              placeholder="Paste the job description to tailor toward it..."
               className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed mb-1"
             />
             <p className="text-[11px] text-slate-light">{jobDescription.length}/4000</p>
@@ -278,14 +248,11 @@ export default function AtsChecker() {
 
           <div className="flex justify-end">
             <button
-              onClick={analyze}
+              onClick={build}
               className="flex items-center gap-2 px-6 py-3 rounded-[13px] text-[15px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all"
               style={{ background: ACCENT }}
             >
-              Check my resume
-              <svg viewBox="0 0 20 20" className="w-4 h-4 stroke-current stroke-[2.5] fill-none" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 4l6 6-6 6" />
-              </svg>
+              Build my resume
             </button>
           </div>
 
