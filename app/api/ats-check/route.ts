@@ -65,12 +65,15 @@ export async function POST(req: Request) {
     try {
       const message = await anthropic.messages.create({
         model: "claude-sonnet-5",
-        max_tokens: 1536,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
       });
       const textBlock1 = message.content.find((block: any) => block.type === "text") as any;
       raw = textBlock1?.text ?? "";
+      if (message.stop_reason === "max_tokens") {
+        console.error("ATS check: response was TRUNCATED (hit max_tokens). Raw so far:", raw);
+      }
       if (!raw) {
         console.error("ATS check: no text block in Claude response. Content:", JSON.stringify(message.content));
       }
