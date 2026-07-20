@@ -51,8 +51,13 @@ ${rawInput}`;
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
       });
-      output = (message.content[0] as any).text;
-    } catch (claudeError) {
+      const textBlock2 = message.content.find((block: any) => block.type === "text") as any;
+      output = textBlock2?.text ?? "";
+      if (!output) {
+        console.error("Appraisal generate: no text block in Claude response. Content:", JSON.stringify(message.content));
+      }
+    } catch (claudeError: any) {
+      console.error("Appraisal generate: Claude API call failed:", claudeError?.message || claudeError, claudeError?.status ? `(status ${claudeError.status})` : "");
       return NextResponse.json({ error: "Generation failed. Please try again." }, { status: 500 });
     }
 

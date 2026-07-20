@@ -69,7 +69,11 @@ export async function POST(req: Request) {
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
       });
-      raw = (message.content[0] as any).text;
+      const textBlock1 = message.content.find((block: any) => block.type === "text") as any;
+      raw = textBlock1?.text ?? "";
+      if (!raw) {
+        console.error("ATS check: no text block in Claude response. Content:", JSON.stringify(message.content));
+      }
     } catch (claudeError: any) {
       console.error("ATS check: Claude API call failed:", claudeError?.message || claudeError, claudeError?.status ? `(status ${claudeError.status})` : "");
       return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
