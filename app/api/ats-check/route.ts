@@ -23,6 +23,7 @@ Return ONLY valid JSON - no markdown code fences, no commentary before or after 
 
 {
   "score": <integer 0-100>,
+  "projected_score": <integer 0-100, your calibrated estimate of the score if every formatting, missing_sections, and phrasing fix listed below were fully applied - must be >= score>,
   "verdict": "<one sentence, direct, no hedging>",
   "formatting": [{ "issue": "<specific problem found>", "fix": "<concrete instruction>" }],
   "missing_sections": ["<standard resume section that is absent or too thin>"],
@@ -36,7 +37,8 @@ Rules:
 3. formatting and phrasing arrays: 3 to 6 items each, most impactful only - not an exhaustive line-by-line audit.
 4. missing_sections: only standard sections genuinely absent (Summary, Skills, Experience, Education, Certifications where relevant).
 5. If no job description is provided, keyword_matches must be null - do not guess at a role.
-6. Quote phrasing.original directly from the resume text given, verbatim, so the user can find it.`;
+6. Quote phrasing.original directly from the resume text given, verbatim, so the user can find it.
+7. projected_score must be a realistic, conservative estimate of the improvement achievable by fixing exactly the issues you listed - never lower than score, and rarely more than 35 points above it unless the issues are severe and structural. It is not an aspiration toward a perfect score.`;
 
 export async function POST(req: Request) {
   try {
