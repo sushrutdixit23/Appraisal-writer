@@ -141,8 +141,18 @@ export default function ResumeBuilder() {
               </button>
             </div>
 
+            <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
+              <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Resume</p>
+              <textarea
+                value={editedResume}
+                onChange={e => setEditedResume(e.target.value)}
+                rows={24}
+                className="w-full text-[14.5px] text-ink leading-relaxed bg-transparent resize-none focus:outline-none font-mono"
+              />
+            </div>
+
             {changes.length > 0 && (
-              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
+              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
                 <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed</p>
                 <div className="space-y-2.5">
                   {changes.map((c, i) => (
@@ -154,16 +164,6 @@ export default function ResumeBuilder() {
                 </div>
               </div>
             )}
-
-            <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
-              <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Resume</p>
-              <textarea
-                value={editedResume}
-                onChange={e => setEditedResume(e.target.value)}
-                rows={24}
-                className="w-full text-[14.5px] text-ink leading-relaxed bg-transparent resize-none focus:outline-none font-mono"
-              />
-            </div>
 
             <div className="flex items-center justify-between flex-wrap gap-3">
               <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">Start over</button>

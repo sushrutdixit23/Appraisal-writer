@@ -59,7 +59,8 @@ export async function POST(req: Request) {
       roleContext = `TARGET ROLE (no full job description given): ${targetRole}\n(Use this only for general context on phrasing and section relevance - skip keyword matching, there is no job description to match against.)`;
     }
 
-    const userMessage = `RESUME:\n${resumeText}\n\n${roleContext}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth for judging whether any employment or education date is genuinely future-dated - do not assume any other date)\n\nRESUME:\n${resumeText}\n\n${roleContext}`;
 
     let raw: string;
     try {

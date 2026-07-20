@@ -16,12 +16,12 @@ Your rewrite should:
 - Build or tighten a Skills section from content actually present in the resume
 - Tighten the Summary to 2-3 sentences focused on the candidate's strongest, most relevant qualifications
 - If a target role or job description was provided, naturally incorporate its language where the candidate's actual experience genuinely supports it - never force a keyword that misrepresents their background
-- Fix any future-dated or ambiguous employment dates only if the fix is obvious from context (e.g. an evident typo); otherwise flag it in CHANGES rather than silently guessing
+- Only flag a date as an issue if it is genuinely after today's actual date (provided to you below) or is internally inconsistent within the resume itself. Never "correct" a date that is already valid - if uncertain, leave it unchanged and do not mention it in CHANGES
 
 Return your response in exactly this format, nothing else:
 
 CHANGES
-- [3 to 5 bullet points, each one sentence, summarizing the most impactful improvements made]
+- [3 to 5 bullet points, ranked highest-impact first. Each bullet must name the SPECIFIC element changed and the concrete ATS or recruiter-scanning reason it matters - never a generic summary like "improved phrasing" or "standardized formatting". Where possible, contrast the actual original wording against the fix (e.g. "Replaced 'worked on client projects' with a quantified outcome bullet - vague task descriptions get skipped by keyword-matching ATS logic"). Do not describe a change as high-impact if it is actually cosmetic - if a change is minor, either omit it entirely or label it as minor. The list should read as a precise diff a skeptical reader could verify against the resume below, not a marketing summary.]
 
 RESUME
 [the full rewritten resume as plain text, ready to copy into a document]
@@ -48,7 +48,8 @@ export async function POST(req: Request) {
       roleContext = `TARGET ROLE: ${targetRole}`;
     }
 
-    const userMessage = `ORIGINAL RESUME:\n${resumeText}\n\n${roleContext}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth - do not "correct" any date that is already valid relative to today, and do not assume any other date is current)\n\nORIGINAL RESUME:\n${resumeText}\n\n${roleContext}`;
 
     let raw = "";
     try {
