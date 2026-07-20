@@ -70,7 +70,8 @@ export async function POST(req: Request) {
         messages: [{ role: "user", content: userMessage }],
       });
       raw = (message.content[0] as any).text;
-    } catch (claudeError) {
+    } catch (claudeError: any) {
+      console.error("ATS check: Claude API call failed:", claudeError?.message || claudeError, claudeError?.status ? `(status ${claudeError.status})` : "");
       return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
     }
 
