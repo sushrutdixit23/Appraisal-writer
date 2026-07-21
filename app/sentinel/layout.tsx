@@ -10,7 +10,8 @@ import { usePathname } from "next/navigation";
 import { SANS, SERIF, T } from "./lib/theme";
 
 const NAV = [
-  { href: "/sentinel", label: "Review Queue" },
+  { href: "/sentinel", label: "Investigation Queue" },
+  { href: "/sentinel/statements", label: "Financial Statements" },
   { href: "/sentinel/analysis", label: "Deep Analysis" },
   { href: "/sentinel/executive", label: "Executive Dashboard" },
 ];
