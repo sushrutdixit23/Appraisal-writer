@@ -20,6 +20,14 @@ type Result = {
     structure_keywords: { score: number; summary: string };
     content_quality: { score: number; summary: string };
   };
+  fatal_errors?: string[];
+  extracted?: {
+    name: string;
+    email: string;
+    phone: string;
+    sections_found: string[];
+    job_titles: string[];
+  };
   formatting: FormatIssue[];
   missing_sections: string[];
   keyword_matches: KeywordMatches;
@@ -210,6 +218,61 @@ export default function AtsChecker() {
                 </div>
               )}
             </div>
+
+            {result.fatal_errors && result.fatal_errors.length > 0 && (
+              <div className="border rounded-[20px] p-7 mb-5" style={{ background: "rgba(255,68,68,0.05)", borderColor: "rgba(255,68,68,0.3)" }}>
+                <p className="font-mono text-[11px] tracking-[0.18em] uppercase font-semibold mb-4" style={{ color: "#c0405a" }}>Deal-breakers - fix these first</p>
+                <div className="space-y-2.5">
+                  {result.fatal_errors.map((f, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="font-bold text-[15px] mt-0.5 flex-shrink-0" style={{ color: "#c0405a" }}>&#10007;</span>
+                      <p className="text-[14.5px] text-ink leading-relaxed">{f}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {result.extracted && (
+              <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
+                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-2">What an ATS extracts from your resume</p>
+                <p className="text-[13px] text-slate mb-4">This is what parsing systems would actually pull out. Anything missing or wrong here is a problem worth fixing.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div>
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-0.5">Name</p>
+                    <p className="text-[13.5px] text-ink">{result.extracted.name || <span className="text-rose">Not detected</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-0.5">Email</p>
+                    <p className="text-[13.5px] text-ink break-all">{result.extracted.email || <span className="text-rose">Not detected</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-0.5">Phone</p>
+                    <p className="text-[13.5px] text-ink">{result.extracted.phone || <span className="text-rose">Not detected</span>}</p>
+                  </div>
+                </div>
+                {result.extracted.sections_found?.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Sections recognized</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.extracted.sections_found.map((s, i) => (
+                        <span key={i} className="px-3 py-1 rounded-full text-[12.5px] bg-mist border border-line text-ink">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {result.extracted.job_titles?.length > 0 && (
+                  <div>
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Job titles parsed</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.extracted.job_titles.map((t, i) => (
+                        <span key={i} className="px-3 py-1 rounded-full text-[12.5px] bg-mist border border-indigo/30 text-indigo">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {result.formatting.length > 0 && (
               <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">

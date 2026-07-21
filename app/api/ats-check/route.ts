@@ -23,27 +23,35 @@ Return ONLY valid JSON - no markdown code fences, no commentary before or after 
 
 {
   "score": <integer 0-100, must equal the sum of the three subscores below>,
-  "projected_score": <integer 0-100, your calibrated estimate of the score if every formatting, missing_sections, and phrasing fix listed below were fully applied - must be >= score, rarely more than 35 points above it unless the issues are severe and structural>,
+  "projected_score": <integer 0-100, conservative estimate if every listed fix were applied - never lower than score>,
   "verdict": "<one sentence, direct, no hedging>",
   "subscores": {
     "parseability": { "score": <integer 0-40>, "summary": "<one sentence explaining this subscore specifically>" },
     "structure_keywords": { "score": <integer 0-30>, "summary": "<one sentence explaining this subscore specifically>" },
     "content_quality": { "score": <integer 0-30>, "summary": "<one sentence explaining this subscore specifically>" }
   },
+  "fatal_errors": ["<ONLY genuinely parsing-breaking problems evident from the text: table/column artifacts, contact info likely in a header/footer, missing employment dates, garbage characters from graphics. Empty array if none - do not pad this list with non-fatal issues>"],
+  "extracted": {
+    "name": "<the candidate's name as an ATS parser would extract it from this text, empty string if extraction would likely fail>",
+    "email": "<as a parser would extract it, empty string if it would fail>",
+    "phone": "<as a parser would extract it, empty string if it would fail>",
+    "sections_found": ["<standard section names a parser would successfully identify in this text, e.g. Summary, Skills, Experience, Education>"],
+    "job_titles": ["<job titles as a parser would extract them, in order>"]
+  },
   "formatting": [{ "issue": "<specific problem found>", "fix": "<concrete instruction>" }],
   "missing_sections": ["<standard resume section that is absent or too thin>"],
   "keyword_matches": { "matched": ["<keyword found in both resume and JD>"], "missing": ["<keyword in JD but absent from resume>"] } or null if no job description was provided,
-  "phrasing": [{ "original": "<weak phrase or bullet quoted verbatim from the resume>", "fix": "<stronger rewrite>" }]
+  "phrasing": [{ "original": "<weak phrase quoted verbatim from the resume>", "fix": "<stronger rewrite>" }]
 }
 
 Rules:
-1. Score strictly against the three subscores - weigh each independently, do not default to a flat across-the-board deduction pattern. The total score must equal their sum.
-2. Never invent content that is not in the resume. Only flag and quote what is actually present.
-3. formatting and phrasing arrays: 3 to 6 items each, ORDERED BY IMPACT (most score-relevant first, not by order of appearance in the resume) - not an exhaustive line-by-line audit.
-4. missing_sections: only standard sections genuinely absent (Summary, Skills, Experience, Education, Certifications where relevant).
-5. If no job description is provided, keyword_matches must be null - do not guess at a role.
-6. Quote phrasing.original directly from the resume text given, verbatim, so the user can find it.
-7. projected_score must be a realistic, conservative estimate of the improvement achievable by fixing exactly the issues you listed - never lower than score. It is not an aspiration toward a perfect score.`;
+1. Score strictly against the three subscores - the total must equal their sum.
+2. Never invent content not in the resume. Only flag and quote what is actually present. The extracted object must reflect what a parser would genuinely pull from THIS text - it is a simulation of extraction, not an improvement of it.
+3. formatting and phrasing arrays: 3 to 6 items each, ORDERED BY IMPACT - not an exhaustive audit.
+4. missing_sections: only standard sections genuinely absent.
+5. If no job description is provided, keyword_matches must be null.
+6. Quote phrasing.original verbatim so the user can find it.
+7. projected_score must reflect ONLY the concrete, closable gap from fixing the SPECIFIC items you listed - most resumes should see 5 to 15 points above score; 20-25 only for multiple severe structural issues; never exceed 30 above. If every listed item gets fixed and the resume is rechecked, your projection should closely match the actual result.`;
 
 export async function POST(req: Request) {
   try {
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
     if (jobDescription?.trim()) {
       roleContext = `TARGET JOB DESCRIPTION:\n${jobDescription}`;
     } else if (targetRole?.trim()) {
-      roleContext = `TARGET ROLE (no full job description given): ${targetRole}\n(Use this only for general context on phrasing and section relevance - skip keyword matching, there is no job description to match against.)`;
+      roleContext = `TARGET ROLE (no full job description given): ${targetRole}\n(Use this only for general context - skip keyword matching.)`;
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -73,7 +81,7 @@ export async function POST(req: Request) {
     try {
       const message = await anthropic.messages.create({
         model: "claude-sonnet-5",
-        max_tokens: 4096,
+        max_tokens: 6144,
         thinking: { type: "disabled" },
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],

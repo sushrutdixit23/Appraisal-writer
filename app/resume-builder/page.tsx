@@ -99,7 +99,8 @@ export default function ResumeBuilder() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
-  const [changes, setChanges] = useState<string[]>([]);
+  const [changes, setChanges] = useState<{ original: string; optimized: string; reason: string }[]>([]);
+  const [mode, setMode] = useState("general");
   const [resume, setResume] = useState<StructuredResume | null>(null);
   const [copied, setCopied] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
@@ -179,6 +180,7 @@ export default function ResumeBuilder() {
           jobDescription: jobDescription.trim() || undefined,
           knownIssues: knownIssuesText.trim() || undefined,
           additionalDetails: additionalDetails.trim() || undefined,
+          mode,
         }),
       });
       const data = await res.json();
@@ -310,12 +312,13 @@ export default function ResumeBuilder() {
 
             {changes.length > 0 && (
               <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
-                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed</p>
-                <div className="space-y-2.5">
-                  {changes.map((c, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="text-indigo font-bold text-[16px] mt-0.5 flex-shrink-0">-</span>
-                      <p className="text-[14.5px] text-ink leading-relaxed">{c}</p>
+                <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed, and why</p>
+                <div className="space-y-5">
+                  {changes.map((ch, i) => (
+                    <div key={i} className="pb-5 border-b border-line last:border-0 last:pb-0">
+                      <p className="text-[13.5px] text-slate line-through leading-relaxed mb-1">{ch.original}</p>
+                      <p className="text-[14.5px] text-ink leading-relaxed mb-1.5">{ch.optimized}</p>
+                      <p className="text-[12.5px] text-indigo leading-relaxed">{ch.reason}</p>
                     </div>
                   ))}
                 </div>
@@ -488,6 +491,25 @@ export default function ResumeBuilder() {
               className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink placeholder-slate-light resize-none focus:outline-none focus:border-indigo/40 transition-colors leading-relaxed mb-1"
             />
             <p className="text-[11px] text-slate-light mb-6">{resumeText.length}/8000</p>
+
+            <label className="block mb-1.5">
+              <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Optimize for</span>
+            </label>
+            <select
+              value={mode}
+              onChange={e => setMode(e.target.value)}
+              className="w-full bg-mist border border-line rounded-[14px] px-4 py-3.5 text-[15px] text-ink focus:outline-none focus:border-indigo/40 transition-colors mb-6"
+            >
+              <option value="general">General (no specific industry)</option>
+              <option value="consulting">Consulting</option>
+              <option value="software">Software Engineering</option>
+              <option value="data">Data / Analytics</option>
+              <option value="product">Product</option>
+              <option value="finance">Finance / Accounting</option>
+              <option value="marketing">Marketing</option>
+              <option value="government">Government / Public Sector</option>
+              <option value="startup">Startup</option>
+            </select>
 
             <label className="block mb-1.5">
               <span className="font-mono text-[10.5px] tracking-[0.16em] uppercase text-slate">Target role (optional)</span>

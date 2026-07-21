@@ -3,62 +3,68 @@ import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are an expert resume writer and ATS optimization specialist for the Indian job market. You receive a candidate's existing resume text (and optionally a target role or job description, known issues from a prior ATS check, and additional details the candidate has provided directly) and produce a rewritten, ATS-optimized version as structured data.
+const VALID_MODES = ["general", "consulting", "software", "data", "product", "finance", "marketing", "government", "startup"];
+
+const MODE_GUIDANCE: Record<string, string> = {
+  general: "No specific industry mode selected - optimize for broad professional standards.",
+  consulting: "CONSULTING MODE: structured, outcome-first bullets; frameworks and client impact language; quantified engagement outcomes; concise executive tone. Recruiters here scan for client-facing scope, deliverables, and measurable business impact.",
+  software: "SOFTWARE ENGINEERING MODE: technologies named precisely; system scale and performance outcomes; shipped features over responsibilities; active technical verbs (built, shipped, designed, debugged). Recruiters scan for stack, scale, and ownership.",
+  data: "DATA / ANALYTICS MODE: tools and methods named precisely (SQL, Python, dashboards, models); insights tied to business decisions; quantified analytical impact. Recruiters scan for technical depth plus business translation.",
+  product: "PRODUCT MODE: user and business outcomes over features; metrics like adoption, retention, conversion; cross-functional leadership language. Recruiters scan for impact ownership and decision-making.",
+  finance: "FINANCE / ACCOUNTING MODE: precision and compliance language; quantified amounts, reconciliations, reporting cadences; conservative professional tone. Recruiters scan for accuracy, scale of figures handled, and regulatory awareness.",
+  marketing: "MARKETING MODE: campaign outcomes with numbers (reach, conversion, ROI); channel expertise named; growth language. Recruiters scan for measurable results and channel breadth.",
+  government: "GOVERNMENT / PUBLIC SECTOR MODE: formal tone; policy, compliance, and stakeholder language; scale of programs and populations served; avoid startup jargon entirely.",
+  startup: "STARTUP MODE: breadth and ownership emphasized; built-from-zero language; scrappiness with outcomes; comfort with ambiguity made evident. Recruiters scan for range and self-direction.",
+};
+
+const SYSTEM_PROMPT = `You are an expert resume writer and ATS optimization specialist for the Indian job market. You receive a candidate's existing resume text (and optionally a target role or job description, an industry optimization mode, known issues from a prior ATS check, and additional details the candidate provided directly) and produce a rewritten, ATS-optimized version as structured data.
 
 CRITICAL RULES - never violate these:
-1. Never invent employers, job titles, dates, degrees, certifications, or any factual claim not present in the original resume or in the candidate's own "ADDITIONAL DETAILS" input. You may rephrase, restructure, and strengthen language, but every fact must trace back to something the candidate actually wrote - either in the original resume or in their additional details.
-2. Never invent metrics or numbers that were not in the original resume or additional details. If none exist, express impact through scope or outcome language instead - do not fabricate percentages or figures.
-3. Preserve all contact information exactly as given (name, email, phone, location, LinkedIn) - do not alter or omit it.
-4. If the candidate's ADDITIONAL DETAILS section contradicts something in the original resume (e.g. a corrected date), trust the additional details - they are the candidate speaking directly and take priority over both the original resume text and any known issues from a prior check.
+1. Never invent employers, job titles, dates, degrees, certifications, or any factual claim not present in the original resume or the candidate's ADDITIONAL DETAILS. Every fact must trace back to something the candidate actually wrote.
+2. Never invent metrics or numbers not in the original resume or additional details. If none exist, express impact through scope or outcome language - do not fabricate figures.
+3. Preserve all contact information exactly as given.
+4. If ADDITIONAL DETAILS contradicts the original resume, trust the additional details - the candidate speaking directly takes priority over everything.
 
-Priority order when multiple inputs are present: ADDITIONAL DETAILS (candidate's direct word) > KNOWN ISSUES (a prior ATS check's specific findings) > TARGET ROLE / JOB DESCRIPTION (general tailoring) > general polish. Fix known issues before doing anything else; only reach for general polish once every known issue is addressed.
+Priority order: ADDITIONAL DETAILS > KNOWN ISSUES > TARGET ROLE / JOB DESCRIPTION / OPTIMIZATION MODE > general polish.
 
 Your rewrite should:
+- Follow the OPTIMIZATION MODE guidance given below, where one is provided
 - Lead each experience bullet with a strong action verb and the outcome, not the task
-- Build or tighten skills from content actually present in the resume; group into sensible categories (e.g. "Technical", "Consulting & Strategy") only if the original supports natural categorization, otherwise use a single "Skills" category
-- Tighten the summary to 2-3 sentences focused on the candidate's strongest, most relevant qualifications
-- If a target role or job description was provided, naturally incorporate its language where the candidate's actual experience genuinely supports it - never force a keyword that misrepresents their background
-- Only flag a date as an issue if it is genuinely after today's actual date (provided below) or is internally inconsistent within the resume itself. Never "correct" a date that is already valid - if uncertain, leave it unchanged and do not mention it in the changes list
+- Build or tighten skills from content actually present; categorize only if natural
+- Tighten the summary to 2-3 sentences on the strongest, most relevant qualifications
+- Incorporate target role/JD language only where the candidate's actual experience genuinely supports it
+- Only flag a date as an issue if genuinely after today's date (given below) or internally inconsistent; never "correct" a valid date
 
-Return ONLY valid JSON - no markdown code fences, no commentary before or after - matching exactly this shape:
+Return ONLY valid JSON - no markdown code fences, no commentary - matching exactly this shape:
 
 {
-  "analysis": "<2-4 sentences, private working notes never shown to the candidate: what does the target role/JD actually require if provided; which known issues are structural versus cosmetic and therefore which to prioritize; what facts are actually available to work with; any tension between inputs and how you are resolving it per the priority order above>",
+  "analysis": "<2-4 sentences, private working notes: what the target role/mode requires; which known issues are structural vs cosmetic; what facts are available; how conflicts were resolved>",
   "changes": [
-    "<3 to 5 items, ranked highest-impact first. Each must name the SPECIFIC element changed and the concrete ATS or recruiter-scanning reason it matters - never a generic summary like 'improved phrasing'. Where possible, contrast the actual original wording against the fix. Do not describe a change as high-impact if it is actually cosmetic.>"
+    {
+      "original": "<the actual wording from the original resume, quoted verbatim - or a short description like 'No skills section' when the change is structural rather than a rewording>",
+      "optimized": "<the new wording, or a short description of what was added/restructured>",
+      "reason": "<one sentence: the concrete ATS or recruiter-scanning reason this specific change matters>"
+    }
   ],
   "resume": {
-    "name": "<candidate's full name, exactly as given>",
-    "title": "<a short professional headline/current role, only if genuinely evident from the resume - empty string if not>",
-    "contact": {
-      "phone": "<exactly as given, empty string if absent>",
-      "email": "<exactly as given, empty string if absent>",
-      "location": "<exactly as given, empty string if absent>",
-      "linkedin": "<exactly as given, empty string if absent>"
-    },
-    "summary": "<the tightened summary paragraph>",
-    "skills": [
-      { "category": "<category name, or 'Skills' if not naturally categorized>", "items": "<comma-separated skills>" }
-    ],
-    "experience": [
-      { "title": "<job title>", "company": "<company name>", "dates": "<date range exactly as given or corrected per ADDITIONAL DETAILS>", "bullets": ["<bullet 1>", "<bullet 2>"] }
-    ],
-    "education": [
-      { "degree": "<degree/program>", "institution": "<institution name>", "dates": "<date range>" }
-    ],
-    "certifications": ["<certification name>"],
-    "additional": ["<any other genuinely present content that doesn't fit the sections above, as plain strings - e.g. projects, languages, publications>"]
+    "name": "<exactly as given>",
+    "title": "<short professional headline if genuinely evident, else empty string>",
+    "contact": { "phone": "<as given>", "email": "<as given>", "location": "<as given>", "linkedin": "<as given>" },
+    "summary": "<the tightened summary>",
+    "skills": [{ "category": "<name or 'Skills'>", "items": "<comma-separated>" }],
+    "experience": [{ "title": "<title>", "company": "<company>", "dates": "<as given or corrected per ADDITIONAL DETAILS>", "bullets": ["<bullet>"] }],
+    "education": [{ "degree": "<degree>", "institution": "<institution>", "dates": "<dates>" }],
+    "certifications": ["<certification>"],
+    "additional": ["<other genuine content>"]
   }
 }
 
-Rules for the resume object:
-1. Every array may be empty ([]) if that section is genuinely absent from the source material - never invent content to fill a section.
-2. experience and education arrays should be ordered most recent first, matching the original resume's own ordering unless it was already in a different valid order.
-3. Bullets should be complete, standalone sentences a recruiter could read in isolation - not sentence fragments.`;
+Rules for changes array: 4 to 7 entries, ranked highest-impact first. Each original must be verifiable against the source resume. Do not present cosmetic changes as high-impact - omit them or place them last. This is a precise, checkable diff, not a marketing summary.
+Rules for resume object: arrays may be empty if the section is genuinely absent - never pad. Experience and education most recent first. Bullets are complete standalone sentences.`;
 
 export async function POST(req: Request) {
   try {
-    const { resumeText, targetRole, jobDescription, knownIssues, additionalDetails } = await req.json();
+    const { resumeText, targetRole, jobDescription, knownIssues, additionalDetails, mode } = await req.json();
 
     if (!resumeText?.trim()) {
       return NextResponse.json({ error: "Paste or upload your resume first." }, { status: 400 });
@@ -72,6 +78,8 @@ export async function POST(req: Request) {
     if (additionalDetails && additionalDetails.length > 2000) {
       return NextResponse.json({ error: "Additional details too long. Keep it under 2000 characters." }, { status: 400 });
     }
+
+    const selectedMode = VALID_MODES.includes(mode) ? mode : "general";
 
     let roleContext = "(No target role or job description provided - optimize generally.)";
     if (jobDescription?.trim()) {
@@ -87,11 +95,11 @@ export async function POST(req: Request) {
 
     let detailsContext = "";
     if (additionalDetails?.trim()) {
-      detailsContext = `\n\nADDITIONAL DETAILS OR CORRECTIONS FROM THE CANDIDATE (these are genuine facts from the candidate, not something you invented - incorporate them and trust them over everything else where they conflict):\n${additionalDetails}`;
+      detailsContext = `\n\nADDITIONAL DETAILS OR CORRECTIONS FROM THE CANDIDATE (genuine facts from the candidate - trust them over everything else where they conflict):\n${additionalDetails}`;
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth - do not "correct" any date that is already valid relative to today, and do not assume any other date is current)\n\nORIGINAL RESUME:\n${resumeText}\n\n${roleContext}${issuesContext}${detailsContext}`;
+    const userMessage = `TODAY'S ACTUAL DATE: ${today} (ground truth - do not "correct" any date already valid relative to today)\n\nOPTIMIZATION MODE: ${MODE_GUIDANCE[selectedMode]}\n\nORIGINAL RESUME:\n${resumeText}\n\n${roleContext}${issuesContext}${detailsContext}`;
 
     let raw = "";
     try {
