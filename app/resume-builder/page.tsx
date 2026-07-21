@@ -443,9 +443,10 @@ export default function ResumeBuilder() {
         <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
 
           <div className="mb-8 text-center">
-            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Builder</h1>
-            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume and get a rewritten, ATS-optimized version - stronger phrasing, cleaner structure, ready to copy.</p>
-            <a href="/resume-form-builder" className="text-[13px] text-indigo hover:underline mt-2 inline-block">Don't have a resume yet? Build one from scratch &rarr;</a>
+            <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-2">AI rewrites it for you</p>
+            <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">AI Resume Optimizer</h1>
+            <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume and Claude rewrites it end to end - stronger phrasing, cleaner structure, ATS-optimized. You review and refine the result, not every word from scratch.</p>
+            <a href="/resume-form-builder" className="text-[13px] text-indigo hover:underline mt-2 inline-block">Want full control instead? Build it field by field &rarr;</a>
           </div>
 
           {fromCheckerScore !== null && (

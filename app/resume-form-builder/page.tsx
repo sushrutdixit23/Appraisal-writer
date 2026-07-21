@@ -357,8 +357,10 @@ export default function ResumeFormBuilder() {
         <div className="max-w-2xl mx-auto px-6 pt-24 pb-20">
 
           <div className="mb-8 text-center">
+            <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-2">You write it, we format it</p>
             <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">Build Your Resume</h1>
-            <p className="text-slate text-[14.5px] max-w-[46ch] mx-auto leading-relaxed">Fill in your details below, or import an existing resume to pre-fill everything - then review and edit freely.</p>
+            <p className="text-slate text-[14.5px] max-w-[46ch] mx-auto leading-relaxed">Fill in your details field by field, or import an existing resume to pre-fill everything exactly as written - nothing gets rewritten, you stay in control of every word.</p>
+            <a href="/resume-builder" className="text-[13px] text-indigo hover:underline mt-2 inline-block">Prefer AI to rewrite it for you? Try the Optimizer &rarr;</a>
           </div>
 
           <div className="bg-cloud border border-indigo/30 rounded-[16px] p-5 mb-6">
