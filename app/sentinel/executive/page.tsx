@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { buildPeerTable } from "../lib/engine";
+import { parseVerdict } from "../lib/format";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Investigation, Workspace } from "../lib/types";
 
@@ -213,7 +214,19 @@ export default function ExecutiveDashboardPage() {
                 )}
               </div>
               <p style={{ fontSize: "0.97rem", lineHeight: 1.65, whiteSpace: "pre-line", margin: 0 }}>
-                {inv.final_narrative}
+                {(() => {
+                  const { verdict, body } = parseVerdict(inv.final_narrative);
+                  return (
+                    <>
+                      {verdict && (
+                        <span style={{ display: "block", fontFamily: SERIF, fontWeight: 600, fontSize: "1.02rem", color: T.ink, marginBottom: "0.4rem" }}>
+                          {verdict}
+                        </span>
+                      )}
+                      {body}
+                    </>
+                  );
+                })()}
               </p>
             </div>
           );

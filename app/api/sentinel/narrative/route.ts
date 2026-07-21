@@ -214,9 +214,11 @@ export async function POST(req: NextRequest) {
       `Here's how each flagged metric compares across the sector peer set for the same period:\n\n` +
       `${peerContext}\n\n` +
       "Does this peer context CONFIRM your hypothesis (a sector-wide effect), RULE IT OUT " +
-      "(this looks company-specific), or point to something else? State which of the three " +
-      "explicitly, then give your final analyst narrative in 3-5 sentences covering all the " +
-      "flags together.";
+      "(this looks company-specific), or point to something else? Start your reply with " +
+      "exactly one short bolded verdict line using markdown (e.g. **Confirms sector-wide " +
+      "effect**, **Rules out sector-wide effect**, or **Points to something else**), then a " +
+      "blank line, then your final analyst narrative in 3-5 sentences covering all the flags " +
+      "together.";
 
     const turn2Messages: { role: "user" | "assistant"; content: string }[] = [
       { role: "user", content: turn1User },

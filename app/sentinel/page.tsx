@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { groupFlagsByWorkspace, runAllChecks } from "./lib/anomaly";
 import { buildPeerTable } from "./lib/engine";
+import { parseVerdict } from "./lib/format";
 import { SERIF, T } from "./lib/theme";
 import type { AnomalyFlag, FinancialStatement, Investigation, Workspace } from "./lib/types";
 
@@ -65,6 +66,22 @@ function StatusPill({ status }: { status: string }) {
       <span style={{ width: 5, height: 5, background: color }} />
       {STATUS_LABEL[status] ?? status}
     </span>
+  );
+}
+
+function VerdictHeadline({ text }: { text: string }) {
+  return (
+    <p
+      style={{
+        fontFamily: SERIF,
+        fontWeight: 600,
+        fontSize: "1.02rem",
+        color: T.ink,
+        margin: "0 0 0.5rem 0",
+      }}
+    >
+      {text}
+    </p>
   );
 }
 
@@ -405,7 +422,15 @@ export default function InvestigationQueuePage() {
                 <Eyebrow>Turn 1 — hypothesis, from the company&apos;s own data</Eyebrow>
                 <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{inv.initial_hypothesis}</p>
                 <Eyebrow>Turn 2 — draft narrative, checked against peers</Eyebrow>
-                <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{inv.ai_narrative}</p>
+                {(() => {
+                  const { verdict, body } = parseVerdict(inv.ai_narrative);
+                  return (
+                    <>
+                      {verdict && <VerdictHeadline text={verdict} />}
+                      <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{body}</p>
+                    </>
+                  );
+                })()}
 
                 {inv.suggested_questions.length > 0 && (
                   <>
@@ -483,7 +508,15 @@ export default function InvestigationQueuePage() {
                 ) : (
                   <>
                     {inv.confidence_score != null && <ConfidenceBar score={inv.confidence_score} signals={inv.confidence_signals} />}
-                    <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{inv.final_narrative}</p>
+                    {(() => {
+                      const { verdict, body } = parseVerdict(inv.final_narrative);
+                      return (
+                        <>
+                          {verdict && <VerdictHeadline text={verdict} />}
+                          <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{body}</p>
+                        </>
+                      );
+                    })()}
                     {inv.reviewer_notes && (
                       <p style={{ fontSize: "0.8rem", color: T.inkSoft, margin: "0.5rem 0 0 0" }}>
                         Reviewer notes: {inv.reviewer_notes}
