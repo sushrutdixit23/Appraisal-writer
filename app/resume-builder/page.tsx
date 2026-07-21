@@ -106,6 +106,7 @@ export default function ResumeBuilder() {
   const [fromCheckerScore, setFromCheckerScore] = useState<number | null>(null);
   const [knownIssuesText, setKnownIssuesText] = useState("");
   const [pendingAutoRun, setPendingAutoRun] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     try {
@@ -206,6 +207,37 @@ export default function ResumeBuilder() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const downloadPdf = async () => {
+    if (!resume) return;
+    setDownloading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/resume-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Could not generate PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(resume.name || "resume").replace(/[^a-zA-Z0-9]+/g, "_")}_resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message || "Download failed.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const goToChecker = () => {
     if (!resume) return;
     try {
@@ -258,13 +290,22 @@ export default function ResumeBuilder() {
                 <h1 className="font-display font-bold text-[28px] tracking-tight text-ink">Your ATS-optimized resume</h1>
                 <p className="text-slate text-[14px] mt-1">Preview below - use "Add or fix" to make changes and rebuild.</p>
               </div>
-              <button
-                onClick={copyAll}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all"
-                style={{ background: ACCENT }}
-              >
-                {copied ? "Copied!" : "Copy all"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadPdf}
+                  disabled={downloading}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-ink border border-line bg-white hover:border-indigo/40 transition-all disabled:opacity-50"
+                >
+                  {downloading ? "Generating..." : "Download PDF (free test)"}
+                </button>
+                <button
+                  onClick={copyAll}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-white shadow-[0_4px_14px_rgba(91,75,255,0.3)] hover:opacity-90 transition-all"
+                  style={{ background: ACCENT }}
+                >
+                  {copied ? "Copied!" : "Copy all"}
+                </button>
+              </div>
             </div>
 
             {changes.length > 0 && (
