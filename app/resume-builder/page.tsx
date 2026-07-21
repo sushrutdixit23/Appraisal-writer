@@ -445,6 +445,7 @@ export default function ResumeBuilder() {
           <div className="mb-8 text-center">
             <h1 className="font-display font-bold text-[28px] tracking-tight text-ink mb-2">ATS Resume Builder</h1>
             <p className="text-slate text-[14.5px] max-w-[42ch] mx-auto leading-relaxed">Paste or upload your resume and get a rewritten, ATS-optimized version - stronger phrasing, cleaner structure, ready to copy.</p>
+            <a href="/resume-form-builder" className="text-[13px] text-indigo hover:underline mt-2 inline-block">Don't have a resume yet? Build one from scratch &rarr;</a>
           </div>
 
           {fromCheckerScore !== null && (
