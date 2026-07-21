@@ -61,6 +61,7 @@ export default function ResumeBuilder() {
   const [rebuilding, setRebuilding] = useState(false);
   const [fromCheckerScore, setFromCheckerScore] = useState<number | null>(null);
   const [knownIssuesText, setKnownIssuesText] = useState("");
+  const [pendingAutoRun, setPendingAutoRun] = useState(false);
 
   useEffect(() => {
     try {
@@ -73,9 +74,18 @@ export default function ResumeBuilder() {
         if (typeof h.score === "number") setFromCheckerScore(h.score);
         setKnownIssuesText(buildKnownIssuesText(h));
         sessionStorage.removeItem("ats_handoff");
+        if (h.resumeText) setPendingAutoRun(true);
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (pendingAutoRun && resumeText.trim()) {
+      setPendingAutoRun(false);
+      build(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoRun, resumeText]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,6 +160,18 @@ export default function ResumeBuilder() {
     navigator.clipboard.writeText(editedResume);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const goToChecker = () => {
+    try {
+      sessionStorage.setItem("resume_handoff", JSON.stringify({
+        resumeText: editedResume,
+        targetRole,
+        jobDescription,
+        previousScore: fromCheckerScore,
+      }));
+    } catch {}
+    window.location.href = "/ats-checker";
   };
 
   const reset = () => {
@@ -248,7 +270,7 @@ export default function ResumeBuilder() {
 
             <div className="flex items-center justify-between flex-wrap gap-3">
               <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">Start over</button>
-              <a href="/ats-checker" className="text-[13px] text-indigo hover:underline">Check the ATS score of this version</a>
+              <button onClick={goToChecker} className="text-[13px] text-indigo hover:underline">Check the ATS score of this version &rarr;</button>
             </div>
 
           </div>

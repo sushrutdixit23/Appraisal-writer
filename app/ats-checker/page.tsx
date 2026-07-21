@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SiteNav from "../components/SiteNav";
 
 const ACCENT = "linear-gradient(115deg,#5B4BFF,#8a6ff0)";
@@ -106,6 +106,32 @@ export default function AtsChecker() {
     setPhase("form");
   };
 
+  const [previousScore, setPreviousScore] = useState<number | null>(null);
+  const [pendingAutoRun, setPendingAutoRun] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("resume_handoff");
+      if (raw) {
+        const h = JSON.parse(raw);
+        if (h.resumeText) setResumeText(h.resumeText);
+        if (h.targetRole) setTargetRole(h.targetRole);
+        if (h.jobDescription) setJobDescription(h.jobDescription);
+        if (typeof h.previousScore === "number") setPreviousScore(h.previousScore);
+        sessionStorage.removeItem("resume_handoff");
+        if (h.resumeText) setPendingAutoRun(true);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (pendingAutoRun && resumeText.trim()) {
+      setPendingAutoRun(false);
+      analyze();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoRun, resumeText]);
+
   const goToBuilder = () => {
     if (!result) return;
     try {
@@ -149,6 +175,14 @@ export default function AtsChecker() {
           <div className="max-w-3xl mx-auto px-6 pt-28 pb-20">
 
             <div className="bg-cloud border border-line rounded-[20px] p-8 mb-5 text-center">
+              {previousScore !== null && (
+                <div className="flex items-center justify-center gap-2 mb-4 -mt-2">
+                  <span className="text-[13px] text-slate line-through">{previousScore}</span>
+                  <span className="text-[13px] text-slate">&rarr;</span>
+                  <span className="text-[13px] font-semibold" style={{ color: scoreColor(result.score) }}>{result.score}</span>
+                  <span className="text-[12px] text-emerald-600 font-medium">({result.score - previousScore >= 0 ? "+" : ""}{result.score - previousScore})</span>
+                </div>
+              )}
               <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-3">ATS score</p>
               <p className="font-display font-bold text-[56px] leading-none mb-3" style={{ color: scoreColor(result.score) }}>
                 {result.score}
