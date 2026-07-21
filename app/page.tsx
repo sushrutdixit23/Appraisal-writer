@@ -1,6 +1,7 @@
 ﻿import ZyntaskMark from "./components/ZyntaskMark";
 import SiteNav from "./components/SiteNav";
 import Reveal from "./components/Reveal";
+import EngageHeroDemo from "./components/EngageHeroDemo";
 
 const AGENT_CARDS = [
   {
@@ -38,13 +39,6 @@ const AGENT_CARDS = [
     body: "Turn rough notes into a polished, ready-to-submit self-appraisal.",
     href: "/appraisal-writer",
   },
-];
-
-const DASH_CHIPS = [
-  { label: "Classified", value: "Warm lead", color: "#7ec8f7" },
-  { label: "Intent", value: "Accepts demo, asks to schedule", color: "#ffffff" },
-  { label: "Confidence", value: "92%", color: "#ffffff" },
-  { label: "Routing", value: "NEEDS YOU", color: "#f7b955" },
 ];
 
 export default function Home() {
@@ -119,48 +113,17 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
               <Reveal className="md:col-span-4" delay={0}>
-                <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
-                  <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
+                <div className="h-full rounded-[24px] overflow-hidden hover:-translate-y-1 hover:shadow-zy-md transition-all p-7" style={{ background: "linear-gradient(150deg,#211e3e,#161330)" }}>
+                  <span className="inline-flex items-center gap-1.5 text-sky font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     Inside the dashboard
                   </span>
-                  <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5 text-ink">
-                    Every lead classified, explained, and drafted.
+                  <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5 text-white">
+                    This is what waits for you every morning.
                   </h3>
-                  <p className="text-[15px] text-slate leading-relaxed mb-5">
-                    Engage reads each message, tells you what it is and why, and hands you a reply - so a full inbox takes minutes, not an afternoon.
+                  <p className="text-[15px] text-slate-light leading-relaxed mb-5">
+                    Watch Engage draft a reply, wait for your approval, and send - exactly like it does in your real dashboard.
                   </p>
-                  <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: "linear-gradient(150deg,#211e3e,#161330)" }}>
-                    <div className="h-9 flex items-center px-3.5 gap-2 border-b border-white/10">
-                      <span className="font-serif text-[15px] text-[#cdc8be]">Engage<span className="text-indigo">.</span></span>
-                      <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;3 / 100</span>
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: "#5B4BFF" }}>R</span>
-                        <span className="text-[12px] font-semibold text-white">Riya Chaudhary</span>
-                        <span className="ml-auto text-[9.5px] text-[#8884a0]">4d ago</span>
-                      </div>
-                      <div className="text-[12px] text-[#d9d6ea] rounded-lg px-3 py-2 mb-3 leading-relaxed border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        Hi Sushrut, thanks for reaching out. Sounds interesting. Happy to take a quick demo.
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        {DASH_CHIPS.map((chip) => (
-                          <div key={chip.label} className="rounded-lg px-2.5 py-1.5 border border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>
-                            <p className="text-[8.5px] uppercase tracking-wider text-[#8884a0] mb-0.5">{chip.label}</p>
-                            <p className="text-[11px] font-semibold leading-tight" style={{ color: chip.color }}>{chip.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="rounded-lg px-3 py-2 mb-3" style={{ background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.3)" }}>
-                        <p className="text-[8.5px] uppercase tracking-wider mb-0.5" style={{ color: "#ff8fa3" }}>Hot lead - lead temperature</p>
-                        <p className="text-[11px] leading-tight" style={{ color: "#ffd0d9" }}>Explicitly agreed to a demo and asked for availability</p>
-                      </div>
-                      <div className="text-[9px] uppercase tracking-wide text-[#8884a0] mb-1.5">Reply sent</div>
-                      <div className="text-[12px] text-white rounded-lg px-3 py-2.5 leading-relaxed border border-indigo/40" style={{ background: "rgba(91,75,255,0.15)" }}>
-                        Hi Riya, great to hear — looking forward to it! I&apos;ll send over a couple of time slots shortly. —Sushrut
-                      </div>
-                    </div>
-                  </div>
+                  <EngageHeroDemo />
                 </div>
               </Reveal>
 
