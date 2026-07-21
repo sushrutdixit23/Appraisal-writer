@@ -83,7 +83,7 @@ export default function SiteNav() {
 
   const links = [
     { href: "/engage", label: "Engage" },
-    { href: "/#agents", label: "Agents" },
+    { href: "/agents", label: "Agents" },
     { href: "/appraisal-writer", label: "Appraisal Writer" },
   ];
   const dashboardHref = hasClient ? "/dashboard" : "/onboard";
@@ -131,7 +131,22 @@ export default function SiteNav() {
           </a>
           <div className="hidden md:flex items-center gap-8">
             {links.map((l) => (
-              <a key={l.href} href={l.href} className="text-[15px] font-medium text-ink-soft hover:text-indigo transition-colors">{l.label}</a>
+              l.label === "Agents" ? (
+                <div key={l.href} className="relative group">
+                  <a href={l.href} className="text-[15px] font-medium text-ink-soft hover:text-indigo transition-colors">{l.label}</a>
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="w-64 bg-white border border-line rounded-[16px] shadow-zy-lg overflow-y-auto max-h-80 p-2">
+                      <a href="/engage" className="block px-3.5 py-2.5 rounded-[10px] text-[14px] text-ink hover:bg-mist hover:text-indigo transition-colors">Engage</a>
+                      <a href="/appraisal-writer" className="block px-3.5 py-2.5 rounded-[10px] text-[14px] text-ink hover:bg-mist hover:text-indigo transition-colors">Appraisal Writer</a>
+                      <a href="/ats-checker" className="block px-3.5 py-2.5 rounded-[10px] text-[14px] text-ink hover:bg-mist hover:text-indigo transition-colors">ATS Resume Checker</a>
+                      <a href="/resume-builder" className="block px-3.5 py-2.5 rounded-[10px] text-[14px] text-ink hover:bg-mist hover:text-indigo transition-colors">AI Resume Optimizer</a>
+                      <a href="/resume-form-builder" className="block px-3.5 py-2.5 rounded-[10px] text-[14px] text-ink hover:bg-mist hover:text-indigo transition-colors">Resume Builder</a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <a key={l.href} href={l.href} className="text-[15px] font-medium text-ink-soft hover:text-indigo transition-colors">{l.label}</a>
+              )
             ))}
           </div>
           <div className="flex items-center gap-3">

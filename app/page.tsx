@@ -46,6 +46,13 @@ export default function Home() {
 
         {/* Engage flagship - moved to top */}
         <Reveal>
+          <div className="max-w-6xl mx-auto px-6 pt-6">
+            <a href="/agents" className="flex items-center justify-center gap-2 flex-wrap text-center px-5 py-3 rounded-[14px] border border-indigo/25 hover:border-indigo/50 transition-colors" style={{ background: "rgba(91,75,255,0.06)" }}>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>NEW</span>
+              <span className="text-[14px] text-ink font-medium">Free AI resume tools just launched - ATS scoring, AI rewrite, and a resume builder</span>
+              <span className="text-[14px] text-indigo font-semibold">Explore Agents &rarr;</span>
+            </a>
+          </div>
           <section id="engage" className="py-20 pt-0">
             <div className="max-w-6xl mx-auto px-6">
               <div className="max-w-[660px] mx-auto mb-14 text-center">
