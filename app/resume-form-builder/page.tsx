@@ -92,7 +92,24 @@ function ResumePreview({ resume }: { resume: StructuredResume }) {
     );
   }
   return (
-    <div className="bg-white border border-line rounded-[16px] p-8 shadow-zy-sm">
+    <div className="relative bg-white border border-line rounded-[16px] p-8 shadow-zy-sm overflow-hidden">
+      <div className="pointer-events-none select-none absolute inset-0 overflow-hidden" style={{ zIndex: 20 }}>
+        {Array.from({ length: 24 }).map((_, i) => (
+          <span
+            key={i}
+            className="absolute font-display font-bold whitespace-nowrap"
+            style={{
+              fontSize: 13,
+              top: `${Math.floor(i / 4) * 15 + 3}%`,
+              left: `${(i % 4) * 30 - 12}%`,
+              transform: "rotate(-28deg)",
+              color: "rgba(26,23,48,0.055)",
+            }}
+          >
+            ZYNTASK PREVIEW
+          </span>
+        ))}
+      </div>
       <div className="mb-5 pb-5 border-b border-line">
         <h2 className="font-display font-bold text-[22px] text-ink mb-1">{resume.name || "Your Name"}</h2>
         {resume.title && <p className="text-[13.5px] text-indigo font-medium mb-2">{resume.title}</p>}

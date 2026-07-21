@@ -478,7 +478,24 @@ export default function ResumeBuilder() {
               </div>
             )}
 
-            <div className="bg-white border border-line rounded-[16px] p-10 mb-5 shadow-zy-sm">
+            <div className="relative bg-white border border-line rounded-[16px] p-10 mb-5 shadow-zy-sm overflow-hidden">
+              <div className="pointer-events-none select-none absolute inset-0 overflow-hidden" style={{ zIndex: 20 }}>
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="absolute font-display font-bold whitespace-nowrap"
+                    style={{
+              fontSize: 13,
+              top: `${Math.floor(i / 4) * 15 + 3}%`,
+              left: `${(i % 4) * 30 - 12}%`,
+              transform: "rotate(-28deg)",
+              color: "rgba(26,23,48,0.055)",
+            }}
+                  >
+                    ZYNTASK PREVIEW
+                  </span>
+                ))}
+              </div>
               <div className="mb-6 pb-6 border-b border-line">
                 <h2 className="font-display font-bold text-[24px] text-ink mb-1">{resume.name}</h2>
                 {resume.title && <p className="text-[14px] text-indigo font-medium mb-2">{resume.title}</p>}

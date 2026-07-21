@@ -49,14 +49,11 @@ const styles = StyleSheet.create({
   section: { marginBottom: 14 },
   paragraph: { fontSize: 10, lineHeight: 1.5 },
   skillLine: { fontSize: 10, lineHeight: 1.5, marginBottom: 2 },
-  expBlock: { marginBottom: 10 },
-  expHeaderRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
-  expTitleCompany: { fontSize: 10.5, fontWeight: 700 },
-  expDates: { fontSize: 9, color: "#777777" },
-  bulletRow: { flexDirection: "row", marginBottom: 2 },
-  bulletDot: { width: 10, fontSize: 10 },
-  bulletText: { flex: 1, fontSize: 10, lineHeight: 1.5 },
-  eduRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  expBlock: { marginBottom: 12 },
+  expTitleCompany: { fontSize: 10.5, fontWeight: 700, marginBottom: 2, lineHeight: 1.3 },
+  expDates: { fontSize: 9, color: "#777777", marginBottom: 4 },
+  bulletText: { fontSize: 10, lineHeight: 1.5, marginBottom: 3 },
+  eduBlock: { marginBottom: 6 },
 });
 
 function ResumePdfDoc({ r }: { r: StructuredResume }) {
@@ -93,15 +90,10 @@ function ResumePdfDoc({ r }: { r: StructuredResume }) {
             <Text style={styles.sectionTitle}>Experience</Text>
             {r.experience.map((e, i) => (
               <View key={i} style={styles.expBlock}>
-                <View style={styles.expHeaderRow}>
-                  <Text style={styles.expTitleCompany}>{e.title} - {e.company}</Text>
-                  <Text style={styles.expDates}>{e.dates}</Text>
-                </View>
+                <Text style={styles.expTitleCompany}>{e.title} - {e.company}</Text>
+                <Text style={styles.expDates}>{e.dates}</Text>
                 {e.bullets.map((b, j) => (
-                  <View key={j} style={styles.bulletRow}>
-                    <Text style={styles.bulletDot}>-</Text>
-                    <Text style={styles.bulletText}>{b}</Text>
-                  </View>
+                  <Text key={j} style={styles.bulletText}>- {b}</Text>
                 ))}
               </View>
             ))}
@@ -112,9 +104,9 @@ function ResumePdfDoc({ r }: { r: StructuredResume }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Education</Text>
             {r.education.map((ed, i) => (
-              <View key={i} style={styles.eduRow}>
+              <View key={i} style={styles.eduBlock}>
                 <Text style={{ fontSize: 10 }}>{ed.degree} - {ed.institution}</Text>
-                <Text style={{ fontSize: 9, color: "#777777" }}>{ed.dates}</Text>
+                <Text style={{ fontSize: 9, color: "#777777", marginTop: 1 }}>{ed.dates}</Text>
               </View>
             ))}
           </View>
@@ -131,10 +123,7 @@ function ResumePdfDoc({ r }: { r: StructuredResume }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional</Text>
             {r.additional.map((a, i) => (
-              <View key={i} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>-</Text>
-                <Text style={styles.bulletText}>{a}</Text>
-              </View>
+              <Text key={i} style={styles.bulletText}>- {a}</Text>
             ))}
           </View>
         ) : null}
