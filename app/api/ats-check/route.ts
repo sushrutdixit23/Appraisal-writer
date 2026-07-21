@@ -9,22 +9,27 @@ const SYSTEM_PROMPT = `You are a senior technical recruiter and ATS (Applicant T
 - Headers and footers are sometimes ignored, silently dropping contact info placed there
 - Non-standard section headers (e.g. "My Journey" instead of "Experience") reduce field-mapping confidence
 - Icons, graphics, or unusual bullet glyphs can insert garbage characters into the parsed text
-- Ambiguous date formats, missing dates, or future-dated employment create parsing and credibility red flags
+- Ambiguous date formats, missing dates, or genuinely future-dated employment (relative to the real current date given below) create parsing and credibility red flags
 - Skills buried in prose rather than a dedicated skills section are harder for keyword matching to find
 
-Analyze the resume text given (and the target job description or role, if provided) and score it out of 100 using this rubric:
-- Parseability and formatting (40 points): would a real ATS extract every section, date, and contact detail correctly
-- Structure and keyword coverage (30 points): standard section headers present, skills clearly listed, keyword overlap with the target role or job description if one was given
-- Content quality and impact (30 points): outcome-oriented bullets, quantified where the resume's own content supports it, no vague or generic phrasing
+Score the resume out of 100 across three weighted subscores that must sum to the total score:
+- parseability (0-40): would a real ATS extract every section, date, and contact detail correctly
+- structure_keywords (0-30): standard section headers present, skills clearly listed, keyword overlap with the target role or job description if one was given
+- content_quality (0-30): outcome-oriented bullets, quantified where the resume's own content supports it, no vague or generic phrasing
 
-Calibration: 85 or above means a resume that would clear both ATS parsing and a six-second recruiter scan with no changes needed. 65 to 84 has real strengths but concrete, fixable issues. 40 to 64 has structural problems - formatting, missing sections, or consistently vague bullets - that would cost it real matches. Below 40 has at least one parsing-breaking issue (tables, columns, missing dates, or similar) that likely prevents correct extraction entirely.
+Calibration for the total score: 85+ clears both ATS parsing and a six-second recruiter scan with no changes needed. 65-84 has real strengths but concrete, fixable issues. 40-64 has structural problems that would cost it real matches. Below 40 has at least one parsing-breaking issue that likely prevents correct extraction entirely.
 
 Return ONLY valid JSON - no markdown code fences, no commentary before or after - matching exactly this shape:
 
 {
-  "score": <integer 0-100>,
-  "projected_score": <integer 0-100, your calibrated estimate of the score if every formatting, missing_sections, and phrasing fix listed below were fully applied - must be >= score>,
+  "score": <integer 0-100, must equal the sum of the three subscores below>,
+  "projected_score": <integer 0-100, your calibrated estimate of the score if every formatting, missing_sections, and phrasing fix listed below were fully applied - must be >= score, rarely more than 35 points above it unless the issues are severe and structural>,
   "verdict": "<one sentence, direct, no hedging>",
+  "subscores": {
+    "parseability": { "score": <integer 0-40>, "summary": "<one sentence explaining this subscore specifically>" },
+    "structure_keywords": { "score": <integer 0-30>, "summary": "<one sentence explaining this subscore specifically>" },
+    "content_quality": { "score": <integer 0-30>, "summary": "<one sentence explaining this subscore specifically>" }
+  },
   "formatting": [{ "issue": "<specific problem found>", "fix": "<concrete instruction>" }],
   "missing_sections": ["<standard resume section that is absent or too thin>"],
   "keyword_matches": { "matched": ["<keyword found in both resume and JD>"], "missing": ["<keyword in JD but absent from resume>"] } or null if no job description was provided,
@@ -32,13 +37,13 @@ Return ONLY valid JSON - no markdown code fences, no commentary before or after 
 }
 
 Rules:
-1. Score strictly against the rubric above - weigh each of the three categories independently, do not default to a flat across-the-board deduction pattern.
+1. Score strictly against the three subscores - weigh each independently, do not default to a flat across-the-board deduction pattern. The total score must equal their sum.
 2. Never invent content that is not in the resume. Only flag and quote what is actually present.
-3. formatting and phrasing arrays: 3 to 6 items each, most impactful only - not an exhaustive line-by-line audit.
+3. formatting and phrasing arrays: 3 to 6 items each, ORDERED BY IMPACT (most score-relevant first, not by order of appearance in the resume) - not an exhaustive line-by-line audit.
 4. missing_sections: only standard sections genuinely absent (Summary, Skills, Experience, Education, Certifications where relevant).
 5. If no job description is provided, keyword_matches must be null - do not guess at a role.
 6. Quote phrasing.original directly from the resume text given, verbatim, so the user can find it.
-7. projected_score must be a realistic, conservative estimate of the improvement achievable by fixing exactly the issues you listed - never lower than score, and rarely more than 35 points above it unless the issues are severe and structural. It is not an aspiration toward a perfect score.`;
+7. projected_score must be a realistic, conservative estimate of the improvement achievable by fixing exactly the issues you listed - never lower than score. It is not an aspiration toward a perfect score.`;
 
 export async function POST(req: Request) {
   try {
@@ -64,7 +69,7 @@ export async function POST(req: Request) {
     const today = new Date().toISOString().slice(0, 10);
     const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth for judging whether any employment or education date is genuinely future-dated - do not assume any other date)\n\nRESUME:\n${resumeText}\n\n${roleContext}`;
 
-    let raw: string;
+    let raw = "";
     try {
       const message = await anthropic.messages.create({
         model: "claude-sonnet-5",
@@ -73,8 +78,8 @@ export async function POST(req: Request) {
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
       });
-      const textBlock1 = message.content.find((block: any) => block.type === "text") as any;
-      raw = textBlock1?.text ?? "";
+      const textBlock = message.content.find((block: any) => block.type === "text") as any;
+      raw = textBlock?.text ?? "";
       if (message.stop_reason === "max_tokens") {
         console.error("ATS check: response was TRUNCATED (hit max_tokens). Raw so far:", raw);
       }

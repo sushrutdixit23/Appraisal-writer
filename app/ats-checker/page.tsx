@@ -15,6 +15,11 @@ type Result = {
   score: number;
   projected_score: number;
   verdict: string;
+  subscores?: {
+    parseability: { score: number; summary: string };
+    structure_keywords: { score: number; summary: string };
+    content_quality: { score: number; summary: string };
+  };
   formatting: FormatIssue[];
   missing_sections: string[];
   keyword_matches: KeywordMatches;
@@ -154,6 +159,22 @@ export default function AtsChecker() {
                 </p>
               )}
               <p className="text-[15px] text-ink max-w-[46ch] mx-auto leading-relaxed">{result.verdict}</p>
+              {result.subscores && (
+                <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-line max-w-lg mx-auto">
+                  <div className="text-center">
+                    <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-slate mb-1">Parseability</p>
+                    <p className="font-display font-bold text-[20px] text-ink">{result.subscores.parseability.score}<span className="text-[12px] text-slate-light">/40</span></p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-slate mb-1">Structure</p>
+                    <p className="font-display font-bold text-[20px] text-ink">{result.subscores.structure_keywords.score}<span className="text-[12px] text-slate-light">/30</span></p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-slate mb-1">Content</p>
+                    <p className="font-display font-bold text-[20px] text-ink">{result.subscores.content_quality.score}<span className="text-[12px] text-slate-light">/30</span></p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {result.formatting.length > 0 && (

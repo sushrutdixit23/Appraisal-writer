@@ -9,7 +9,9 @@ CRITICAL RULES - never violate these:
 1. Never invent employers, job titles, dates, degrees, certifications, or any factual claim not present in the original resume or in the candidate's own "ADDITIONAL DETAILS" input. You may rephrase, restructure, and strengthen language, but every fact must trace back to something the candidate actually wrote - either in the original resume or in their additional details.
 2. Never invent metrics or numbers that were not in the original resume or additional details. If none exist, express impact through scope or outcome language instead - do not fabricate percentages or figures.
 3. Preserve all contact information exactly as given (name, email, phone, location) - do not alter or omit it.
-4. If the candidate's ADDITIONAL DETAILS section contradicts something in the original resume (e.g. a corrected date), trust the additional details - they are the candidate speaking directly and take priority over the original text.
+4. If the candidate's ADDITIONAL DETAILS section contradicts something in the original resume (e.g. a corrected date), trust the additional details - they are the candidate speaking directly and take priority over both the original resume text and any known issues from a prior check.
+
+Priority order when multiple inputs are present: ADDITIONAL DETAILS (candidate's direct word) > KNOWN ISSUES (a prior ATS check's specific findings) > TARGET ROLE / JOB DESCRIPTION (general tailoring) > general polish. Fix known issues before doing anything else; only reach for general polish once every known issue is addressed.
 
 Your rewrite should:
 - Use a clean, single-column, ATS-parseable structure with standard section headers (Summary, Skills, Experience, Education, and others only if the original supports them)
@@ -17,10 +19,12 @@ Your rewrite should:
 - Build or tighten a Skills section from content actually present in the resume
 - Tighten the Summary to 2-3 sentences focused on the candidate's strongest, most relevant qualifications
 - If a target role or job description was provided, naturally incorporate its language where the candidate's actual experience genuinely supports it - never force a keyword that misrepresents their background
-- If KNOWN ISSUES from a prior ATS check are provided, prioritize fixing exactly those over any other polish
-- Only flag a date as an issue if it is genuinely after today's actual date (provided to you below) or is internally inconsistent within the resume itself. Never "correct" a date that is already valid - if uncertain, leave it unchanged and do not mention it in CHANGES
+- Only flag a date as an issue if it is genuinely after today's actual date (provided below) or is internally inconsistent within the resume itself. Never "correct" a date that is already valid - if uncertain, leave it unchanged and do not mention it in CHANGES
 
 Return your response in exactly this format, nothing else:
+
+ANALYSIS
+[2-4 sentences, private working notes not shown to the candidate: what does the target role/JD actually require if provided; which known issues are structural (parsing-breaking) versus cosmetic and therefore which to prioritize; what facts are actually available to work with; any tension between inputs and how you are resolving it per the priority order above. Be genuinely analytical here, not a restatement of the instructions.]
 
 CHANGES
 - [3 to 5 bullet points, ranked highest-impact first. Each bullet must name the SPECIFIC element changed and the concrete ATS or recruiter-scanning reason it matters - never a generic summary like "improved phrasing" or "standardized formatting". Where possible, contrast the actual original wording against the fix (e.g. "Replaced 'worked on client projects' with a quantified outcome bullet - vague task descriptions get skipped by keyword-matching ATS logic"). Do not describe a change as high-impact if it is actually cosmetic - if a change is minor, either omit it entirely or label it as minor. The list should read as a precise diff a skeptical reader could verify against the resume below, not a marketing summary.]
@@ -60,7 +64,7 @@ export async function POST(req: Request) {
 
     let detailsContext = "";
     if (additionalDetails?.trim()) {
-      detailsContext = `\n\nADDITIONAL DETAILS OR CORRECTIONS FROM THE CANDIDATE (these are genuine facts from the candidate, not something you invented - incorporate them and trust them over the original resume text where they conflict):\n${additionalDetails}`;
+      detailsContext = `\n\nADDITIONAL DETAILS OR CORRECTIONS FROM THE CANDIDATE (these are genuine facts from the candidate, not something you invented - incorporate them and trust them over everything else where they conflict):\n${additionalDetails}`;
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -70,13 +74,16 @@ export async function POST(req: Request) {
     try {
       const message = await anthropic.messages.create({
         model: "claude-sonnet-5",
-        max_tokens: 4096,
+        max_tokens: 6144,
         thinking: { type: "disabled" },
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
       });
       const textBlock = message.content.find((block: any) => block.type === "text") as any;
       raw = textBlock?.text ?? "";
+      if (message.stop_reason === "max_tokens") {
+        console.error("Resume build: response was TRUNCATED (hit max_tokens). Raw so far:", raw);
+      }
       if (!raw) {
         console.error("Resume build: no text block in Claude response. Content:", JSON.stringify(message.content));
       }
