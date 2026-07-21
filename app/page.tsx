@@ -2,6 +2,44 @@
 import SiteNav from "./components/SiteNav";
 import Reveal from "./components/Reveal";
 
+const AGENT_CARDS = [
+  {
+    name: "Engage",
+    badge: "Flagship",
+    badgeStyle: { background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" },
+    body: "Master your LinkedIn inbox - drafted replies, ready for your approval.",
+    href: "/engage",
+  },
+  {
+    name: "ATS Resume Checker",
+    badge: "Free",
+    badgeStyle: { background: "#1a9c6b" },
+    body: "A scored, detailed breakdown of how your resume parses in real ATS systems.",
+    href: "/ats-checker",
+  },
+  {
+    name: "AI Resume Optimizer",
+    badge: "Free",
+    badgeStyle: { background: "#1a9c6b" },
+    body: "Claude rewrites your resume end to end - stronger phrasing, ATS-optimized.",
+    href: "/resume-builder",
+  },
+  {
+    name: "Resume Builder",
+    badge: "Free",
+    badgeStyle: { background: "#1a9c6b" },
+    body: "Build field by field with full control, or import and edit an existing one.",
+    href: "/resume-form-builder",
+  },
+  {
+    name: "Appraisal Writer",
+    badge: "Free",
+    badgeStyle: { background: "#1a9c6b" },
+    body: "Turn rough notes into a polished, ready-to-submit self-appraisal.",
+    href: "/appraisal-writer",
+  },
+];
+
 export default function Home() {
   return (
     <main className="relative min-h-screen bg-mist overflow-x-hidden">
@@ -20,17 +58,17 @@ export default function Home() {
         </div>
 
         {/* Hero */}
-        <header className="relative pt-[60px] pb-20">
+        <header className="relative pt-[60px] pb-16">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_62%_55%_at_50%_42%,rgba(247,246,242,0.78),transparent_72%)] pointer-events-none" />
           <div className="relative z-10 max-w-3xl mx-auto px-6 text-center pt-12">
-              <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-[12.5px] font-medium text-slate tracking-wide mb-7">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }} />
-                Supervised AI · Built around you
+            <span className="inline-flex items-center gap-2 bg-cloud/80 border border-line px-4 py-1.5 rounded-full shadow-zy-sm text-[12.5px] font-medium text-slate tracking-wide mb-7">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }} />
+              Supervised AI · Built around you
             </span>
-              <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
-                <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
+            <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
+              <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
             </h1>
-              <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
+            <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
               AI that drafts the work. You make every call.
             </p>
             <div className="flex gap-3.5 flex-wrap items-center justify-center">
@@ -44,17 +82,21 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Engage flagship - moved to top */}
+        {/* Launch announcement - standalone, between hero and flagship */}
         <Reveal>
-          <div className="max-w-6xl mx-auto px-6 pt-6">
-            <a href="/agents" className="flex items-center justify-center gap-2 flex-wrap text-center px-5 py-3 rounded-[14px] border border-indigo/25 hover:border-indigo/50 transition-colors" style={{ background: "rgba(91,75,255,0.06)" }}>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>NEW</span>
+          <div className="max-w-4xl mx-auto px-6 pb-20">
+            <a href="/agents" className="flex items-center justify-center gap-2.5 flex-wrap text-center px-6 py-3.5 rounded-full border border-indigo/25 hover:border-indigo/50 hover:-translate-y-0.5 transition-all shadow-zy-sm" style={{ background: "rgba(91,75,255,0.06)" }}>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>NEW</span>
               <span className="text-[14px] text-ink font-medium">Free AI resume tools just launched - ATS scoring, AI rewrite, and a resume builder</span>
               <span className="text-[14px] text-indigo font-semibold">Explore Agents &rarr;</span>
             </a>
           </div>
-          <section id="engage" className="py-20 pt-0">
-            <div className="max-w-6xl mx-auto px-6">
+        </Reveal>
+
+        {/* Engage flagship */}
+        <section id="engage" className="pb-24">
+          <div className="max-w-6xl mx-auto px-6">
+            <Reveal>
               <div className="max-w-[660px] mx-auto mb-14 text-center">
                 <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
                   The flagship
@@ -66,9 +108,11 @@ export default function Home() {
                   Reads your DMs and comments, drafts replies in your voice, and waits for your yes before anything is sent.
                 </p>
               </div>
+            </Reveal>
 
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
-                <div className="md:col-span-4 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
+              <Reveal className="md:col-span-4" delay={0}>
+                <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     Your approval queue
                   </span>
@@ -76,7 +120,7 @@ export default function Home() {
                     One screen. A few minutes. Done.
                   </h3>
                   <p className="text-[15px] text-slate leading-relaxed mb-5">
-                    Clear a full day's worth of hot leads in a few minutes, with total confidence in every send.
+                    Clear a full day&apos;s worth of hot leads in a few minutes, with total confidence in every send.
                   </p>
                   <div className="rounded-2xl border border-line bg-mist overflow-hidden">
                     <div className="h-9 bg-ink flex items-center px-3.5 gap-2">
@@ -108,8 +152,10 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     </div>
                   </div>
                 </div>
+              </Reveal>
 
-                <div className="md:col-span-2 bg-ink text-white rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+              <Reveal className="md:col-span-2" delay={100}>
+                <div className="h-full bg-ink text-white rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-sky font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     The one rule
                   </span>
@@ -120,8 +166,10 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Every reply is read and approved by a real person before it reaches anyone - human-in-the-loop, always. There is no setting that changes that.
                   </p>
                 </div>
+              </Reveal>
 
-                <div className="md:col-span-3 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+              <Reveal className="md:col-span-3" delay={150}>
+                <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     Account safety
                   </span>
@@ -132,8 +180,10 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Sending stays well inside what LinkedIn considers normal activity - no matter how full the queue gets.
                   </p>
                 </div>
+              </Reveal>
 
-                <div className="md:col-span-3 bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+              <Reveal className="md:col-span-3" delay={200}>
+                <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
                     Sounds like you
                   </span>
@@ -144,21 +194,23 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Connect your LinkedIn and Engage learns your exact tone from your last 100 messages. You do not train it - it learns on the job, refining itself every time you edit a draft.
                   </p>
                 </div>
-              </div>
+              </Reveal>
+            </div>
 
-              <div className="text-center mt-10">
+            <Reveal delay={120}>
+              <div className="text-center mt-12">
                 <a href="/setup" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
                   Start your free trial
                 </a>
               </div>
-            </div>
-          </section>
-        </Reveal>
+            </Reveal>
+          </div>
+        </section>
 
         {/* The difference */}
-        <Reveal>
-          <section className="py-24 pt-4">
-            <div className="max-w-6xl mx-auto px-6">
+        <section className="pb-24">
+          <div className="max-w-6xl mx-auto px-6">
+            <Reveal>
               <div className="max-w-[640px] mx-auto mb-14 text-center">
                 <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
                   The difference
@@ -167,26 +219,28 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                   Most AI tools want full control. We don&apos;t think that&apos;s right.
                 </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                  { title: "Drafts, never decides", body: "Every output is prepared, not sent. You review before anything goes out - human-in-the-loop, not best-effort automation." },
-                  { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
-                  { title: "Visible, not a black box", body: "See exactly what is queued, what is pending, and what has been sent - structured and always in view." },
-                ].map((item) => (
-                  <div key={item.title} className="bg-cloud/85 border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            </Reveal>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[
+                { title: "Drafts, never decides", body: "Every output is prepared, not sent. You review before anything goes out - human-in-the-loop, not best-effort automation." },
+                { title: "Built on your voice", body: "Not a generic model. Tuned from real examples of how you actually write and work, not a template." },
+                { title: "Visible, not a black box", body: "See exactly what is queued, what is pending, and what has been sent - structured and always in view." },
+              ].map((item, i) => (
+                <Reveal key={item.title} delay={i * 90}>
+                  <div className="h-full bg-cloud/85 border border-line rounded-[20px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <h3 className="font-display font-semibold text-[17px] tracking-tight mb-2 text-ink">{item.title}</h3>
                     <p className="text-[14.5px] text-slate leading-relaxed">{item.body}</p>
                   </div>
-                ))}
-              </div>
+                </Reveal>
+              ))}
             </div>
-          </section>
-        </Reveal>
+          </div>
+        </section>
 
         {/* How it works */}
-        <Reveal>
-          <section id="how" className="py-24 pt-4">
-            <div className="max-w-6xl mx-auto px-6">
+        <section id="how" className="pb-24">
+          <div className="max-w-6xl mx-auto px-6">
+            <Reveal>
               <div className="max-w-[660px] mx-auto mb-14 text-center">
                 <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
                   How an agent works
@@ -198,14 +252,16 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                   Every Zyntask agent is built around the same promise - review before anything reaches anyone.
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                {[
-                  { n: "01", title: "Watch", body: "The agent quietly keeps an eye on the work - messages, comments, whatever it is built to catch. Nothing slips through." },
-                  { n: "02", title: "Draft", body: "It works out what is needed and prepares a response in your voice - ready to go, never sent on its own." },
-                  { n: "03", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
-                  { n: "04", title: "Repeat", body: "It keeps running, quietly, in the background - building a queue, never a backlog." },
-                ].map((step) => (
-                  <div key={step.n} className="bg-cloud/85 border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
+            </Reveal>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              {[
+                { n: "01", title: "Watch", body: "The agent quietly keeps an eye on the work - messages, comments, whatever it is built to catch. Nothing slips through." },
+                { n: "02", title: "Draft", body: "It works out what is needed and prepares a response in your voice - ready to go, never sent on its own." },
+                { n: "03", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
+                { n: "04", title: "Repeat", body: "It keeps running, quietly, in the background - building a queue, never a backlog." },
+              ].map((step, i) => (
+                <Reveal key={step.n} delay={i * 90}>
+                  <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                     <div className="flex items-center gap-2 text-indigo font-mono text-xs tracking-wide mb-4">
                       <span>{step.n}</span>
                       <span className="flex-1 h-px bg-line" />
@@ -213,48 +269,50 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2 text-ink">{step.title}</h3>
                     <p className="text-[14.5px] text-slate leading-relaxed">{step.body}</p>
                   </div>
-                ))}
-              </div>
+                </Reveal>
+              ))}
             </div>
-          </section>
-        </Reveal>
+          </div>
+        </section>
 
-        {/* Build your fleet */}
-        <Reveal>
-          <section className="py-24 pt-4">
-            <div className="max-w-6xl mx-auto px-6">
+        {/* Agents showcase */}
+        <section className="pb-24">
+          <div className="max-w-6xl mx-auto px-6">
+            <Reveal>
               <div className="max-w-[640px] mx-auto mb-14 text-center">
                 <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
-                  Build your fleet
+                  The agents
                 </span>
                 <h2 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(28px,3.5vw,42px)] text-ink">
-                  Start with your inbox. Keep going from there.
+                  Five agents, live today. Most of them free.
                 </h2>
                 <p className="text-slate text-lg mt-4">
-                  Engage is the first agent. More are already live.
+                  Start anywhere - every agent follows the same rule: you make the final call.
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
-                  <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    Live now
-                  </span>
-                  <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">Engage</h3>
-                  <p className="text-[14.5px] text-slate leading-relaxed mb-4">Master your LinkedIn inbox - drafted replies, ready for your approval.</p>
-                  <a href="/engage" className="text-[13.5px] font-semibold text-indigo hover:opacity-80 transition-opacity">See how it works &#8594;</a>
-                </div>
-                <div className="bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
-                  <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    Live now
-                  </span>
-                  <h3 className="font-display font-semibold text-[19px] tracking-tight mb-2.5 text-ink">Appraisal Writer</h3>
-                  <p className="text-[14.5px] text-slate leading-relaxed mb-4">Draft your quarterly performance reviews in minutes, not evenings.</p>
-                  <a href="/appraisal-writer" className="text-[13.5px] font-semibold text-indigo hover:opacity-80 transition-opacity">See how it works &#8594;</a>
-                </div>
-              </div>
+            </Reveal>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {AGENT_CARDS.map((agent, i) => (
+                <Reveal key={agent.href} delay={i * 80}>
+                  <a href={agent.href} className="flex flex-col h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:border-indigo/40 hover:shadow-zy-md transition-all">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-display font-semibold text-[19px] tracking-tight text-ink">{agent.name}</h3>
+                      <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold text-white flex-shrink-0" style={agent.badgeStyle}>{agent.badge}</span>
+                    </div>
+                    <p className="text-[14.5px] text-slate leading-relaxed mb-4 flex-1">{agent.body}</p>
+                    <span className="text-[13.5px] font-semibold text-indigo">Try it &rarr;</span>
+                  </a>
+                </Reveal>
+              ))}
+              <Reveal delay={AGENT_CARDS.length * 80}>
+                <a href="/agents" className="flex flex-col items-center justify-center h-full min-h-[180px] border border-dashed border-indigo/40 rounded-[24px] p-7 text-center hover:border-indigo hover:-translate-y-1 transition-all">
+                  <span className="font-display font-semibold text-[17px] text-indigo mb-1.5">View all agents</span>
+                  <span className="text-[13.5px] text-slate">Details, badges, and what each one does</span>
+                </a>
+              </Reveal>
             </div>
-          </section>
-        </Reveal>
+          </div>
+        </section>
 
         {/* CTA */}
         <Reveal>
@@ -288,7 +346,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                   Zyntask
                 </a>
                 <p className="text-slate text-sm max-w-[30ch]">
-              Zyntask — your professional copilot.
+                  Zyntask — your professional copilot.
                 </p>
               </div>
               <div id="agents">
@@ -320,4 +378,3 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
     </main>
   );
 }
-
