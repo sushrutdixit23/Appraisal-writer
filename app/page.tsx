@@ -284,10 +284,13 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
               Zyntask — your professional copilot.
                 </p>
               </div>
-              <div>
+              <div id="agents">
                 <h5 className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-4">Agents</h5>
                 <a href="/engage" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Engage</a>
                 <a href="/appraisal-writer" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Appraisal Writer</a>
+                <a href="/ats-checker" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">ATS Resume Checker</a>
+                <a href="/resume-builder" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">AI Resume Optimizer</a>
+                <a href="/resume-form-builder" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Resume Builder</a>
               </div>
               <div>
                 <h5 className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-4">Company</h5>

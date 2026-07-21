@@ -244,7 +244,7 @@ export default function ResumeFormBuilder() {
                   disabled={downloading}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-[11px] text-[14px] font-semibold text-ink border border-line bg-white hover:border-indigo/40 transition-all disabled:opacity-50"
                 >
-                  {downloading ? "Generating..." : "Download PDF (free test)"}
+                  {downloading ? "Generating..." : "Download PDF"}
                 </button>
                 <button
                   onClick={copyAll}
