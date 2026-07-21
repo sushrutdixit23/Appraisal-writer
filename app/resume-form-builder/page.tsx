@@ -182,6 +182,7 @@ export default function ResumeFormBuilder() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [payToken, setPayToken] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -278,6 +279,57 @@ export default function ResumeFormBuilder() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const ensurePaid = async (): Promise<string | null> => {
+    if (payToken) return payToken;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).Razorpay) { resolve(); return; }
+        const s = document.createElement("script");
+        s.src = "https://checkout.razorpay.com/v1/checkout.js";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("Could not load the payment window."));
+        document.body.appendChild(s);
+      });
+      const orderRes = await fetch("/api/pdf-order", { method: "POST" });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) {
+        setError(orderData.error || "Could not start payment.");
+        return null;
+      }
+      const token = await new Promise<string | null>((resolve) => {
+        const rzp = new (window as any).Razorpay({
+          key: orderData.keyId,
+          amount: orderData.amount,
+          currency: "INR",
+          name: "Zyntask",
+          description: "ATS-optimized resume PDF",
+          order_id: orderData.orderId,
+          handler: async (resp: any) => {
+            try {
+              const vRes = await fetch("/api/pdf-verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(resp),
+              });
+              const vData = await vRes.json();
+              resolve(vRes.ok ? vData.token : null);
+            } catch {
+              resolve(null);
+            }
+          },
+          modal: { ondismiss: () => resolve(null) },
+          theme: { color: "#5B4BFF" },
+        });
+        rzp.open();
+      });
+      if (token) setPayToken(token);
+      return token;
+    } catch (e: any) {
+      setError(e.message || "Payment failed to start.");
+      return null;
+    }
+  };
+
   const downloadPdf = async () => {
     if (!resume.name.trim()) {
       setError("Add your name before downloading.");
@@ -286,10 +338,15 @@ export default function ResumeFormBuilder() {
     setDownloading(true);
     setError("");
     try {
+      const token = await ensurePaid();
+      if (!token) {
+        setError("Payment was not completed - the PDF stays locked until it is.");
+        return;
+      }
       const res = await fetch("/api/resume-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume }),
+        body: JSON.stringify({ resume, token }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -458,10 +515,11 @@ export default function ResumeFormBuilder() {
             className="px-4 py-2 rounded-[10px] text-[13px] font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50"
             style={{ background: ACCENT }}
           >
-            {downloading ? "Generating..." : "Download PDF"}
+            {downloading ? "Processing..." : "Download PDF - \u20B9100"}
           </button>
         </div>
       </div>
+      <p className="text-[12px] text-slate-light mb-2">Plain-text copy is free. The formatted PDF download is {"\u20B9"}100.</p>
       {error && <p className="text-rose text-[13px] mb-3">{error}</p>}
       <div className="lg:max-h-[calc(100vh-180px)] lg:overflow-y-auto rounded-[16px]">
         <ResumePreview resume={resume} />

@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server";
+﻿import crypto from "crypto";
+import { NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 
 export const runtime = "nodejs";
@@ -120,9 +121,27 @@ function ResumePdfDoc({ r }: { r: StructuredResume }) {
 
 export async function POST(req: Request) {
   try {
-    const { resume } = await req.json();
+    const { resume, token } = await req.json();
     if (!resume?.name) {
       return NextResponse.json({ error: "No resume data provided." }, { status: 400 });
+    }
+
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    let paid = false;
+    if (token && keySecret) {
+      const parts = String(token).split(".");
+      if (parts.length === 2) {
+        const expected = crypto.createHmac("sha256", keySecret).update(parts[0]).digest("hex");
+        if (expected.length === parts[1].length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts[1]))) {
+          try {
+            const data = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf-8"));
+            if (data.exp > Date.now()) paid = true;
+          } catch {}
+        }
+      }
+    }
+    if (!paid) {
+      return NextResponse.json({ error: "Payment required to download the PDF." }, { status: 402 });
     }
 
     const buffer = await renderToBuffer(<ResumePdfDoc r={resume} />);
