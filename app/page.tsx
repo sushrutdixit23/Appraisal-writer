@@ -40,6 +40,13 @@ const AGENT_CARDS = [
   },
 ];
 
+const DASH_CHIPS = [
+  { label: "Classified", value: "Warm lead", color: "#7ec8f7" },
+  { label: "Intent", value: "Accepts demo, asks to schedule", color: "#ffffff" },
+  { label: "Confidence", value: "92%", color: "#ffffff" },
+  { label: "Routing", value: "NEEDS YOU", color: "#f7b955" },
+];
+
 export default function Home() {
   return (
     <main className="relative min-h-screen bg-mist overflow-x-hidden">
@@ -68,21 +75,21 @@ export default function Home() {
             <h1 className="font-display font-bold tracking-tight leading-[1.05] text-[clamp(40px,6vw,68px)] mb-6" style={{ color: "#1a1730" }}>
               <span className="font-serif italic font-semibold" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0,#4A9EFF)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Zyntask</span> <span style={{ color: "#1a1730" }}>— your professional copilot.</span>
             </h1>
-            <p className="text-[19px] max-w-[42ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
-              AI that drafts the work. You make every call.
+            <p className="text-[19px] max-w-[46ch] mx-auto mb-9 leading-relaxed" style={{ color: "#5a5670" }}>
+              Agents that handle your LinkedIn inbox, your resume, and your appraisals - drafting everything, sending nothing without you.
             </p>
             <div className="flex gap-3.5 flex-wrap items-center justify-center">
               <a href="/engage" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold bg-grad text-white shadow-[0_6px_18px_rgba(91,75,255,0.35)] hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(91,75,255,0.45)] transition-all">
                 See Engage in action
               </a>
-              <a href="#how" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold text-ink hover:text-indigo transition-colors">
-                How it works
+              <a href="/agents" className="inline-flex px-7 py-3.5 rounded-[13px] text-base font-semibold text-ink hover:text-indigo transition-colors">
+                Explore all agents
               </a>
             </div>
           </div>
         </header>
 
-        {/* Launch announcement - standalone, between hero and flagship */}
+        {/* Launch announcement */}
         <Reveal>
           <div className="max-w-4xl mx-auto px-6 pb-20">
             <a href="/agents" className="flex items-center justify-center gap-2.5 flex-wrap text-center px-6 py-3.5 rounded-full border border-indigo/25 hover:border-indigo/50 hover:-translate-y-0.5 transition-all shadow-zy-sm" style={{ background: "rgba(91,75,255,0.06)" }}>
@@ -105,7 +112,7 @@ export default function Home() {
                   <span className="font-serif italic">Engage.</span> Never miss a warm lead on LinkedIn again.
                 </h2>
                 <p className="text-slate text-lg mt-4">
-                  Reads your DMs and comments, drafts replies in your voice, and waits for your yes before anything is sent.
+                  Classifies every DM and comment, drafts replies in your voice, and routes the ones that need you - nothing sends without your yes.
                 </p>
               </div>
             </Reveal>
@@ -114,40 +121,43 @@ export default function Home() {
               <Reveal className="md:col-span-4" delay={0}>
                 <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-7 hover:-translate-y-1 hover:shadow-zy-md transition-all">
                   <span className="inline-flex items-center gap-1.5 text-indigo font-mono text-[10.5px] tracking-wide uppercase mb-3.5">
-                    Your approval queue
+                    Inside the dashboard
                   </span>
                   <h3 className="font-display font-semibold text-[21px] tracking-tight mb-2.5 text-ink">
-                    One screen. A few minutes. Done.
+                    Every lead classified, explained, and drafted.
                   </h3>
                   <p className="text-[15px] text-slate leading-relaxed mb-5">
-                    Clear a full day&apos;s worth of hot leads in a few minutes, with total confidence in every send.
+                    Engage reads each message, tells you what it is and why, and hands you a reply - so a full inbox takes minutes, not an afternoon.
                   </p>
-                  <div className="rounded-2xl border border-line bg-mist overflow-hidden">
-                    <div className="h-9 bg-ink flex items-center px-3.5 gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#3a3845]" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#3a3845]" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#3a3845]" />
-                      <span className="ml-2 font-serif text-[15px] text-[#cdc8be]">Engage<span className="text-indigo">.</span></span>
-                      <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;6 / 50</span>
+                  <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: "linear-gradient(150deg,#211e3e,#161330)" }}>
+                    <div className="h-9 flex items-center px-3.5 gap-2 border-b border-white/10">
+                      <span className="font-serif text-[15px] text-[#cdc8be]">Engage<span className="text-indigo">.</span></span>
+                      <span className="ml-auto text-[10px] text-[#8884a0]">Sent today &nbsp;3 / 100</span>
                     </div>
                     <div className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-bold uppercase tracking-wider bg-ink/10 text-ink-soft px-2 py-0.5 rounded-md">DM</span>
-                          <span className="text-[12px] font-semibold text-ink">Rohan Desai</span>
-                        </div>
-                        <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "rgba(255,68,68,0.10)", color: "#FF4444", border: "1px solid rgba(255,68,68,0.25)" }}>Hot lead</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: "#5B4BFF" }}>R</span>
+                        <span className="text-[12px] font-semibold text-white">Riya Chaudhary</span>
+                        <span className="ml-auto text-[9.5px] text-[#8884a0]">4d ago</span>
                       </div>
-                      <div className="text-[12.5px] text-ink-soft bg-cloud border border-line-soft rounded-lg px-3 py-2 mb-3 leading-relaxed">
-                        Would love to explore working together — are you taking on clients this quarter?
+                      <div className="text-[12px] text-[#d9d6ea] rounded-lg px-3 py-2 mb-3 leading-relaxed border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        Hi Sushrut, thanks for reaching out. Sounds interesting. Happy to take a quick demo.
                       </div>
-                      <div className="text-[9px] uppercase tracking-wide text-slate-light mb-1.5">Reply prepared for you</div>
-                      <div className="text-[12.5px] text-ink bg-white border border-line rounded-lg px-3 py-2.5 leading-relaxed mb-3">
-Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clients this quarter. Happy to set up a quick call to see if it is a fit.
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {DASH_CHIPS.map((chip) => (
+                          <div key={chip.label} className="rounded-lg px-2.5 py-1.5 border border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>
+                            <p className="text-[8.5px] uppercase tracking-wider text-[#8884a0] mb-0.5">{chip.label}</p>
+                            <p className="text-[11px] font-semibold leading-tight" style={{ color: chip.color }}>{chip.value}</p>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex gap-2 justify-end">
-                        <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-line text-slate">Skip</span>
-                        <span className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white" style={{ background: "linear-gradient(115deg,#5B4BFF,#8a6ff0)" }}>Approve &amp; send</span>
+                      <div className="rounded-lg px-3 py-2 mb-3" style={{ background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.3)" }}>
+                        <p className="text-[8.5px] uppercase tracking-wider mb-0.5" style={{ color: "#ff8fa3" }}>Hot lead - lead temperature</p>
+                        <p className="text-[11px] leading-tight" style={{ color: "#ffd0d9" }}>Explicitly agreed to a demo and asked for availability</p>
+                      </div>
+                      <div className="text-[9px] uppercase tracking-wide text-[#8884a0] mb-1.5">Reply sent</div>
+                      <div className="text-[12px] text-white rounded-lg px-3 py-2.5 leading-relaxed border border-indigo/40" style={{ background: "rgba(91,75,255,0.15)" }}>
+                        Hi Riya, great to hear — looking forward to it! I&apos;ll send over a couple of time slots shortly. —Sushrut
                       </div>
                     </div>
                   </div>
@@ -191,7 +201,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                     Learns your tone in 60 seconds.
                   </h3>
                   <p className="text-[14.5px] text-slate leading-relaxed">
-                    Connect your LinkedIn and Engage learns your exact tone from your last 100 messages. You do not train it - it learns on the job, refining itself every time you edit a draft.
+                    Connect your LinkedIn and Engage learns your exact tone from your last 100 messages. It refines itself every time you edit a draft.
                   </p>
                 </div>
               </Reveal>
@@ -237,28 +247,28 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
           </div>
         </section>
 
-        {/* How it works */}
+        {/* How Zyntask works */}
         <section id="how" className="pb-24">
           <div className="max-w-6xl mx-auto px-6">
             <Reveal>
-              <div className="max-w-[660px] mx-auto mb-14 text-center">
+              <div className="max-w-[680px] mx-auto mb-14 text-center">
                 <span className="block text-indigo font-mono text-xs tracking-[0.12em] uppercase mb-3.5">
-                  How an agent works
+                  How Zyntask works
                 </span>
                 <h2 className="font-display font-bold tracking-tight leading-[1.06] text-[clamp(30px,3.8vw,46px)] text-ink">
                   Four steps. One of them is yours.
                 </h2>
                 <p className="text-slate text-lg mt-4">
-                  Every Zyntask agent is built around the same promise - review before anything reaches anyone.
+                  Background agents like Engage and on-demand tools like the resume suite all follow the same promise - you review before anything is final.
                 </p>
               </div>
             </Reveal>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               {[
-                { n: "01", title: "Watch", body: "The agent quietly keeps an eye on the work - messages, comments, whatever it is built to catch. Nothing slips through." },
-                { n: "02", title: "Draft", body: "It works out what is needed and prepares a response in your voice - ready to go, never sent on its own." },
-                { n: "03", title: "Approve", body: "You read it, edit if you want, and decide. Nothing reaches anyone without your yes." },
-                { n: "04", title: "Repeat", body: "It keeps running, quietly, in the background - building a queue, never a backlog." },
+                { n: "01", title: "Bring the work", body: "Connect your LinkedIn inbox, upload a resume, or paste your notes - every agent starts from your real work, not a blank prompt." },
+                { n: "02", title: "It does the heavy lifting", body: "Classifying leads, scoring resumes, drafting replies and rewrites - prepared in your voice, never shipped on its own." },
+                { n: "03", title: "You make the call", body: "Review, edit, approve. Whether it is a LinkedIn reply or your resume, nothing is final until you say so." },
+                { n: "04", title: "Walk away done", body: "Send it, download it, move on. Background agents keep the queue full; tools hand you the finished file." },
               ].map((step, i) => (
                 <Reveal key={step.n} delay={i * 90}>
                   <div className="h-full bg-cloud/85 border border-line rounded-[24px] p-6 hover:-translate-y-1 hover:shadow-zy-md transition-all">
@@ -356,6 +366,7 @@ Thanks so much, Rohan — really appreciate that. Yes, taking on a few new clien
                 <a href="/ats-checker" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">ATS Resume Checker</a>
                 <a href="/resume-builder" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">AI Resume Optimizer</a>
                 <a href="/resume-form-builder" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Resume Builder</a>
+                <a href="/retrieve" className="block text-ink-soft text-[14.5px] mb-2.5 hover:text-indigo transition-colors">Retrieve a paid PDF</a>
               </div>
               <div>
                 <h5 className="font-mono text-[11px] tracking-[0.1em] uppercase text-slate-light mb-4">Company</h5>
