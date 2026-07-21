@@ -184,6 +184,8 @@ export default function ResumeFormBuilder() {
   const [downloading, setDownloading] = useState(false);
   const [payToken, setPayToken] = useState<string | null>(null);
   const [retrievalCode, setRetrievalCode] = useState<string | null>(null);
+  const [inlineScore, setInlineScore] = useState<any | null>(null);
+  const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
     try {
@@ -296,6 +298,27 @@ export default function ResumeFormBuilder() {
   const removeAdditional = (i: number) => setResume(r => ({ ...r, additional: r.additional.filter((_, idx) => idx !== i) }));
   const updateAdditional = (i: number, value: string) => {
     setResume(r => ({ ...r, additional: r.additional.map((a, idx) => idx === i ? value : a) }));
+  };
+
+  const scoreInline = async () => {
+    if (!resume.name.trim()) {
+      setError("Add your name before scoring.");
+      return;
+    }
+    setScoring(true);
+    setInlineScore(null);
+    setError("");
+    try {
+      const res = await fetch("/api/ats-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText: resumeToPlainText(resume) }),
+      });
+      const data = await res.json();
+      if (res.ok) setInlineScore(data);
+      else setError(data.error || "Scoring failed.");
+    } catch {}
+    finally { setScoring(false); }
   };
 
   const copyAll = () => {
@@ -563,9 +586,30 @@ export default function ResumeFormBuilder() {
       <div className="lg:max-h-[calc(100vh-180px)] lg:overflow-y-auto rounded-[16px]">
         <ResumePreview resume={resume} />
       </div>
-      <p className="text-[12px] text-slate-light text-center mt-3">
-        <a href="/ats-checker" className="text-indigo hover:underline">Check its ATS score &rarr;</a>
-      </p>
+      <div className="mt-4">
+        <button
+          onClick={scoreInline}
+          disabled={scoring}
+          className="w-full py-2.5 rounded-[11px] text-[13.5px] font-semibold text-indigo border border-indigo/30 bg-white hover:border-indigo/60 transition-all disabled:opacity-50"
+        >
+          {scoring ? "Scoring..." : "Check ATS score of this resume"}
+        </button>
+        {inlineScore && !scoring && (
+          <div className="bg-cloud border border-line rounded-[14px] px-5 py-4 mt-3">
+            <div className="flex items-center gap-3.5">
+              <p className="font-display font-bold text-[28px] leading-none" style={{ color: inlineScore.score >= 80 ? "#5B4BFF" : inlineScore.score >= 50 ? "#8a6f1f" : "#c0405a" }}>{inlineScore.score}</p>
+              <p className="text-[12.5px] text-ink leading-snug flex-1">{inlineScore.verdict}</p>
+            </div>
+            {inlineScore.formatting?.length > 0 && (
+              <div className="mt-2.5 pt-2.5 border-t border-line">
+                {inlineScore.formatting.slice(0, 3).map((f: any, i: number) => (
+                  <p key={i} className="text-[12px] text-ink leading-relaxed mb-1">- {f.issue}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 

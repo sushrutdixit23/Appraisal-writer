@@ -110,6 +110,8 @@ export default function ResumeBuilder() {
   const [downloading, setDownloading] = useState(false);
   const [payToken, setPayToken] = useState<string | null>(null);
   const [retrievalCode, setRetrievalCode] = useState<string | null>(null);
+  const [inlineScore, setInlineScore] = useState<any | null>(null);
+  const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
     try {
@@ -228,12 +230,32 @@ export default function ResumeBuilder() {
       setChanges(data.changes || []);
       setResume(data.resume);
       setPhase("output");
+      if (data.resume) scoreInline(data.resume);
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
       if (!isRebuild) setPhase("form");
     } finally {
       setRebuilding(false);
     }
+  };
+
+  const scoreInline = async (r: StructuredResume) => {
+    setScoring(true);
+    setInlineScore(null);
+    try {
+      const res = await fetch("/api/ats-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeText: resumeToPlainText(r),
+          targetRole: targetRole.trim() || undefined,
+          jobDescription: jobDescription.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) setInlineScore(data);
+    } catch {}
+    finally { setScoring(false); }
   };
 
   const copyAll = () => {
@@ -415,6 +437,32 @@ export default function ResumeBuilder() {
               </div>
             )}
 
+{scoring && (
+              <div className="bg-cloud border border-line rounded-[16px] px-5 py-4 mb-5 flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full border-2 border-indigo border-t-transparent animate-spin" />
+                <p className="text-[13.5px] text-slate">Scoring this version against the ATS rubric...</p>
+              </div>
+            )}
+            {inlineScore && !scoring && (
+              <div className="bg-cloud border border-line rounded-[16px] px-6 py-5 mb-5">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <p className="font-display font-bold text-[34px] leading-none" style={{ color: inlineScore.score >= 80 ? "#5B4BFF" : inlineScore.score >= 50 ? "#8a6f1f" : "#c0405a" }}>{inlineScore.score}</p>
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="font-mono text-[10px] tracking-[0.16em] uppercase text-slate mb-0.5">ATS score of this version</p>
+                    <p className="text-[13.5px] text-ink leading-snug">{inlineScore.verdict}</p>
+                  </div>
+                </div>
+                {inlineScore.formatting?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-line">
+                    <p className="text-[11px] text-slate-light uppercase tracking-wide mb-1.5">Still worth fixing</p>
+                    {inlineScore.formatting.slice(0, 3).map((f: any, i: number) => (
+                      <p key={i} className="text-[13px] text-ink leading-relaxed mb-1">- {f.issue}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {changes.length > 0 && (
               <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
                 <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">What changed, and why</p>
@@ -534,7 +582,7 @@ export default function ResumeBuilder() {
 
             <div className="flex items-center justify-between flex-wrap gap-3">
               <button onClick={reset} className="text-[13px] text-slate hover:text-indigo transition-colors">Start over</button>
-              <button onClick={goToChecker} className="text-[13px] text-indigo hover:underline">Check the ATS score of this version &rarr;</button>
+              <a href="/ats-checker" className="text-[13px] text-slate-light hover:text-indigo transition-colors">Standalone ATS Checker &rarr;</a>
             </div>
 
           </div>
