@@ -914,6 +914,7 @@ export default function Dashboard() {
             <div className="hidden md:flex items-center gap-8">
               <a href="/calendar" target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Calendar</a>
               <a href="/analytics" target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Analytics</a>
+              <a href="/relationships" className="text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">Relationships</a>
               <div className="relative">
                 <button onClick={() => setMoreMenuOpen(!moreMenuOpen)} className="flex items-center gap-1 text-[13.5px] font-medium text-white/65 hover:text-white transition-colors whitespace-nowrap tracking-wide">
                   More
@@ -938,6 +939,7 @@ export default function Dashboard() {
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] rounded-[14px] shadow-xl overflow-hidden z-50">
                   <a href="/calendar" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Calendar</a>
                   <a href="/analytics" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Analytics</a>
+                  <a href="/relationships" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Relationships</a>
                   <a href="/voice" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors border-b border-white/[0.06]">Voice</a>
                   <a href="/welcome" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-[13.5px] text-slate-light hover:bg-white/5 hover:text-white transition-colors">Back to home</a>
                 </div>
