@@ -15,10 +15,12 @@ export function HorizontalBarChart({
   data,
   isRatio,
   height = 26,
+  highlightLabel,
 }: {
   data: { label: string; value: number }[];
   isRatio: boolean;
   height?: number;
+  highlightLabel?: string;
 }) {
   if (data.length === 0) {
     return (
@@ -79,7 +81,7 @@ export function HorizontalBarChart({
               y={2}
               width={barW}
               height={rowH - 4}
-              fill={T.chartPrimary}
+              fill={d.label === highlightLabel ? T.chartAccent : T.chartPrimary}
             />
             <text
               x={

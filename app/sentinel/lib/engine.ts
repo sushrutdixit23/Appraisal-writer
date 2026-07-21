@@ -1,13 +1,17 @@
-// Sentinel — financial engine, ported from src/sentinel/engine/ (Python).
-// Pure functions, no I/O: importable identically from client pages and
-// server API routes.
+// Sentinel — financial engine, rebuilt around workspace_id. The one real
+// correctness fix in this rebuild: `is_subject` is no longer a static
+// flag anywhere (it used to live in COMPANY_CONFIG, hardcoding Apollo
+// Tyres as permanently "the" subject). It's now a parameter to
+// buildPeerTable — whichever workspace you're viewing from is the
+// subject, and every other company in that sector becomes a peer. Open
+// JK Tyre's workspace and JK Tyre is the subject; Apollo becomes a peer.
 
-import { COMPANY_CONFIG, SECTOR_CONFIG } from "./config";
-import type { FinancialStatement, PeerRow } from "./types";
+import { getSectorConfig } from "./config";
+import type { FinancialStatement, PeerRow, Workspace } from "./types";
 
-/** Same company, same period type, period ending exactly one year earlier
- * (year - 1, same month). Deliberately strict — a quarterly statement never
- * silently pairs against a full-year one. Mirrors _find_prior_year. */
+/** Same workspace, same period type, period ending exactly one year
+ * earlier (year - 1, same month). Deliberately strict — a quarterly
+ * statement never silently pairs against a full-year one. */
 export function findPriorYear(
   stmt: FinancialStatement,
   all: FinancialStatement[]
@@ -16,7 +20,7 @@ export function findPriorYear(
   for (const other of all) {
     const [oy, om] = other.period_end_date.split("-").map(Number);
     if (
-      other.company_id === stmt.company_id &&
+      other.workspace_id === stmt.workspace_id &&
       other.period_type === stmt.period_type &&
       oy === y - 1 &&
       om === m
@@ -27,16 +31,17 @@ export function findPriorYear(
   return null;
 }
 
-/** Evaluate every sector-configured ratio for one statement. A ratio that
- * can't be computed (missing field, no prior year, zero denominator)
- * resolves to null rather than throwing — a peer table with a gap beats a
- * pipeline that crashes on one missing field. */
+/** Evaluate every sector-configured ratio for one statement. A ratio
+ * that can't be computed (missing field, no prior year, zero
+ * denominator) resolves to null rather than throwing. */
 export function computeRatios(
   stmt: FinancialStatement,
-  prior: FinancialStatement | null
+  prior: FinancialStatement | null,
+  sector: string
 ): Record<string, number | null> {
+  const cfg = getSectorConfig(sector);
   const out: Record<string, number | null> = {};
-  for (const ratio of SECTOR_CONFIG.derived_ratios) {
+  for (const ratio of cfg.derived_ratios) {
     try {
       const v = ratio.compute(stmt, prior);
       out[ratio.id] = v == null || Number.isNaN(v) ? null : v;
@@ -47,45 +52,49 @@ export function computeRatios(
   return out;
 }
 
-/** Build the peer comparison table: each company's MOST RECENT period of
- * the given type — not every FY record, which would include prior-year
- * comparatives as their own rows. Rows are basis-labeled, never silently
- * normalized: basis_caveat flags any company whose extract doesn't match
- * the sector's comparison standard. Sorted by revenue, descending. */
+/** Build the peer comparison table for one workspace's view: the peer
+ * set is every OTHER workspace in the same sector, plus the subject
+ * itself, each represented by its most recent period of the given type.
+ * Rows are basis-labeled against each workspace's own comparison_basis,
+ * never silently normalized. Sorted by revenue, descending. */
 export function buildPeerTable(
+  workspaces: Workspace[],
   statements: FinancialStatement[],
+  subjectWorkspaceId: string,
   periodType: string = "FY"
 ): PeerRow[] {
-  const comparisonBasis = new Map(
-    COMPANY_CONFIG.companies.map((c) => [c.id, c.comparison_basis])
-  );
-  const subjectCompany =
-    COMPANY_CONFIG.companies.find((c) => c.is_subject)?.id ?? null;
+  const subject = workspaces.find((w) => w.id === subjectWorkspaceId);
+  if (!subject) return [];
 
-  const candidates = statements.filter((s) => s.period_type === periodType);
-  const latestByCompany = new Map<string, FinancialStatement>();
+  const sectorPeers = workspaces.filter((w) => w.sector === subject.sector);
+  const wsById = new Map(sectorPeers.map((w) => [w.id, w]));
+
+  const candidates = statements.filter(
+    (s) => s.period_type === periodType && wsById.has(s.workspace_id)
+  );
+  const latestByWorkspace = new Map<string, FinancialStatement>();
   for (const s of candidates) {
-    const current = latestByCompany.get(s.company_id);
+    const current = latestByWorkspace.get(s.workspace_id);
     if (!current || s.period_end_date > current.period_end_date) {
-      latestByCompany.set(s.company_id, s);
+      latestByWorkspace.set(s.workspace_id, s);
     }
   }
 
   const rows: PeerRow[] = [];
-  for (const stmt of latestByCompany.values()) {
+  for (const stmt of latestByWorkspace.values()) {
+    const ws = wsById.get(stmt.workspace_id)!;
     const prior = findPriorYear(stmt, statements);
-    const ratios = computeRatios(stmt, prior);
+    const ratios = computeRatios(stmt, prior, ws.sector);
 
     let basisCaveat: string | null = null;
-    const expected = comparisonBasis.get(stmt.company_id);
-    if (expected && stmt.basis !== expected) {
-      basisCaveat = `using ${stmt.basis} — ${expected} not available in current extract`;
+    if (stmt.basis !== ws.comparison_basis) {
+      basisCaveat = `using ${stmt.basis} \u2014 ${ws.comparison_basis} not available in current extract`;
     }
 
     rows.push({
-      company_id: stmt.company_id,
-      company_name: stmt.company_name,
-      is_subject: stmt.company_id === subjectCompany,
+      workspace_id: ws.id,
+      company_name: ws.company_name,
+      is_subject: ws.id === subjectWorkspaceId,
       period_label: stmt.period_label,
       basis: stmt.basis,
       basis_caveat: basisCaveat,
@@ -102,9 +111,8 @@ export function buildPeerTable(
   return rows;
 }
 
-/** One-line warning if the table mixes standalone and consolidated bases —
- * absolute figures are not comparable across rows in that case. Mirrors
- * mixed_basis_warning. */
+/** One-line warning if the table mixes standalone and consolidated
+ * bases — absolute figures are not comparable across rows in that case. */
 export function mixedBasisWarning(rows: PeerRow[]): string | null {
   const bases = new Set(rows.map((r) => r.basis));
   if (bases.size <= 1) return null;
