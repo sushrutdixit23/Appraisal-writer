@@ -32,7 +32,7 @@ export default function SentinelLayout({
         color: T.ink,
       }}
     >
-      <style jsx global>{`
+      <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
       `}</style>
 
@@ -125,11 +125,12 @@ export default function SentinelLayout({
         style={{
           flex: 1,
           minWidth: 0,
+          display: "flex",
+          justifyContent: "center",
           padding: "2.2rem 2.8rem",
-          maxWidth: 1080,
         }}
       >
-        {children}
+        <div style={{ width: "100%", maxWidth: 1080 }}>{children}</div>
       </main>
     </div>
   );
