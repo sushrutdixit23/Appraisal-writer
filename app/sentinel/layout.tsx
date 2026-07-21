@@ -82,6 +82,24 @@ export default function SentinelLayout({
           </p>
         </div>
 
+        <Link
+          href="/sentinel/new-project"
+          style={{
+            display: "block",
+            textAlign: "center",
+            textDecoration: "none",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+            color: T.sidebar,
+            background: T.accent,
+            padding: "0.6rem 0.7rem",
+            borderRadius: 3,
+            marginBottom: "1rem",
+          }}
+        >
+          + New Project
+        </Link>
+
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {NAV.map((item) => {
             const active = pathname === item.href;

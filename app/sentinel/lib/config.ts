@@ -82,6 +82,24 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       "common sources of apparent-but-not-real anomalies in this sector.",
     derived_ratios: DERIVED_RATIOS,
   },
+  general: {
+    sector_id: "general",
+    display_name: "General / Other",
+    anomaly_thresholds: {
+      // Wider swing threshold than tyre's 15% - without sector-specific
+      // tuning, a narrower band would false-positive on normal variation
+      // for a business type we haven't calibrated against.
+      peer_relative_zscore: 2.0,
+      yoy_swing_pct: 20.0,
+      exceptional_item_pct_of_pbt: 20.0,
+    },
+    narrative_context:
+      "No sector-specific tuning has been applied for this company's industry " +
+      "yet. Do not assume a specific cost cycle, seasonality, or margin driver " +
+      "that hasn't been evidenced in this company's own data across the periods " +
+      "available - reason from the numbers given, not from sector priors.",
+    derived_ratios: DERIVED_RATIOS,
+  },
 };
 
 export function getSectorConfig(sector: string): SectorConfig {
