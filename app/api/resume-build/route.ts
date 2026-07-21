@@ -30,6 +30,7 @@ Priority order: ADDITIONAL DETAILS > KNOWN ISSUES > TARGET ROLE / JOB DESCRIPTIO
 Your rewrite should:
 - Follow the OPTIMIZATION MODE guidance given below, where one is provided
 - Lead each experience bullet with a strong action verb and the outcome, not the task
+- Keep every bullet to ONE achievement and roughly 25 words maximum - split dense multi-part bullets into separate bullets rather than packing sub-lists or multiple outcomes into one line, which breaks ATS scan-ability
 - Build or tighten skills from content actually present; categorize only if natural
 - Tighten the summary to 2-3 sentences on the strongest, most relevant qualifications
 - Incorporate target role/JD language only where the candidate's actual experience genuinely supports it

@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const userMessage = `TODAY'S ACTUAL DATE: ${today} (use this as ground truth for judging whether any employment or education date is genuinely future-dated - do not assume any other date)\n\nRESUME:\n${resumeText}\n\n${roleContext}`;
+    const userMessage = `TODAY'S ACTUAL DATE: ${today}. DATE COMPARISON RULE - apply it mechanically before flagging anything as future-dated: a month-year is future ONLY if its year is greater than today's year, OR its year equals today's year AND its month is strictly after today's month. Example with today = ${today}: May 2026 and June 2026 are PAST dates (already happened); August 2026 would be future. A role that started one or two months ago and says Present is completely normal - do not flag recent start dates as suspicious or fabricated\n\nRESUME:\n${resumeText}\n\n${roleContext}`;
 
     let raw = "";
     try {

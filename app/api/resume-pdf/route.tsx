@@ -16,12 +16,36 @@ type StructuredResume = {
   additional: string[];
 };
 
+// Helvetica lacks glyphs for several common characters (notably the rupee
+// sign) - they render as garbage in the PDF and corrupt ATS text extraction.
+// Map them to universally-supported equivalents before rendering.
+function sanitizeText(s: string): string {
+  return s
+    .replace(/\u20B9\s?/g, "Rs. ")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2022/g, "-")
+    .replace(/\u00A0/g, " ");
+}
+
+function sanitizeForPdf(value: any): any {
+  if (typeof value === "string") return sanitizeText(value);
+  if (Array.isArray(value)) return value.map(sanitizeForPdf);
+  if (value && typeof value === "object") {
+    const out: any = {};
+    for (const k of Object.keys(value)) out[k] = sanitizeForPdf(value[k]);
+    return out;
+  }
+  return value;
+}
+
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a2e" },
   name: { fontSize: 20, fontWeight: 700, marginBottom: 2 },
   title: { fontSize: 11, color: "#5B4BFF", marginBottom: 6 },
   contact: { fontSize: 9, color: "#555555", marginBottom: 14 },
-  sectionTitle: { fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: "#dddddd", paddingBottom: 3 },
+  sectionTitle: { fontSize: 9, fontWeight: 700, textTransform: "uppercase", marginBottom: 6, borderBottomWidth: 1, borderBottomColor: "#dddddd", paddingBottom: 3 },
   section: { marginBottom: 14 },
   paragraph: { fontSize: 10, lineHeight: 1.5 },
   skillLine: { fontSize: 10, lineHeight: 1.5, marginBottom: 2 },
@@ -144,7 +168,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Payment required to download the PDF." }, { status: 402 });
     }
 
-    const buffer = await renderToBuffer(<ResumePdfDoc r={resume} />);
+    const safeResume = sanitizeForPdf(resume);
+    const buffer = await renderToBuffer(<ResumePdfDoc r={safeResume} />);
     const filename = (resume.name || "resume").replace(/[^a-zA-Z0-9]+/g, "_") + "_resume.pdf";
 
     return new NextResponse(new Uint8Array(buffer), {
