@@ -28,17 +28,46 @@ DEFAULT_DATA_DIR = r"C:\Users\Admin\Downloads\sentinel\data\extracted"
 
 
 def load_env_local(path: Path) -> dict:
-    """Minimal .env.local parser — KEY=VALUE lines, no quoting games."""
-    env = {}
+    """Parse .env.local, keeping every value seen per key (not last-write-
+    wins) — this repo's file has had literal '"[SENSITIVE]"' placeholder
+    junk land in it before (same symptom hit during the relationships
+    build), sometimes alongside a real value on a different line. Picking
+    "whichever value exists" isn't safe here; picking "whichever value
+    looks like a real credential" is.
+    """
     if not path.exists():
         sys.exit(f"ERROR: {path} not found. Run this from the appraisal-writer repo root.")
+
+    candidates: dict[str, list[str]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        env[key.strip()] = value.strip().strip('"')
-    return env
+        value = value.strip().strip('"')
+        candidates.setdefault(key.strip(), []).append(value)
+
+    return candidates
+
+
+def _looks_like_url(v: str) -> bool:
+    return v.startswith("https://") and len(v) > 20 and "SENSITIVE" not in v
+
+
+def _looks_like_jwt(v: str) -> bool:
+    return v.startswith("eyJ") and len(v) > 100 and "SENSITIVE" not in v
+
+
+def _pick(candidates: dict, key: str, looks_valid) -> str | None:
+    """Among every value ever assigned to `key` in the file (duplicates
+    included), prefer one that actually looks like a real value. Falls
+    back to the last one present so a genuine failure still surfaces a
+    concrete (if wrong) value rather than None."""
+    values = candidates.get(key, [])
+    valid = [v for v in values if looks_valid(v)]
+    if valid:
+        return valid[-1]
+    return values[-1] if values else None
 
 
 def main() -> None:
@@ -47,10 +76,21 @@ def main() -> None:
     args = parser.parse_args()
 
     env = load_env_local(Path(".env.local"))
-    supabase_url = env.get("NEXT_PUBLIC_SUPABASE_URL")
-    service_key = env.get("SUPABASE_SERVICE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_url = _pick(env, "NEXT_PUBLIC_SUPABASE_URL", _looks_like_url) or _pick(
+        env, "SUPABASE_URL", _looks_like_url
+    )
+    service_key = _pick(env, "SUPABASE_SERVICE_ROLE_KEY", _looks_like_jwt) or _pick(
+        env, "SUPABASE_SERVICE_KEY", _looks_like_jwt
+    )
     if not supabase_url or not service_key:
-        sys.exit("ERROR: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_KEY missing from .env.local")
+        sys.exit(
+            "ERROR: could not find a real-looking Supabase URL / service key in .env.local "
+            "(only placeholder values like \"[SENSITIVE]\" were found for every candidate line). "
+            "Pull fresh values from the Supabase dashboard (Project Settings -> API) or "
+            "`vercel env pull .env.local` if the CLI is installed."
+        )
+    print(f"  using SUPABASE URL ending in ...{supabase_url[-24:]}")
+    print(f"  using service key starting with {service_key[:8]}... (len {len(service_key)})")
 
     data_dir = Path(args.data_dir)
     json_files = sorted(data_dir.glob("*.json"))
