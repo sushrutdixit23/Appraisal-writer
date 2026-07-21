@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SiteNav from "../components/SiteNav";
 
 const ACCENT = "linear-gradient(115deg,#5B4BFF,#8a6ff0)";
@@ -183,6 +183,31 @@ export default function ResumeFormBuilder() {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [payToken, setPayToken] = useState<string | null>(null);
+  const [retrievalCode, setRetrievalCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const tok = localStorage.getItem("zyntask_pdf_token");
+      if (tok) {
+        const parts = tok.split("|");
+        if (parts.length === 2 && Number(parts[1]) > Date.now()) setPayToken(parts[0]);
+        else localStorage.removeItem("zyntask_pdf_token");
+      }
+      const rc = localStorage.getItem("zyntask_retrieval_code");
+      if (rc) setRetrievalCode(rc);
+    } catch {}
+    try {
+      const saved = localStorage.getItem("zyntask_form_resume");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.name !== undefined) setResume(parsed);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("zyntask_form_resume", JSON.stringify(resume)); } catch {}
+  }, [resume]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -309,9 +334,13 @@ export default function ResumeFormBuilder() {
               const vRes = await fetch("/api/pdf-verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(resp),
+                body: JSON.stringify({ ...resp, resume }),
               });
               const vData = await vRes.json();
+              if (vRes.ok && vData.retrievalCode) {
+                setRetrievalCode(vData.retrievalCode);
+                try { localStorage.setItem("zyntask_retrieval_code", vData.retrievalCode); } catch {}
+              }
               resolve(vRes.ok ? vData.token : null);
             } catch {
               resolve(null);
@@ -322,7 +351,10 @@ export default function ResumeFormBuilder() {
         });
         rzp.open();
       });
-      if (token) setPayToken(token);
+      if (token) {
+        setPayToken(token);
+        try { localStorage.setItem("zyntask_pdf_token", `${token}|${Date.now() + 2 * 60 * 60 * 1000}`); } catch {}
+      }
       return token;
     } catch (e: any) {
       setError(e.message || "Payment failed to start.");
@@ -521,6 +553,13 @@ export default function ResumeFormBuilder() {
       </div>
       <p className="text-[12px] text-slate-light mb-2">Plain-text copy is free. The formatted PDF download is {"\u20B9"}100.</p>
       {error && <p className="text-rose text-[13px] mb-3">{error}</p>}
+      {retrievalCode && (
+        <div className="bg-cloud border border-indigo/30 rounded-[14px] px-4 py-3 mb-4">
+          <p className="text-[12px] text-slate mb-0.5">Your download recovery code (valid 48h) - save it:</p>
+          <p className="font-mono text-[16px] font-bold text-indigo tracking-[0.1em]">{retrievalCode}</p>
+          <p className="text-[11.5px] text-slate-light mt-0.5">Lost the file? Retrieve it anytime at <a href="/retrieve" className="text-indigo hover:underline">zyntask.in/retrieve</a></p>
+        </div>
+      )}
       <div className="lg:max-h-[calc(100vh-180px)] lg:overflow-y-auto rounded-[16px]">
         <ResumePreview resume={resume} />
       </div>
