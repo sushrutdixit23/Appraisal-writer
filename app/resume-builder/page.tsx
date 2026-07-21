@@ -22,15 +22,17 @@ type Handoff = {
   phrasing?: HandoffPhrasing[];
 };
 
-function parseOutput(raw: string) {
-  const changesMatch = raw.match(/CHANGES\s*([\s\S]*?)\s*(?:RESUME|$)/i);
-  const resumeMatch = raw.match(/RESUME\s*([\s\S]*)/i);
-  const changes = changesMatch
-    ? changesMatch[1].split("\n").map(l => l.replace(/^[-\u2022]\s*/, "").trim()).filter(Boolean)
-    : [];
-  const resume = resumeMatch ? resumeMatch[1].trim() : raw.trim();
-  return { changes, resume };
-}
+type StructuredResume = {
+  name: string;
+  title: string;
+  contact: { phone: string; email: string; location: string; linkedin: string };
+  summary: string;
+  skills: { category: string; items: string }[];
+  experience: { title: string; company: string; dates: string; bullets: string[] }[];
+  education: { degree: string; institution: string; dates: string }[];
+  certifications: string[];
+  additional: string[];
+};
 
 function buildKnownIssuesText(h: Handoff): string {
   const parts: string[] = [];
@@ -46,6 +48,48 @@ function buildKnownIssuesText(h: Handoff): string {
   return parts.join("\n\n");
 }
 
+function resumeToPlainText(r: StructuredResume): string {
+  const lines: string[] = [];
+  lines.push(r.name);
+  if (r.title) lines.push(r.title);
+  const contactParts = [r.contact.phone, r.contact.email, r.contact.location, r.contact.linkedin].filter(Boolean);
+  if (contactParts.length) lines.push(contactParts.join(" | "));
+  lines.push("");
+  if (r.summary) {
+    lines.push("SUMMARY");
+    lines.push(r.summary);
+    lines.push("");
+  }
+  if (r.skills?.length) {
+    lines.push("SKILLS");
+    r.skills.forEach(s => lines.push(`${s.category}: ${s.items}`));
+    lines.push("");
+  }
+  if (r.experience?.length) {
+    lines.push("EXPERIENCE");
+    r.experience.forEach(e => {
+      lines.push(`${e.title} - ${e.company} (${e.dates})`);
+      e.bullets.forEach(b => lines.push(`- ${b}`));
+      lines.push("");
+    });
+  }
+  if (r.education?.length) {
+    lines.push("EDUCATION");
+    r.education.forEach(ed => lines.push(`${ed.degree} - ${ed.institution} (${ed.dates})`));
+    lines.push("");
+  }
+  if (r.certifications?.length) {
+    lines.push("CERTIFICATIONS");
+    lines.push(r.certifications.join(", "));
+    lines.push("");
+  }
+  if (r.additional?.length) {
+    lines.push("ADDITIONAL");
+    r.additional.forEach(a => lines.push(`- ${a}`));
+  }
+  return lines.join("\n").trim();
+}
+
 export default function ResumeBuilder() {
   const [phase, setPhase] = useState<Phase>("form");
   const [resumeText, setResumeText] = useState("");
@@ -56,7 +100,7 @@ export default function ResumeBuilder() {
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [changes, setChanges] = useState<string[]>([]);
-  const [editedResume, setEditedResume] = useState("");
+  const [resume, setResume] = useState<StructuredResume | null>(null);
   const [copied, setCopied] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [fromCheckerScore, setFromCheckerScore] = useState<number | null>(null);
@@ -144,9 +188,8 @@ export default function ResumeBuilder() {
         return;
       }
 
-      const parsed = parseOutput(data.output);
-      setChanges(parsed.changes);
-      setEditedResume(parsed.resume);
+      setChanges(data.changes || []);
+      setResume(data.resume);
       setPhase("output");
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
@@ -157,15 +200,17 @@ export default function ResumeBuilder() {
   };
 
   const copyAll = () => {
-    navigator.clipboard.writeText(editedResume);
+    if (!resume) return;
+    navigator.clipboard.writeText(resumeToPlainText(resume));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const goToChecker = () => {
+    if (!resume) return;
     try {
       sessionStorage.setItem("resume_handoff", JSON.stringify({
-        resumeText: editedResume,
+        resumeText: resumeToPlainText(resume),
         targetRole,
         jobDescription,
         previousScore: fromCheckerScore,
@@ -177,7 +222,7 @@ export default function ResumeBuilder() {
   const reset = () => {
     setPhase("form");
     setChanges([]);
-    setEditedResume("");
+    setResume(null);
     setFromCheckerScore(null);
     setKnownIssuesText("");
     setAdditionalDetails("");
@@ -199,7 +244,7 @@ export default function ResumeBuilder() {
     );
   }
 
-  if (phase === "output") {
+  if (phase === "output" && resume) {
     return (
       <main className="min-h-screen bg-mist relative overflow-x-hidden">
         <div className="aurora-field" />
@@ -211,7 +256,7 @@ export default function ResumeBuilder() {
               <div>
                 <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-indigo mb-1">Rewrite ready</p>
                 <h1 className="font-display font-bold text-[28px] tracking-tight text-ink">Your ATS-optimized resume</h1>
-                <p className="text-slate text-[14px] mt-1">Edit directly below, then copy into your document.</p>
+                <p className="text-slate text-[14px] mt-1">Preview below - use "Add or fix" to make changes and rebuild.</p>
               </div>
               <button
                 onClick={copyAll}
@@ -220,16 +265,6 @@ export default function ResumeBuilder() {
               >
                 {copied ? "Copied!" : "Copy all"}
               </button>
-            </div>
-
-            <div className="bg-cloud border border-line rounded-[20px] p-7 mb-5">
-              <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-5">Resume</p>
-              <textarea
-                value={editedResume}
-                onChange={e => setEditedResume(e.target.value)}
-                rows={24}
-                className="w-full text-[14.5px] text-ink leading-relaxed bg-transparent resize-none focus:outline-none font-mono"
-              />
             </div>
 
             {changes.length > 0 && (
@@ -245,6 +280,86 @@ export default function ResumeBuilder() {
                 </div>
               </div>
             )}
+
+            <div className="bg-white border border-line rounded-[16px] p-10 mb-5 shadow-zy-sm">
+              <div className="mb-6 pb-6 border-b border-line">
+                <h2 className="font-display font-bold text-[24px] text-ink mb-1">{resume.name}</h2>
+                {resume.title && <p className="text-[14px] text-indigo font-medium mb-2">{resume.title}</p>}
+                {(resume.contact.phone || resume.contact.email || resume.contact.location || resume.contact.linkedin) && (
+                  <p className="text-[13px] text-slate">
+                    {[resume.contact.phone, resume.contact.email, resume.contact.location, resume.contact.linkedin].filter(Boolean).join("  |  ")}
+                  </p>
+                )}
+              </div>
+
+              {resume.summary && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-2 pb-1 border-b border-line">Summary</h3>
+                  <p className="text-[13.5px] text-ink leading-relaxed">{resume.summary}</p>
+                </div>
+              )}
+
+              {resume.skills?.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-2 pb-1 border-b border-line">Skills</h3>
+                  {resume.skills.map((s, i) => (
+                    <p key={i} className="text-[13.5px] text-ink leading-relaxed mb-1">
+                      {s.category && <span className="font-semibold">{s.category}: </span>}
+                      {s.items}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {resume.experience?.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-3 pb-1 border-b border-line">Experience</h3>
+                  {resume.experience.map((e, i) => (
+                    <div key={i} className="mb-4 last:mb-0">
+                      <div className="flex items-baseline justify-between mb-1 gap-3">
+                        <p className="text-[14px] font-semibold text-ink">{e.title} <span className="font-normal text-slate">- {e.company}</span></p>
+                        <p className="text-[12px] text-slate-light flex-shrink-0">{e.dates}</p>
+                      </div>
+                      <ul className="space-y-1">
+                        {e.bullets.map((b, j) => (
+                          <li key={j} className="text-[13.5px] text-ink leading-relaxed pl-4 relative before:content-['\2022'] before:absolute before:left-0 before:text-indigo">{b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resume.education?.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-2 pb-1 border-b border-line">Education</h3>
+                  {resume.education.map((ed, i) => (
+                    <div key={i} className="flex items-baseline justify-between mb-1 gap-3">
+                      <p className="text-[13.5px] text-ink"><span className="font-semibold">{ed.degree}</span> - {ed.institution}</p>
+                      <p className="text-[12px] text-slate-light flex-shrink-0">{ed.dates}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resume.certifications?.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-2 pb-1 border-b border-line">Certifications</h3>
+                  <p className="text-[13.5px] text-ink leading-relaxed">{resume.certifications.join(", ")}</p>
+                </div>
+              )}
+
+              {resume.additional?.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-ink mb-2 pb-1 border-b border-line">Additional</h3>
+                  <ul className="space-y-1">
+                    {resume.additional.map((a, i) => (
+                      <li key={i} className="text-[13.5px] text-ink leading-relaxed pl-4 relative before:content-['\2022'] before:absolute before:left-0 before:text-indigo">{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
 
             <div className="bg-cloud border border-line rounded-[20px] p-7 mb-8">
               <p className="font-mono text-[11px] tracking-[0.18em] uppercase text-indigo font-semibold mb-2">Add or fix something else</p>
