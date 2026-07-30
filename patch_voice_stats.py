@@ -1,4 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+# -*- coding: utf-8 -*-
+"""
+Rebuilds app/api/voice-stats/route.ts: replaces the word-frequency
+topWords block with a real Claude pass over edited draft->sent pairs,
+cached in voice_insights and refreshed only once ~5 new sends have
+accumulated since the last pass (not on every dashboard load).
+
+Full-file replacement, not an anchor patch - the change touches the
+imports, adds a new constant and function, and restructures most of
+the GET handler, too much surface for a safe single-anchor diff.
+
+Run from C:\\Users\\Admin\\appraisal-writer:
+    py patch_voice_stats.py
+"""
+
+PATH = r"app\api\voice-stats\route.ts"
+
+NEW_CONTENT = r'''import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -142,7 +159,7 @@ export async function GET(req: NextRequest) {
       const generated = await generateVoiceInsights(edited, unedited);
       if (generated) {
         insights = generated;
-        const { error: upsertError } = await supabase.from("voice_insights").upsert({
+        await supabase.from("voice_insights").upsert({
           client_id: client.id,
           summary: generated.summary,
           tone_patterns: generated.tone_patterns,
@@ -150,9 +167,6 @@ export async function GET(req: NextRequest) {
           based_on_count: totalSent,
           generated_at: new Date().toISOString(),
         }, { onConflict: "client_id" });
-        if (upsertError) {
-          console.error("Voice insights: cache write failed:", upsertError.message);
-        }
       } else if (cached) {
         insights = { summary: cached.summary, tone_patterns: cached.tone_patterns, themes: cached.themes };
       }
@@ -172,3 +186,18 @@ export async function GET(req: NextRequest) {
     hasEnoughData,
   });
 }
+'''
+
+with open(PATH, "r", encoding="utf-8") as f:
+    old = f.read()
+print(f"Old file: {len(old)} chars, {old.count(chr(10)) + 1} lines")
+
+with open(PATH, "w", encoding="utf-8", newline="\n") as f:
+    f.write(NEW_CONTENT)
+
+o, c = NEW_CONTENT.count("{"), NEW_CONTENT.count("}")
+po, pc = NEW_CONTENT.count("("), NEW_CONTENT.count(")")
+print(f"New file: {len(NEW_CONTENT)} chars, {NEW_CONTENT.count(chr(10)) + 1} lines")
+print(f"Brace balance: {{ = {o}, }} = {c}, {'OK' if o == c else 'MISMATCH'}")
+print(f"Paren balance: ( = {po}, ) = {pc}, {'OK' if po == pc else 'MISMATCH'}")
+print("Now run: git diff app/api/voice-stats/route.ts")
