@@ -231,14 +231,29 @@ export default function VoicePage() {
                 </div>
               )}
             </div>
-            {stats.topWords && stats.topWords.length > 0 && (
+            {stats.insights && (
               <div>
-                <p className="text-[11px] font-semibold text-ink-soft mb-2">Words that show up often in your sent replies</p>
-                <div className="flex flex-wrap gap-2">
-                  {stats.topWords.map((w: string) => (
-                    <span key={w} className="text-[12px] px-3 py-1 rounded-full bg-mist border border-line text-ink-soft">{w}</span>
-                  ))}
-                </div>
+                <p className="text-[12.5px] text-ink leading-relaxed mb-4">{stats.insights.summary}</p>
+                {stats.insights.tone_patterns && stats.insights.tone_patterns.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[11px] font-semibold text-ink-soft mb-2">How you tend to edit</p>
+                    <ul className="list-disc list-inside space-y-1.5 text-[12px] text-slate">
+                      {stats.insights.tone_patterns.map((p: string, idx: number) => (
+                        <li key={idx}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {stats.insights.themes && stats.insights.themes.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-ink-soft mb-2">What you write about</p>
+                    <div className="flex flex-wrap gap-2">
+                      {stats.insights.themes.map((t: string) => (
+                        <span key={t} className="text-[12px] px-3 py-1 rounded-full bg-mist border border-line text-ink-soft">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
