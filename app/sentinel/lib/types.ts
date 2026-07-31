@@ -51,7 +51,13 @@ export type FinancialStatement = {
   tax_expense: number | null;
   profit_after_tax: number;
 
-  // Balance Sheet — nullable, not yet extracted for the demo set
+  // Balance Sheet — nullable. Not yet collected by New Project/Add
+  // Period forms or Document Intelligence extraction as of this type
+  // definition - that's the next build step. Liquidity/leverage/working
+  // capital checks in anomaly.ts read these via computed ratios and
+  // simply skip (return null, no flag) wherever a company hasn't
+  // supplied them yet - same null-safe pattern the Income Statement
+  // ratios already use.
   total_assets: number | null;
   current_assets: number | null;
   cash_and_equivalents: number | null;
@@ -79,7 +85,13 @@ export type AnomalyFlag = {
   workspace_id: string;
   company_name: string;
   period_label: string;
-  flag_type: "yoy_swing" | "peer_outlier" | "exceptional_item";
+  flag_type:
+    | "yoy_swing"
+    | "peer_outlier"
+    | "exceptional_item"
+    | "liquidity"
+    | "leverage"
+    | "working_capital";
   metric: string;
   value: number;
   threshold: number;
@@ -109,9 +121,9 @@ export type InvestigationStatus =
   | "rejected"
   | "archived";
 
-// The full chain from the vision doc: Observation -> Evidence ->
-// AI Analysis -> Confidence -> Suggested Questions -> Suggested Actions
-// -> Approve -> Archive. `observation` reuses AnomalyFlag as the Evidence
+// The full chain from the vision doc: Observation -> Evidence -> AI
+// Analysis -> Confidence -> Suggested Questions -> Suggested Actions ->
+// Approve -> Archive. `observation` reuses AnomalyFlag as the Evidence
 // shape — the flags ARE the evidence. confidence_score is always a
 // computed statistic (see anomaly.ts computeConfidence), never an
 // LLM-stated number.

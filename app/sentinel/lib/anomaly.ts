@@ -1,8 +1,8 @@
 // Sentinel — anomaly detection + confidence scoring, rebuilt around
-// workspace_id. All three detectors now record `severity` (multiples
-// past threshold, in comparable units) so computeConfidence has an
-// honest, transparent signal to work from instead of an LLM guessing
-// a percentage.
+// workspace_id. All detectors record `severity` (multiples past
+// threshold, in comparable units) so computeConfidence has an honest,
+// transparent signal to work from instead of an LLM guessing a
+// percentage.
 
 import { getSectorConfig } from "./config";
 import type { AnomalyFlag, PeerRow } from "./types";
@@ -116,11 +116,119 @@ export function detectExceptionalItems(rows: PeerRow[], sector: string): Anomaly
   return flags;
 }
 
+/** Below-threshold current ratio - current liabilities exceeding current
+ * assets is a direct liquidity-stress signal (the GDT advisory deck's
+ * "technically liquidity-stressed" finding is exactly this check).
+ * Resolves to no flags for any company without current_assets/
+ * current_liabilities on file yet - null ratios are skipped, not
+ * treated as zero. */
+export function detectLiquidityRisk(rows: PeerRow[], sector: string): AnomalyFlag[] {
+  const cfg = getSectorConfig(sector);
+  const minRatio = cfg.anomaly_thresholds.current_ratio_min;
+  const flags: AnomalyFlag[] = [];
+
+  for (const row of rows) {
+    const ratio = row.ratios["current_ratio"];
+    if (ratio == null || ratio >= minRatio) continue;
+    flags.push({
+      workspace_id: row.workspace_id,
+      company_name: row.company_name,
+      period_label: row.period_label,
+      flag_type: "liquidity",
+      metric: "current_ratio",
+      value: ratio,
+      threshold: minRatio,
+      severity: minRatio / Math.max(ratio, 0.01),
+      description:
+        `current ratio of ${ratio.toFixed(2)}x is below the ${minRatio.toFixed(2)}x threshold \u2014 ` +
+        `current liabilities exceed current assets, a liquidity-stress signal`,
+    });
+  }
+  return flags;
+}
+
+/** Debt-to-equity past the sector's configured ceiling. */
+export function detectLeverageRisk(rows: PeerRow[], sector: string): AnomalyFlag[] {
+  const cfg = getSectorConfig(sector);
+  const maxDE = cfg.anomaly_thresholds.debt_equity_max;
+  const flags: AnomalyFlag[] = [];
+
+  for (const row of rows) {
+    const de = row.ratios["debt_to_equity"];
+    if (de == null || de <= maxDE) continue;
+    flags.push({
+      workspace_id: row.workspace_id,
+      company_name: row.company_name,
+      period_label: row.period_label,
+      flag_type: "leverage",
+      metric: "debt_to_equity",
+      value: de,
+      threshold: maxDE,
+      severity: de / maxDE,
+      description:
+        `debt-to-equity of ${de.toFixed(2)}x is past the configured ${maxDE.toFixed(2)}x threshold \u2014 ` +
+        `leverage is elevated relative to the equity base`,
+    });
+  }
+  return flags;
+}
+
+/** Inventory or receivable days past the sector's configured ceiling -
+ * capital tied up in slow-moving stock or slow collections, the GDT/TSR
+ * "excess WIP days" / "inventory explosion" style finding. Checked
+ * independently per company/metric, so a company can trip one, both, or
+ * neither. */
+export function detectWorkingCapitalStress(rows: PeerRow[], sector: string): AnomalyFlag[] {
+  const cfg = getSectorConfig(sector);
+  const maxInvDays = cfg.anomaly_thresholds.inventory_days_max;
+  const maxRecDays = cfg.anomaly_thresholds.receivable_days_max;
+  const flags: AnomalyFlag[] = [];
+
+  for (const row of rows) {
+    const invDays = row.ratios["inventory_days"];
+    if (invDays != null && invDays > maxInvDays) {
+      flags.push({
+        workspace_id: row.workspace_id,
+        company_name: row.company_name,
+        period_label: row.period_label,
+        flag_type: "working_capital",
+        metric: "inventory_days",
+        value: invDays,
+        threshold: maxInvDays,
+        severity: invDays / maxInvDays,
+        description:
+          `inventory days of ${invDays.toFixed(0)} exceed the configured ${maxInvDays.toFixed(0)}-day ` +
+          `threshold \u2014 capital may be tied up in slow-moving stock`,
+      });
+    }
+    const recDays = row.ratios["receivable_days"];
+    if (recDays != null && recDays > maxRecDays) {
+      flags.push({
+        workspace_id: row.workspace_id,
+        company_name: row.company_name,
+        period_label: row.period_label,
+        flag_type: "working_capital",
+        metric: "receivable_days",
+        value: recDays,
+        threshold: maxRecDays,
+        severity: recDays / maxRecDays,
+        description:
+          `receivable days of ${recDays.toFixed(0)} exceed the configured ${maxRecDays.toFixed(0)}-day ` +
+          `threshold \u2014 collections are slower than the configured norm`,
+      });
+    }
+  }
+  return flags;
+}
+
 export function runAllChecks(rows: PeerRow[], sector: string): AnomalyFlag[] {
   return [
     ...detectYoySwings(rows, sector),
     ...detectPeerRelativeOutliers(rows, sector),
     ...detectExceptionalItems(rows, sector),
+    ...detectLiquidityRisk(rows, sector),
+    ...detectLeverageRisk(rows, sector),
+    ...detectWorkingCapitalStress(rows, sector),
   ];
 }
 
