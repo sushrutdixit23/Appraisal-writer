@@ -2,12 +2,15 @@
 export const dynamic = "force-dynamic";
 
 // Sentinel — New Project. The self-service onboarding path: create a
-// workspace, enter your first period's numbers directly (no ERP, no
-// file extraction - deliberately manual for now, matching "data I'll
-// input myself"). owner_id is set to the signed-in user, so RLS
-// isolates this workspace from every other user automatically - no
-// new policies needed, the existing "owner manages workspace"/
-// "owner manages statements" policies already cover insert.
+// workspace, then enter the first period's numbers - either typed
+// manually or pre-filled from an uploaded PDF via Document Intelligence
+// (/api/sentinel/extract). Either way this form is the single source of
+// truth for what gets saved: extraction only pre-fills `values`, the
+// human always reviews/edits before Save & finish actually inserts.
+// owner_id is set to the signed-in user, so RLS isolates this workspace
+// from every other user automatically - no new policies needed, the
+// existing "owner manages workspace"/"owner manages statements" policies
+// already cover insert.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -124,6 +127,15 @@ export default function NewProjectPage() {
   const [periodEndDate, setPeriodEndDate] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
 
+  // Document Intelligence - optional PDF pre-fill before manual review.
+  // Extraction only ever populates `values`/`values`-adjacent state below;
+  // nothing is written to sentinel_statements until the human reviews and
+  // clicks Save & finish, same as pure manual entry.
+  const [extracting, setExtracting] = useState(false);
+  const [sourceFile, setSourceFile] = useState("manual entry");
+  const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
+  const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
+
   async function createWorkspace() {
     setError(null);
     if (!companyName.trim()) {
@@ -160,6 +172,48 @@ export default function NewProjectPage() {
     setStep(2);
   }
 
+  async function handleExtract(file: File) {
+    setError(null);
+    setExtracting(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setExtracting(false);
+      router.push("/login");
+      return;
+    }
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch("/api/sentinel/extract", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error ?? "Extraction failed.");
+        setExtracting(false);
+        return;
+      }
+      if (result.period_type) setPeriodType(result.period_type);
+      if (result.period_label) setPeriodLabel(result.period_label);
+      if (result.period_end_date) setPeriodEndDate(result.period_end_date);
+      const extracted: Record<string, string> = {};
+      for (const key of Object.keys(result.fields ?? {})) {
+        const v = result.fields[key];
+        if (v != null) extracted[key] = String(v);
+      }
+      setValues((prev) => ({ ...prev, ...extracted }));
+      setExtractionNotes(result.extraction_notes ?? null);
+      setLowConfidenceFields(result.low_confidence_fields ?? []);
+      setSourceFile(result.source_file ?? file.name);
+    } catch {
+      setError("Could not reach the extraction service. Please enter the figures manually.");
+    }
+    setExtracting(false);
+  }
+
   async function createStatement() {
     setError(null);
     if (!periodLabel.trim() || !periodEndDate) {
@@ -183,9 +237,9 @@ export default function NewProjectPage() {
       revenue_from_operations: revenue,
       profit_before_tax: pbt,
       profit_after_tax: pat,
-      source_file: "manual entry",
+      source_file: sourceFile,
       source_page: null,
-      extraction_notes: null,
+      extraction_notes: extractionNotes,
     };
     for (const f of STATEMENT_FIELDS) {
       if (f.required) continue;
@@ -301,6 +355,43 @@ export default function NewProjectPage() {
             maxWidth: 640,
           }}
         >
+          <div
+            style={{
+              border: `1px dashed ${T.rule}`,
+              borderRadius: 3,
+              padding: "1rem 1.2rem",
+              marginBottom: "1.2rem",
+              background: T.background,
+            }}
+          >
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.6rem 0", lineHeight: 1.5 }}>
+              Optional — upload a text-based PDF filing to pre-fill the fields below. Scanned/image-only PDFs
+              aren&apos;t supported yet; enter those manually. Nothing is saved until you review and click
+              &quot;Save &amp; finish.&quot;
+            </p>
+            <input
+              type="file"
+              accept="application/pdf"
+              disabled={extracting}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleExtract(file);
+                e.target.value = "";
+              }}
+              style={{ fontSize: "0.85rem" }}
+            />
+            {extracting && (
+              <p style={{ fontSize: "0.8rem", color: T.accent, margin: "0.6rem 0 0 0" }}>
+                Reading filing and extracting figures…
+              </p>
+            )}
+            {extractionNotes && !extracting && (
+              <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0.6rem 0 0 0", lineHeight: 1.5 }}>
+                Extraction notes: {extractionNotes}
+              </p>
+            )}
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
             <Field label="Period type">
               <select style={inputStyle} value={periodType} onChange={(e) => setPeriodType(e.target.value as typeof periodType)}>
@@ -322,18 +413,24 @@ export default function NewProjectPage() {
           <div style={{ height: 1, background: T.rule, margin: "0.4rem 0 1.2rem 0" }} />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
-            {STATEMENT_FIELDS.map((f) => (
-              <Field key={f.key} label={f.label + (f.required ? " *" : "")}>
-                <input
-                  type="number"
-                  step="0.01"
-                  style={inputStyle}
-                  value={values[f.key] ?? ""}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder="0.00"
-                />
-              </Field>
-            ))}
+            {STATEMENT_FIELDS.map((f) => {
+              const isLowConfidence = lowConfidenceFields.includes(f.key);
+              return (
+                <Field
+                  key={f.key}
+                  label={f.label + (f.required ? " *" : "") + (isLowConfidence ? " (verify)" : "")}
+                >
+                  <input
+                    type="number"
+                    step="0.01"
+                    style={{ ...inputStyle, borderColor: isLowConfidence ? T.accent : T.rule }}
+                    value={values[f.key] ?? ""}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </Field>
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", gap: "0.6rem" }}>
