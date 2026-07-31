@@ -73,6 +73,24 @@ function peerContextForMetrics(
   return sections.join("\n\n");
 }
 
+/** The single peer most comparable to the subject by revenue scale -
+ * closest absolute revenue, excluding the subject itself. Real advisory
+ * work (GDT, TSR benchmarking decks) names one specific peer rather than
+ * only citing a sector average - "you vs your closest comp" is a sharper,
+ * more defensible comparison than "you vs the mean of five companies at
+ * very different scales". Returns null if there's no other peer to name. */
+function findClosestPeer(rows: PeerRow[], subjectWorkspaceId: string): PeerRow | null {
+  const subject = rows.find((r) => r.workspace_id === subjectWorkspaceId);
+  if (!subject) return null;
+  const others = rows.filter((r) => r.workspace_id !== subjectWorkspaceId);
+  if (others.length === 0) return null;
+  others.sort(
+    (a, b) =>
+      Math.abs(a.revenue_cr - subject.revenue_cr) - Math.abs(b.revenue_cr - subject.revenue_cr)
+  );
+  return others[0];
+}
+
 async function callClaude(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
@@ -100,14 +118,20 @@ async function callClaude(
 /** Turn 3: suggested questions + actions, as strict JSON. Failure here is
  * non-fatal — an investigation without these is still a complete,
  * approvable finding; it just falls back to empty lists rather than
- * failing the whole generation over a secondary enrichment step. */
+ * failing the whole generation over a secondary enrichment step. Actions
+ * carry an "Owner · Timeline: text" prefix (matching the GDT/TSR advisory
+ * format) baked directly into the string, so no schema or rendering
+ * change is needed anywhere else in the app. */
 async function getSuggestedFollowUps(
   system: string,
   priorMessages: { role: "user" | "assistant"; content: string }[]
 ): Promise<{ questions: string[]; actions: string[] }> {
   const prompt =
     "Based on your analysis above, list 2-4 specific follow-up questions an analyst " +
-    "should ask to verify or refine this finding, and 2-4 concrete next actions. " +
+    "should ask to verify or refine this finding, and 2-4 concrete next actions. For each " +
+    "action, prefix it with a plausible owner role and a realistic timeline in this exact " +
+    'format: "Owner \u00b7 Timeline: action text" (e.g. "Finance Head \u00b7 0-2 weeks: Commission ' +
+    'a physical stock count of closing inventory"). ' +
     'Respond with ONLY this JSON shape, no other text: {"questions": ["...","..."], "actions": ["...","..."]}';
   try {
     const raw = await callClaude(system, [...priorMessages, { role: "user", content: prompt }], 400);
@@ -193,7 +217,10 @@ export async function POST(req: NextRequest) {
     "Be concrete and specific. Do not pad with generic caveats. If the data doesn't " +
     "support a confident conclusion, say what additional information would resolve it. " +
     "If multiple flags are given, consider whether they're connected before treating them " +
-    "as separate stories.";
+    "as separate stories. When you state a rupee or percentage impact, show the calculation " +
+    "inline using the actual numbers given to you, in the form \"input \u00d7 input = result\" " +
+    "(e.g. \"Revenue \u20b922.7cr \u00d7 (15% - 7.9%) = \u20b91.6cr\") rather than stating the number " +
+    "alone - never state a figure you can't derive from the data you were given.";
 
   const flagsBlock = flags.map((f) => `- ${f.description}`).join("\n");
   const plural = flags.length > 1 ? "flags were" : "flag was";
@@ -210,9 +237,16 @@ export async function POST(req: NextRequest) {
 
     const metrics = flags.map((f) => f.metric);
     const peerContext = peerContextForMetrics(peerRows, metrics, workspace_id);
+    const closestPeer = findClosestPeer(peerRows, workspace_id);
+    const closestPeerBlock = closestPeer
+      ? `\n\nClosest comparable peer by revenue scale: ${closestPeer.company_name} ` +
+        `(revenue ${inr(closestPeer.revenue_cr)}). Where it sharpens the analysis, compare the ` +
+        `subject directly against this named company rather than only citing a sector-wide ` +
+        `average - a well-matched named peer is a stronger benchmark than a broad average.`
+      : "";
     const turn2User =
       `Here's how each flagged metric compares across the sector peer set for the same period:\n\n` +
-      `${peerContext}\n\n` +
+      `${peerContext}${closestPeerBlock}\n\n` +
       "Does this peer context CONFIRM your hypothesis (a sector-wide effect), RULE IT OUT " +
       "(this looks company-specific), or point to something else? Start your reply with " +
       "exactly one short bolded verdict line using markdown (e.g. **Confirms sector-wide " +
