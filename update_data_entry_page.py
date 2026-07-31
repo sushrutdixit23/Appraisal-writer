@@ -1,4 +1,9 @@
-"use client";
+# save as update_data_entry_page.py, run: py update_data_entry_page.py
+import pathlib
+
+path = pathlib.Path("app/sentinel/data-entry/page.tsx")
+
+content = '''"use client";
 
 // Sentinel — manual data entry page. Talks to /api/sentinel/statement
 // and /api/sentinel/extract. Gets the auth token from the browser's own
@@ -474,3 +479,7 @@ export default function DataEntryPage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
