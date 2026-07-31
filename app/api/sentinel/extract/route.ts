@@ -41,6 +41,15 @@ const FIELD_LIST = [
   "profit_before_tax",
   "tax_expense",
   "profit_after_tax",
+  // Balance Sheet - same 7 fields the New Project/Add Period forms now
+  // collect, feeding the liquidity/leverage/working-capital checks.
+  "current_assets",
+  "current_liabilities",
+  "inventory",
+  "trade_receivables",
+  "trade_payables",
+  "total_debt",
+  "total_equity",
 ];
 
 export async function POST(req: NextRequest) {
