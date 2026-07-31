@@ -12,6 +12,7 @@ import { SANS, SERIF, T } from "./lib/theme";
 const NAV = [
   { href: "/sentinel", label: "Investigation Queue" },
   { href: "/sentinel/statements", label: "Financial Statements" },
+  { href: "/sentinel/kpi", label: "KPI Dashboard" },
   { href: "/sentinel/analysis", label: "Deep Analysis" },
   { href: "/sentinel/executive", label: "Executive Dashboard" },
 ];
@@ -94,10 +95,28 @@ export default function SentinelLayout({
             background: T.accent,
             padding: "0.6rem 0.7rem",
             borderRadius: 3,
-            marginBottom: "1rem",
+            marginBottom: "0.5rem",
           }}
         >
           + New Project
+        </Link>
+
+        <Link
+          href="/sentinel/add-period"
+          style={{
+            display: "block",
+            textAlign: "center",
+            textDecoration: "none",
+            fontSize: "0.76rem",
+            fontWeight: 500,
+            color: T.sidebarTextMuted,
+            border: "1px solid rgba(237,231,220,0.22)",
+            padding: "0.5rem 0.7rem",
+            borderRadius: 3,
+            marginBottom: "1rem",
+          }}
+        >
+          Add Period
         </Link>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
