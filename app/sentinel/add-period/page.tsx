@@ -89,6 +89,24 @@ const STATEMENT_FIELDS: {
   { key: "profit_after_tax", label: "Profit After Tax", required: true },
 ];
 
+// Balance Sheet fields - optional, feed the liquidity/leverage/working-
+// capital checks added to anomaly.ts. Scoped to exactly the 7 fields
+// those checks actually use (current_ratio, debt_to_equity, inventory/
+// receivable/payable days) - not the full Balance Sheet schema, matching
+// how STATEMENT_FIELDS above is scoped to what's actually consumed.
+const BALANCE_SHEET_FIELDS: {
+  key: string;
+  label: string;
+}[] = [
+  { key: "current_assets", label: "Current Assets" },
+  { key: "current_liabilities", label: "Current Liabilities" },
+  { key: "inventory", label: "Inventory" },
+  { key: "trade_receivables", label: "Trade Receivables" },
+  { key: "trade_payables", label: "Trade Payables" },
+  { key: "total_debt", label: "Total Debt" },
+  { key: "total_equity", label: "Total Equity" },
+];
+
 export default function AddPeriodPage() {
   const router = useRouter();
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
@@ -213,6 +231,10 @@ export default function AddPeriodPage() {
       const raw = values[f.key];
       record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
     }
+    for (const f of BALANCE_SHEET_FIELDS) {
+      const raw = values[f.key];
+      record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
+    }
     const { error: insertError } = await supabase.from("sentinel_statements").insert(record);
     setSaving(false);
     if (insertError) {
@@ -290,7 +312,7 @@ export default function AddPeriodPage() {
             Period added.
           </p>
           <p style={{ fontSize: "0.9rem", color: T.inkSoft, lineHeight: 1.6, marginBottom: "1.2rem" }}>
-            {selectedWs?.company_name} now has this period&apos9s numbers. Trend charts and YoY
+            {selectedWs?.company_name} now has this period&apos;s numbers. Trend charts and YoY
             comparisons update automatically wherever this company appears.
           </p>
           <div style={{ display: "flex", gap: "0.6rem" }}>
@@ -412,6 +434,42 @@ export default function AddPeriodPage() {
                 <Field
                   key={f.key}
                   label={f.label + (f.required ? " *" : "") + (isLowConfidence ? " (verify)" : "")}
+                >
+                  <input
+                    type="number"
+                    step="0.01"
+                    style={{ ...inputStyle, borderColor: isLowConfidence ? T.accent : T.rule }}
+                    value={values[f.key] ?? ""}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </Field>
+              );
+            })}
+          </div>
+
+          <div style={{ height: 1, background: T.rule, margin: "0.4rem 0 1.2rem 0" }} />
+
+          <p
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: T.inkSoft,
+              margin: "0 0 0.8rem 0",
+            }}
+          >
+            Balance Sheet (optional) - unlocks liquidity, leverage, and working-capital checks
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
+            {BALANCE_SHEET_FIELDS.map((f) => {
+              const isLowConfidence = lowConfidenceFields.includes(f.key);
+              return (
+                <Field
+                  key={f.key}
+                  label={f.label + (isLowConfidence ? " (verify)" : "")}
                 >
                   <input
                     type="number"
