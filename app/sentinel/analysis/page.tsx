@@ -96,6 +96,17 @@ export default function DeepAnalysisPage() {
 
   const subjectWorkspace = workspaces.find((w) => w.id === subjectId)!;
   const sectorWorkspaces = workspaces.filter((w) => w.sector === subjectWorkspace.sector);
+  // "Viewing as" should let you pick ANY company, not just ones sharing
+  // the currently-selected company's sector - sectorWorkspaces stays
+  // scoped (used for the actual peer comparison below), this is only
+  // for the selector itself. Previously the dropdown was built from
+  // sectorWorkspaces directly, which meant a company in a sector with
+  // no other members yet (e.g. a lone FMCG company) could never be
+  // selected once the default subject happened to load from a
+  // different sector - there was no way back to it from the dropdown.
+  const allWorkspacesSorted = [...workspaces].sort((a, b) =>
+    a.company_name.localeCompare(b.company_name)
+  );
   const peerRows = buildPeerTable(sectorWorkspaces, statements, subjectId, "FY");
   const peerMetric = PEER_METRICS.find((m) => m.key === peerMetricKey)!;
   const barData = peerRows
@@ -153,7 +164,7 @@ export default function DeepAnalysisPage() {
       <div style={{ marginBottom: "1.5rem" }}>
         <label style={{ fontSize: "0.7rem", color: T.inkSoft, marginRight: "0.6rem" }}>Viewing as</label>
         <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={selectStyle}>
-          {sectorWorkspaces.map((w) => (
+          {allWorkspacesSorted.map((w) => (
             <option key={w.id} value={w.id}>
               {w.company_name}
             </option>
