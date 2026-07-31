@@ -126,3 +126,46 @@ export function mixedBasisWarning(rows: PeerRow[]): string | null {
     `Affected: ${flagged.join(", ")}.`
   );
 }
+
+// Raw statement fields that can be plotted directly as-is (no ratio
+// computation needed). Everything else passed to buildTimeSeries is
+// looked up in that period's computeRatios() output instead.
+const RAW_TIME_SERIES_FIELDS = new Set([
+  "revenue_from_operations",
+  "profit_after_tax",
+  "profit_before_tax",
+  "ebitda",
+]);
+
+/** One company's own history for a single metric, across every period
+ * of the given type it has on file - sorted oldest to newest. metricKey
+ * is either a raw FinancialStatement field name or a sector ratio id
+ * (same ids used in buildPeerTable's `ratios` map). Unlike buildPeerTable,
+ * this never cross-references other companies - it is purely this
+ * workspace's own numbers over time. Periods where the metric can't be
+ * computed are skipped rather than plotted as zero. */
+export function buildTimeSeries(
+  workspace: Workspace,
+  statements: FinancialStatement[],
+  metricKey: string,
+  periodType: string = "FY"
+): { label: string; value: number }[] {
+  const own = statements
+    .filter((s) => s.workspace_id === workspace.id && s.period_type === periodType)
+    .sort((a, b) => (a.period_end_date < b.period_end_date ? -1 : 1));
+
+  const out: { label: string; value: number }[] = [];
+  for (const stmt of own) {
+    let value: number | null;
+    if (RAW_TIME_SERIES_FIELDS.has(metricKey)) {
+      const raw = (stmt as unknown as Record<string, number | null>)[metricKey];
+      value = raw ?? null;
+    } else {
+      const prior = findPriorYear(stmt, statements);
+      const ratios = computeRatios(stmt, prior, workspace.sector);
+      value = ratios[metricKey] ?? null;
+    }
+    if (value != null) out.push({ label: stmt.period_label, value });
+  }
+  return out;
+}
