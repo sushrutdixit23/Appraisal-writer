@@ -1,4 +1,9 @@
-"use client";
+import pathlib
+
+path = pathlib.Path("app/sentinel/data-entry/page.tsx")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''"use client";
 
 // Sentinel — manual data entry page. Talks to /api/sentinel/statement,
 // /api/sentinel/extract, and /api/sentinel/extract-upload. Uses
@@ -525,3 +530,7 @@ export default function DataEntryPage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")

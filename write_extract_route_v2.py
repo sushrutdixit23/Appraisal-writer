@@ -1,4 +1,9 @@
-// Sentinel — Document Intelligence: PDF -> structured FinancialStatement
+import pathlib
+
+path = pathlib.Path("app/api/sentinel/extract/route.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — Document Intelligence: PDF -> structured FinancialStatement
 // draft. Text-based PDFs only for now (pdf-parse extracts raw text;
 // Claude only labels/maps that text to fields - it never invents a
 // number that isn't present in the source). Scanned/image-only PDFs are
@@ -217,3 +222,7 @@ export async function POST(req: NextRequest) {
     source_file: filename,
   });
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
