@@ -6,12 +6,20 @@ path.parent.mkdir(parents=True, exist_ok=True)
 content = r'''"use client";
 
 // Sentinel — manual data entry page. Talks to /api/sentinel/statement,
-// /api/sentinel/extract, and /api/sentinel/extract-upload. Uses
-// createBrowserClient from @supabase/ssr (the standard cookie-based
-// client for Next.js App Router) rather than plain createClient from
-// @supabase/supabase-js — this is what actually shares a session with
-// the rest of a site that uses @supabase/ssr for login, which is the
-// current standard pattern and very likely what's already in use here.
+// /api/sentinel/extract, and /api/sentinel/extract-upload.
+//
+// Auth: reads the access token directly from Zyntask's own session
+// storage key, "zyntask-engage-session" in localStorage (confirmed via
+// DevTools inspection — Zyntask stores the session under this custom
+// key, not Supabase's default sb-<project>-auth-token format, which is
+// why earlier attempts using a generic Supabase client never found it).
+// The stored value is a real Supabase-issued JWT (starts with the
+// standard "eyJ..." header), so server-side verification via
+// supabase.auth.getUser(token) needs no changes — only the client-side
+// retrieval needed fixing. This does NOT auto-refresh an expired token;
+// if extraction/save ever fails with "Not logged in" after this, the
+// fix is just logging into Zyntask again in the same tab.
+//
 // Handles two modes in one form: create a brand-new company (workspace +
 // first period), or add a period to a company that already exists
 // (paste its workspace_id, shown back to you after the first submit).
@@ -23,21 +31,23 @@ content = r'''"use client";
 // sent to /api/sentinel/extract instead of the raw file. Cash Flow
 // fields are deliberately left out of this form for now — same as the
 // rest of Sentinel, they're not collected anywhere yet.
-//
-// NOTE: assumes NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-// are already set. If your project uses NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-// instead (newer Supabase projects), swap that in below. Also assumes
-// @supabase/ssr and @vercel/blob are already installed — both should be,
-// given the rest of the site's shared login and Engage's file uploads.
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import { createBrowserClient } from "@supabase/ssr";
 import { upload } from "@vercel/blob/client";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const SESSION_STORAGE_KEY = "zyntask-engage-session";
+
+function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed.access_token === "string" ? parsed.access_token : null;
+  } catch {
+    return null;
+  }
+}
 
 const SECTORS = [
   { value: "tyre", label: "Tyre Manufacturing" },
@@ -132,12 +142,10 @@ export default function DataEntryPage() {
     setExtractionNotes("");
     setLowConfidenceFields([]);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+    const accessToken = getStoredAccessToken();
+    if (!accessToken) {
       setIsExtracting(false);
-      setExtractError("Not logged in — please log into Sentinel in this browser first, then retry.");
+      setExtractError("Not logged in — please log into Zyntask in this browser first, then retry.");
       return;
     }
 
@@ -157,12 +165,12 @@ export default function DataEntryPage() {
         const blob = await upload(file.name, file, {
           access: "public",
           handleUploadUrl: "/api/sentinel/extract-upload",
-          clientPayload: JSON.stringify({ accessToken: session.access_token }),
+          clientPayload: JSON.stringify({ accessToken }),
         });
         res = await fetch("/api/sentinel/extract", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
@@ -170,7 +178,7 @@ export default function DataEntryPage() {
       } else {
         res = await fetch("/api/sentinel/extract", {
           method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
           body: formData,
         });
       }
@@ -239,12 +247,10 @@ export default function DataEntryPage() {
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+    const accessToken = getStoredAccessToken();
+    if (!accessToken) {
       setStatus("error");
-      setMessage("Not logged in — please log into Sentinel in this browser first, then retry.");
+      setMessage("Not logged in — please log into Zyntask in this browser first, then retry.");
       return;
     }
 
@@ -302,7 +308,7 @@ export default function DataEntryPage() {
       const res = await fetch("/api/sentinel/statement", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
