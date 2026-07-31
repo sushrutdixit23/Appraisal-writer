@@ -116,7 +116,7 @@ export default function SentinelLayout({
             marginBottom: "1rem",
           }}
         >
-          Add Period
+          Manage Periods
         </Link>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>

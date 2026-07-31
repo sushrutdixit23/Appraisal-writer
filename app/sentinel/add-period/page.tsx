@@ -1,19 +1,27 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel — Add Period. Fills a real gap: New Project's success screen
-// says "add more periods any time" but that path never existed until
-// now. Reuses the same statement-entry form and Document Intelligence
-// upload as New Project step 2, against an existing owned workspace_id
-// instead of a freshly created one. basis is fixed to the workspace's
-// own comparison_basis (a workspace-level setting decided at New
-// Project time), not re-asked here.
+// Sentinel — Manage Periods (route stays /sentinel/add-period). Started
+// as add-only; now full CRUD for statements (add/edit/delete) plus
+// rename/delete for the company itself - the first place in the app
+// that isn't create-and-read-only. Reuses the same statement-entry form
+// and Document Intelligence upload regardless of add vs. edit mode.
+//
+// Delete-workspace deliberately deletes dependent sentinel_investigations
+// and sentinel_statements rows explicitly in application code before
+// deleting the workspace row, rather than relying on the database having
+// ON DELETE CASCADE configured - that's safe either way, but only
+// correct without it if we don't assume it. If the underlying RLS
+// policies only grant INSERT/SELECT to owners (not UPDATE/DELETE), these
+// calls will surface a visible permission error via setError rather than
+// silently no-op - not verified from here, worth checking if deletes/
+// edits fail.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { SERIF, T } from "../lib/theme";
-import type { Workspace } from "../lib/types";
+import type { FinancialStatement, Workspace } from "../lib/types";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -70,6 +78,15 @@ const btnGhost: React.CSSProperties = {
   background: "transparent",
   color: T.ink,
 };
+const linkBtn: React.CSSProperties = {
+  fontSize: "0.78rem",
+  background: "none",
+  border: "none",
+  textDecoration: "underline",
+  cursor: "pointer",
+  padding: 0,
+  fontFamily: "inherit",
+};
 
 const STATEMENT_FIELDS: {
   key: string;
@@ -107,6 +124,8 @@ const BALANCE_SHEET_FIELDS: {
   { key: "total_equity", label: "Total Equity" },
 ];
 
+const ALL_FIELD_KEYS = [...STATEMENT_FIELDS, ...BALANCE_SHEET_FIELDS].map((f) => f.key);
+
 export default function AddPeriodPage() {
   const router = useRouter();
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
@@ -115,6 +134,7 @@ export default function AddPeriodPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [done, setDone] = useState(false);
+  const [justUpdated, setJustUpdated] = useState(false);
 
   const [periodType, setPeriodType] = useState<"FY" | "Q1" | "Q2" | "Q3" | "Q4">("FY");
   const [periodLabel, setPeriodLabel] = useState("");
@@ -125,6 +145,22 @@ export default function AddPeriodPage() {
   const [sourceFile, setSourceFile] = useState("manual entry");
   const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
+
+  // Statement CRUD - "new" means the form is building an insert; any
+  // other value is the id of an existing sentinel_statements row being
+  // edited, and Save switches to an update.
+  const [statements, setStatements] = useState<FinancialStatement[]>([]);
+  const [selectedStatementId, setSelectedStatementId] = useState<string>("new");
+  const [confirmDeleteStatement, setConfirmDeleteStatement] = useState(false);
+  const [deletingStatement, setDeletingStatement] = useState(false);
+
+  // Company rename/delete.
+  const [editingCompanyName, setEditingCompanyName] = useState(false);
+  const [companyNameDraft, setCompanyNameDraft] = useState("");
+  const [savingCompanyName, setSavingCompanyName] = useState(false);
+  const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState(false);
+  const [deleteWorkspaceConfirmText, setDeleteWorkspaceConfirmText] = useState("");
+  const [deletingWorkspace, setDeletingWorkspace] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -147,6 +183,56 @@ export default function AddPeriodPage() {
       setLoadingWorkspaces(false);
     })();
   }, [router]);
+
+  // Load this company's existing periods whenever the selected company
+  // changes, and reset the form back to "add new period".
+  useEffect(() => {
+    if (!workspaceId) {
+      setStatements([]);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("sentinel_statements")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("period_end_date", { ascending: false });
+      setStatements((data ?? []) as FinancialStatement[]);
+      setSelectedStatementId("new");
+    })();
+  }, [workspaceId]);
+
+  // Prefill (or clear) the form whenever which period is selected
+  // changes. Intentionally doesn't depend on `statements` - by the time
+  // a person can pick an existing period from the dropdown, that list
+  // has already loaded.
+  useEffect(() => {
+    if (selectedStatementId === "new") {
+      setPeriodType("FY");
+      setPeriodLabel("");
+      setPeriodEndDate("");
+      setValues({});
+      setSourceFile("manual entry");
+      setExtractionNotes(null);
+      setLowConfidenceFields([]);
+      return;
+    }
+    const stmt = statements.find((s) => s.id === selectedStatementId);
+    if (!stmt) return;
+    setPeriodType(stmt.period_type);
+    setPeriodLabel(stmt.period_label);
+    setPeriodEndDate(stmt.period_end_date);
+    const prefill: Record<string, string> = {};
+    for (const key of ALL_FIELD_KEYS) {
+      const v = (stmt as unknown as Record<string, number | null>)[key];
+      if (v != null) prefill[key] = String(v);
+    }
+    setValues(prefill);
+    setSourceFile(stmt.source_file);
+    setExtractionNotes(stmt.extraction_notes);
+    setLowConfidenceFields([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStatementId]);
 
   async function handleExtract(file: File) {
     setError(null);
@@ -190,7 +276,7 @@ export default function AddPeriodPage() {
     setExtracting(false);
   }
 
-  async function createStatement() {
+  async function saveStatement() {
     setError(null);
     if (!workspaceId) {
       setError("Select a company first.");
@@ -235,13 +321,88 @@ export default function AddPeriodPage() {
       const raw = values[f.key];
       record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
     }
-    const { error: insertError } = await supabase.from("sentinel_statements").insert(record);
-    setSaving(false);
-    if (insertError) {
-      setError(insertError.message);
-      return;
+
+    if (selectedStatementId === "new") {
+      const { error: insertError } = await supabase.from("sentinel_statements").insert(record);
+      setSaving(false);
+      if (insertError) {
+        setError(insertError.message);
+        return;
+      }
+      setJustUpdated(false);
+    } else {
+      const { error: updateError } = await supabase
+        .from("sentinel_statements")
+        .update(record)
+        .eq("id", selectedStatementId);
+      setSaving(false);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      setJustUpdated(true);
     }
     setDone(true);
+  }
+
+  async function deleteStatement() {
+    if (selectedStatementId === "new") return;
+    setDeletingStatement(true);
+    const { error: deleteError } = await supabase
+      .from("sentinel_statements")
+      .delete()
+      .eq("id", selectedStatementId);
+    setDeletingStatement(false);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setStatements((prev) => prev.filter((s) => s.id !== selectedStatementId));
+    setSelectedStatementId("new");
+    setConfirmDeleteStatement(false);
+  }
+
+  async function saveCompanyName() {
+    if (!companyNameDraft.trim()) {
+      setError("Company name can't be empty.");
+      return;
+    }
+    setSavingCompanyName(true);
+    const { error: updateError } = await supabase
+      .from("sentinel_workspaces")
+      .update({ company_name: companyNameDraft.trim() })
+      .eq("id", workspaceId);
+    setSavingCompanyName(false);
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setWorkspaces((prev) =>
+      prev.map((w) => (w.id === workspaceId ? { ...w, company_name: companyNameDraft.trim() } : w))
+    );
+    setEditingCompanyName(false);
+  }
+
+  async function deleteWorkspace() {
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    if (!ws) return;
+    if (deleteWorkspaceConfirmText.trim() !== ws.company_name) {
+      setError("Type the company name exactly to confirm deletion.");
+      return;
+    }
+    setDeletingWorkspace(true);
+    await supabase.from("sentinel_investigations").delete().eq("workspace_id", workspaceId);
+    await supabase.from("sentinel_statements").delete().eq("workspace_id", workspaceId);
+    const { error: deleteError } = await supabase.from("sentinel_workspaces").delete().eq("id", workspaceId);
+    setDeletingWorkspace(false);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
+    setWorkspaceId("");
+    setConfirmDeleteWorkspace(false);
+    setDeleteWorkspaceConfirmText("");
   }
 
   if (loadingWorkspaces) return <p style={{ color: T.inkSoft }}>Loading Sentinel…</p>;
@@ -250,7 +411,7 @@ export default function AddPeriodPage() {
     return (
       <div>
         <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>
-          Add Period
+          Manage Periods
         </h1>
         <p style={{ fontSize: "0.9rem", color: T.inkSoft, marginTop: "0.8rem" }}>
           You don&apos;t have any companies yet.{" "}
@@ -268,7 +429,7 @@ export default function AddPeriodPage() {
   return (
     <div>
       <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>
-        Add Period
+        Manage Periods
       </h1>
       <p
         style={{
@@ -280,7 +441,7 @@ export default function AddPeriodPage() {
           margin: "0.45rem 0 1.6rem 0",
         }}
       >
-        Add a new period&apos;s numbers to a company you already created
+        Add, edit, or delete a period for a company you already created
       </p>
 
       {error && (
@@ -309,11 +470,11 @@ export default function AddPeriodPage() {
           }}
         >
           <p style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.2rem", margin: "0 0 0.6rem 0" }}>
-            Period added.
+            {justUpdated ? "Period updated." : "Period added."}
           </p>
           <p style={{ fontSize: "0.9rem", color: T.inkSoft, lineHeight: 1.6, marginBottom: "1.2rem" }}>
-            {selectedWs?.company_name} now has this period&apos;s numbers. Trend charts and YoY
-            comparisons update automatically wherever this company appears.
+            {selectedWs?.company_name} now reflects this change. Trend charts and YoY comparisons
+            update automatically wherever this company appears.
           </p>
           <div style={{ display: "flex", gap: "0.6rem" }}>
             <button style={btnPrimary} onClick={() => router.push("/sentinel/kpi")}>
@@ -323,15 +484,10 @@ export default function AddPeriodPage() {
               style={btnGhost}
               onClick={() => {
                 setDone(false);
-                setPeriodLabel("");
-                setPeriodEndDate("");
-                setValues({});
-                setExtractionNotes(null);
-                setLowConfidenceFields([]);
-                setSourceFile("manual entry");
+                setSelectedStatementId("new");
               }}
             >
-              Add another period
+              Back to Manage Periods
             </button>
           </div>
         </div>
@@ -351,6 +507,94 @@ export default function AddPeriodPage() {
                 {workspaces.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.company_name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {workspaceId && (
+              <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.9rem", alignItems: "center", flexWrap: "wrap" }}>
+                {editingCompanyName ? (
+                  <>
+                    <input
+                      style={{ ...inputStyle, width: 220 }}
+                      value={companyNameDraft}
+                      onChange={(e) => setCompanyNameDraft(e.target.value)}
+                    />
+                    <button style={{ ...linkBtn, color: T.ink }} onClick={saveCompanyName} disabled={savingCompanyName}>
+                      {savingCompanyName ? "Saving…" : "Save name"}
+                    </button>
+                    <button style={{ ...linkBtn, color: T.inkSoft }} onClick={() => setEditingCompanyName(false)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    style={{ ...linkBtn, color: T.inkSoft }}
+                    onClick={() => {
+                      setCompanyNameDraft(selectedWs?.company_name ?? "");
+                      setEditingCompanyName(true);
+                    }}
+                  >
+                    Rename company
+                  </button>
+                )}
+                {!confirmDeleteWorkspace && (
+                  <button style={{ ...linkBtn, color: T.accent }} onClick={() => setConfirmDeleteWorkspace(true)}>
+                    Delete company…
+                  </button>
+                )}
+              </div>
+            )}
+
+            {confirmDeleteWorkspace && (
+              <div
+                style={{
+                  marginTop: "0.8rem",
+                  padding: "0.9rem 1rem",
+                  border: `1px solid ${T.accent}`,
+                  background: T.accentSoft,
+                }}
+              >
+                <p style={{ fontSize: "0.82rem", margin: "0 0 0.6rem 0", lineHeight: 1.5 }}>
+                  This permanently deletes <strong>{selectedWs?.company_name}</strong> and every period and
+                  investigation under it. Type the company name to confirm.
+                </p>
+                <input
+                  style={{ ...inputStyle, marginBottom: "0.6rem" }}
+                  value={deleteWorkspaceConfirmText}
+                  onChange={(e) => setDeleteWorkspaceConfirmText(e.target.value)}
+                  placeholder={selectedWs?.company_name}
+                />
+                <div style={{ display: "flex", gap: "0.6rem" }}>
+                  <button style={btnPrimary} onClick={deleteWorkspace} disabled={deletingWorkspace}>
+                    {deletingWorkspace ? "Deleting…" : "Permanently delete"}
+                  </button>
+                  <button
+                    style={btnGhost}
+                    onClick={() => {
+                      setConfirmDeleteWorkspace(false);
+                      setDeleteWorkspaceConfirmText("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <Field label="Period">
+              <select
+                style={inputStyle}
+                value={selectedStatementId}
+                onChange={(e) => setSelectedStatementId(e.target.value)}
+              >
+                <option value="new">+ Add new period</option>
+                {statements.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.period_label} ({s.period_type})
                   </option>
                 ))}
               </select>
@@ -484,10 +728,26 @@ export default function AddPeriodPage() {
             })}
           </div>
 
-          <div style={{ display: "flex", gap: "0.6rem" }}>
-            <button style={btnPrimary} onClick={createStatement} disabled={saving}>
-              {saving ? "Saving…" : "Save period"}
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+            <button style={btnPrimary} onClick={saveStatement} disabled={saving}>
+              {saving ? "Saving…" : selectedStatementId === "new" ? "Save new period" : "Update period"}
             </button>
+            {selectedStatementId !== "new" && !confirmDeleteStatement && (
+              <button style={{ ...linkBtn, color: T.accent }} onClick={() => setConfirmDeleteStatement(true)}>
+                Delete this period
+              </button>
+            )}
+            {confirmDeleteStatement && (
+              <>
+                <span style={{ fontSize: "0.82rem", color: T.inkSoft }}>Delete this period?</span>
+                <button style={btnGhost} onClick={deleteStatement} disabled={deletingStatement}>
+                  {deletingStatement ? "Deleting…" : "Yes, delete"}
+                </button>
+                <button style={{ ...linkBtn, color: T.inkSoft }} onClick={() => setConfirmDeleteStatement(false)}>
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
