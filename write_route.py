@@ -1,4 +1,9 @@
-// Sentinel — manual data entry endpoint. Built to unblock end-to-end
+import pathlib
+
+path = pathlib.Path("app/api/sentinel/statement/route.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — manual data entry endpoint. Built to unblock end-to-end
 // testing with a real single-company workspace (Britannia) without
 // depending on the existing New Project / Add Period forms, which
 // don't yet collect Balance Sheet fields. Handles two cases in one
@@ -307,3 +312,7 @@ export async function POST(req: NextRequest) {
     warnings,
   });
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
