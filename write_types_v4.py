@@ -1,4 +1,9 @@
-// Sentinel — core types. Rebuilt around Company Workspace as the
+import pathlib
+
+path = pathlib.Path("app/sentinel/lib/types.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — core types. Rebuilt around Company Workspace as the
 // foundation: a company IS a workspace, there's no separate identity.
 // "is_subject" is no longer a static property anywhere in these types —
 // it's assigned at query time based on which workspace you're viewing
@@ -180,3 +185,7 @@ export type ReviewCycle = {
   created_by: string;
   created_at: string;
 };
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
