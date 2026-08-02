@@ -1,4 +1,9 @@
-// Sentinel — anomaly detection + confidence scoring, rebuilt around
+import pathlib
+
+path = pathlib.Path("app/sentinel/lib/anomaly.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — anomaly detection + confidence scoring, rebuilt around
 // workspace_id. All detectors record `severity` (multiples past
 // threshold, in comparable units) so computeConfidence has an honest,
 // transparent signal to work from instead of an LLM guessing a
@@ -327,3 +332,7 @@ export function computeConfidence(
     },
   };
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
