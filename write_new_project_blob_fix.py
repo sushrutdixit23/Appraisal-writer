@@ -1,4 +1,9 @@
-"use client";
+import pathlib
+
+path = pathlib.Path("app/sentinel/new-project/page.tsx")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''"use client";
 export const dynamic = "force-dynamic";
 
 // Sentinel — New Project. The self-service onboarding path: create a
@@ -635,3 +640,7 @@ export default function NewProjectPage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
