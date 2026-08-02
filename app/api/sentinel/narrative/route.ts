@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
+import { findClosestPeer } from "../../../sentinel/lib/benchmark";
 import type {
   AnomalyFlag,
   FinancialStatement,
@@ -71,24 +72,6 @@ function peerContextForMetrics(
     sections.push(`${metric}:\n${lines.join("\n")}`);
   }
   return sections.join("\n\n");
-}
-
-/** The single peer most comparable to the subject by revenue scale -
- * closest absolute revenue, excluding the subject itself. Real advisory
- * work (GDT, TSR benchmarking decks) names one specific peer rather than
- * only citing a sector average - "you vs your closest comp" is a sharper,
- * more defensible comparison than "you vs the mean of five companies at
- * very different scales". Returns null if there's no other peer to name. */
-function findClosestPeer(rows: PeerRow[], subjectWorkspaceId: string): PeerRow | null {
-  const subject = rows.find((r) => r.workspace_id === subjectWorkspaceId);
-  if (!subject) return null;
-  const others = rows.filter((r) => r.workspace_id !== subjectWorkspaceId);
-  if (others.length === 0) return null;
-  others.sort(
-    (a, b) =>
-      Math.abs(a.revenue_cr - subject.revenue_cr) - Math.abs(b.revenue_cr - subject.revenue_cr)
-  );
-  return others[0];
 }
 
 async function callClaude(

@@ -15,10 +15,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
 import { buildPeerTable, buildTimeSeries } from "../lib/engine";
+import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
 
-function KpiCard({ label, value }: { label: string; value: string }) {
+function KpiCard({ label, value, note }: { label: string; value: string; note?: string | null }) {
   return (
     <div style={{ background: T.card, padding: "1rem 1.1rem" }}>
       <p
@@ -36,11 +37,22 @@ function KpiCard({ label, value }: { label: string; value: string }) {
       <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 500, color: T.ink, margin: 0 }}>
         {value}
       </p>
+      {note && (
+        <p style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.35rem 0 0 0" }}>{note}</p>
+      )}
     </div>
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <div
       style={{
@@ -58,11 +70,14 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           color: T.inkSoft,
-          margin: "0 0 1rem 0",
+          margin: subtitle ? "0 0 0.3rem 0" : "0 0 1rem 0",
         }}
       >
         {title}
       </p>
+      {subtitle && (
+        <p style={{ fontSize: "0.72rem", color: T.inkSoft, margin: "0 0 1rem 0" }}>{subtitle}</p>
+      )}
       {children}
     </div>
   );
@@ -71,6 +86,24 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 const pct = (v: number | null) => (v == null ? "\u2014" : `${(v * 100).toFixed(1)}%`);
 const num = (v: number | null) =>
   v == null ? "\u2014" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+function formatBenchmarkNote(b: Benchmark | null, isRatio: boolean): string | null {
+  if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
+  const sign = b.gapToClosestPeer >= 0 ? "+" : "";
+  const gap = isRatio
+    ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
+    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
+  return `vs ${b.closestPeer.company_name}: ${gap}`;
+}
+
+function formatIndustryLine(b: Benchmark | null, isRatio: boolean): string | null {
+  if (!b || b.industryAverage == null || !b.industryLeader) return null;
+  const fmt = (v: number) =>
+    isRatio ? `${(v * 100).toFixed(1)}%` : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return `Industry avg ${fmt(b.industryAverage)} \u00b7 Leader ${b.industryLeader.company_name} (${fmt(
+    b.industryLeader.value
+  )})`;
+}
 
 export default function KpiDashboardPage() {
   const router = useRouter();
@@ -139,6 +172,11 @@ export default function KpiDashboardPage() {
     .filter((r) => r.ratios.ebitda_margin != null)
     .map((r) => ({ label: r.company_name, value: r.ratios.ebitda_margin as number }));
 
+  const revenueBenchmark = getBenchmark(peerRows, selected.id, "revenue_cr");
+  const ebitdaBenchmark = getBenchmark(peerRows, selected.id, "ebitda_margin");
+  const patBenchmark = getBenchmark(peerRows, selected.id, "pat_margin");
+  const yoyBenchmark = getBenchmark(peerRows, selected.id, "yoy_revenue_growth");
+
   const revenueTrend = buildTimeSeries(selected, statements, "revenue_from_operations");
   const patTrend = buildTimeSeries(selected, statements, "profit_after_tax");
 
@@ -191,10 +229,26 @@ export default function KpiDashboardPage() {
           marginBottom: "1.75rem",
         }}
       >
-        <KpiCard label="Revenue (latest FY)" value={selfRow ? num(selfRow.revenue_cr) : "\u2014"} />
-        <KpiCard label="EBITDA margin" value={pct(selfRow?.ratios.ebitda_margin ?? null)} />
-        <KpiCard label="PAT margin" value={pct(selfRow?.ratios.pat_margin ?? null)} />
-        <KpiCard label="Revenue YoY" value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)} />
+        <KpiCard
+          label="Revenue (latest FY)"
+          value={selfRow ? num(selfRow.revenue_cr) : "\u2014"}
+          note={formatBenchmarkNote(revenueBenchmark, false)}
+        />
+        <KpiCard
+          label="EBITDA margin"
+          value={pct(selfRow?.ratios.ebitda_margin ?? null)}
+          note={formatBenchmarkNote(ebitdaBenchmark, true)}
+        />
+        <KpiCard
+          label="PAT margin"
+          value={pct(selfRow?.ratios.pat_margin ?? null)}
+          note={formatBenchmarkNote(patBenchmark, true)}
+        />
+        <KpiCard
+          label="Revenue YoY"
+          value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
+          note={formatBenchmarkNote(yoyBenchmark, true)}
+        />
       </div>
 
       <ChartCard title={"Revenue trend \u2014 " + selected.company_name}>
@@ -205,15 +259,15 @@ export default function KpiDashboardPage() {
         <TrendLineChart data={patTrend} isRatio={false} />
       </ChartCard>
 
-      <ChartCard title="Revenue vs. peers (latest FY)">
+      <ChartCard title="Revenue vs. peers (latest FY)" subtitle={formatIndustryLine(revenueBenchmark, false)}>
         <HorizontalBarChart data={revenueData} isRatio={false} highlightLabel={selected.company_name} />
       </ChartCard>
 
-      <ChartCard title="EBITDA margin vs. peers">
+      <ChartCard title="EBITDA margin vs. peers" subtitle={formatIndustryLine(ebitdaBenchmark, true)}>
         <HorizontalBarChart data={ebitdaMarginData} isRatio={true} highlightLabel={selected.company_name} />
       </ChartCard>
 
-      <ChartCard title="PAT margin vs. peers">
+      <ChartCard title="PAT margin vs. peers" subtitle={formatIndustryLine(patBenchmark, true)}>
         <HorizontalBarChart data={patMarginData} isRatio={true} highlightLabel={selected.company_name} />
       </ChartCard>
     </div>
