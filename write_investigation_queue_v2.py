@@ -1,4 +1,9 @@
-"use client";
+import pathlib
+
+path = pathlib.Path("app/sentinel/page.tsx")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''"use client";
 export const dynamic = "force-dynamic";
 
 // Sentinel — Investigation Queue (renamed + restructured from Review
@@ -581,3 +586,7 @@ export default function InvestigationQueuePage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
