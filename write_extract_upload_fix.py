@@ -1,4 +1,9 @@
-// Sentinel — Vercel Blob client-upload token route. Generates a scoped
+import pathlib
+
+path = pathlib.Path("app/api/sentinel/extract-upload/route.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — Vercel Blob client-upload token route. Generates a scoped
 // upload token so large PDFs (annual reports routinely exceed Vercel's
 // hard 4.5MB serverless function body limit) go straight from the
 // browser to Blob storage, never through a Function body. Auth is
@@ -78,3 +83,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
