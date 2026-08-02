@@ -1,4 +1,9 @@
-"use client";
+import pathlib
+
+path = pathlib.Path("app/sentinel/reviews/page.tsx")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''"use client";
 export const dynamic = "force-dynamic";
 
 // Sentinel - Review Cycles. Phase 1's core object: every recurring
@@ -414,3 +419,7 @@ export default function ReviewCyclesPage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK - wrote {len(content.encode('utf-8'))} bytes to {path}")

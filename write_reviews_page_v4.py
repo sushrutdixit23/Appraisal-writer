@@ -1,7 +1,12 @@
-"use client";
+import pathlib
+
+path = pathlib.Path("app/sentinel/reviews/page.tsx")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''"use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel - Review Cycles. Phase 1's core object: every recurring
+// Sentinel — Review Cycles. Phase 1's core object: every recurring
 // review ("July 2026 Review", "FY25 Annual Review") lives here, and
 // Financial Statements/Investigations/Decisions will attach to one via
 // review_cycle_id going forward. This page is intentionally scoped to
@@ -220,7 +225,7 @@ export default function ReviewCyclesPage() {
     setCycles((prev) => prev.map((c) => (c.id === cycle.id ? (data as ReviewCycle) : c)));
   }
 
-  if (loadingWorkspaces) return <p style={{ color: T.inkSoft }}>{"Loading Sentinel\u2026"}</p>;
+  if (loadingWorkspaces) return <p style={{ color: T.inkSoft }}>Loading Sentinel…</p>;
 
   if (workspaces.length === 0) {
     return (
@@ -256,7 +261,7 @@ export default function ReviewCyclesPage() {
           margin: "0.45rem 0 1.6rem 0",
         }}
       >
-        {"Every recurring review lives here \u2014 start one, then move it through the lifecycle"}
+        Every recurring review lives here — start one, then move it through the lifecycle
       </p>
 
       {error && (
@@ -323,7 +328,7 @@ export default function ReviewCyclesPage() {
           </Field>
         </div>
         <button style={btnPrimary} onClick={createCycle} disabled={creating}>
-          {creating ? "Creating\u2026" : "Start review"}
+          {creating ? "Creating…" : "Start review"}
         </button>
       </div>
 
@@ -332,7 +337,7 @@ export default function ReviewCyclesPage() {
       </h3>
 
       {loadingCycles ? (
-        <p style={{ color: T.inkSoft, fontSize: "0.9rem" }}>{"Loading\u2026"}</p>
+        <p style={{ color: T.inkSoft, fontSize: "0.9rem" }}>Loading…</p>
       ) : cycles.length === 0 ? (
         <p style={{ color: T.inkSoft, fontSize: "0.9rem" }}>
           No reviews started yet for {selectedWs?.company_name ?? "this company"}.
@@ -358,7 +363,7 @@ export default function ReviewCyclesPage() {
               }}
             >
               <div>
-                <a
+                
                   href={`/sentinel/reviews/${cycle.id}`}
                   style={{
                     fontFamily: SERIF,
@@ -370,12 +375,12 @@ export default function ReviewCyclesPage() {
                     marginBottom: "0.3rem",
                   }}
                 >
-                  {`${cycle.label} \u2192`}
+                  {cycle.label} →
                 </a>
                 <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: 0 }}>
-                  {periodTypeLabel(cycle.period_type)}{" \u00b7 opened "}
+                  {periodTypeLabel(cycle.period_type)} · opened{" "}
                   {new Date(cycle.opened_at).toLocaleDateString()}
-                  {cycle.closed_at ? ` \u00b7 closed ${new Date(cycle.closed_at).toLocaleDateString()}` : ""}
+                  {cycle.closed_at ? ` · closed ${new Date(cycle.closed_at).toLocaleDateString()}` : ""}
                 </p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
@@ -403,7 +408,7 @@ export default function ReviewCyclesPage() {
                     onClick={() => advanceCycle(cycle)}
                     disabled={advancingId === cycle.id}
                   >
-                    {advancingId === cycle.id ? "Moving\u2026" : `Move to ${lifecycleLabel(next)} \u2192`}
+                    {advancingId === cycle.id ? "Moving…" : `Move to ${lifecycleLabel(next)} →`}
                   </button>
                 )}
               </div>
@@ -414,3 +419,7 @@ export default function ReviewCyclesPage() {
     </div>
   );
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK - wrote {len(content.encode('utf-8'))} bytes to {path}")

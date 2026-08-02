@@ -1,48 +1,26 @@
 "use client";
 
-// Sentinel — manual data entry page. Talks to /api/sentinel/statement,
-// /api/sentinel/extract, and /api/sentinel/extract-upload.
+// Sentinel — manual data entry page. Talks to /api/sentinel/statement.
+// Gets the auth token from the browser's own Supabase session instead
+// of asking anyone to hunt for it in DevTools. Handles two modes in one
+// form: create a brand-new company (workspace + first period), or add a
+// period to a company that already exists (paste its workspace_id,
+// shown back to you after the first submit). Cash Flow fields are
+// deliberately left out of this form for now — same as the rest of
+// Sentinel, they're not collected anywhere yet.
 //
-// Auth: reads the access token directly from Zyntask's own session
-// storage key, "zyntask-engage-session" in localStorage (confirmed via
-// DevTools inspection — Zyntask stores the session under this custom
-// key, not Supabase's default sb-<project>-auth-token format, which is
-// why earlier attempts using a generic Supabase client never found it).
-// The stored value is a real Supabase-issued JWT (starts with the
-// standard "eyJ..." header), so server-side verification via
-// supabase.auth.getUser(token) needs no changes — only the client-side
-// retrieval needed fixing. This does NOT auto-refresh an expired token;
-// if extraction/save ever fails with "Not logged in" after this, the
-// fix is just logging into Zyntask again in the same tab.
-//
-// Handles two modes in one form: create a brand-new company (workspace +
-// first period), or add a period to a company that already exists
-// (paste its workspace_id, shown back to you after the first submit).
-// PDF upload pre-fills fields via Document Intelligence — it never
-// writes anything itself; you still review and hit Save period. Files
-// over 4MB go straight to Vercel Blob from the browser first (Vercel
-// hard-caps serverless function request bodies at 4.5MB — full annual
-// reports routinely blow past that), then the resulting blob URL is
-// sent to /api/sentinel/extract instead of the raw file. Cash Flow
-// fields are deliberately left out of this form for now — same as the
-// rest of Sentinel, they're not collected anywhere yet.
+// NOTE: assumes NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+// are already set (the rest of the site uses client-side Supabase auth,
+// so these should already exist in your env). If your project uses
+// different env var names for the anon key, swap them in below.
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
-import { upload } from "@vercel/blob/client";
+import { useState, type FormEvent } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const SESSION_STORAGE_KEY = "zyntask-engage-session";
-
-function getStoredAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return typeof parsed.access_token === "string" ? parsed.access_token : null;
-  } catch {
-    return null;
-  }
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const SECTORS = [
   { value: "tyre", label: "Tyre Manufacturing" },
@@ -68,16 +46,13 @@ function numOrNull(s: string): number | null {
 export default function DataEntryPage() {
   const [mode, setMode] = useState<Mode>("new");
 
-  // company creation (mode: new)
   const [companyName, setCompanyName] = useState("");
   const [sector, setSector] = useState("fmcg");
   const [industry, setIndustry] = useState("");
   const [comparisonBasis, setComparisonBasis] = useState<"standalone" | "consolidated">("consolidated");
 
-  // existing company (mode: existing)
   const [existingWorkspaceId, setExistingWorkspaceId] = useState("");
 
-  // statement — required
   const [periodType, setPeriodType] = useState("FY");
   const [periodLabel, setPeriodLabel] = useState("");
   const [periodEndDate, setPeriodEndDate] = useState("");
@@ -86,7 +61,6 @@ export default function DataEntryPage() {
   const [pbt, setPbt] = useState("");
   const [pat, setPat] = useState("");
 
-  // statement — optional Income Statement
   const [otherIncome, setOtherIncome] = useState("");
   const [totalIncome, setTotalIncome] = useState("");
   const [totalExpenses, setTotalExpenses] = useState("");
@@ -96,7 +70,6 @@ export default function DataEntryPage() {
   const [exceptionalItems, setExceptionalItems] = useState("");
   const [taxExpense, setTaxExpense] = useState("");
 
-  // statement — optional Balance Sheet
   const [totalAssets, setTotalAssets] = useState("");
   const [currentAssets, setCurrentAssets] = useState("");
   const [cash, setCash] = useState("");
@@ -114,113 +87,6 @@ export default function DataEntryPage() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [lastWorkspaceId, setLastWorkspaceId] = useState("");
-  const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
-
-  // PDF extraction (Document Intelligence) — pre-fills fields above,
-  // never writes anything by itself. Human still reviews and hits
-  // Save period to actually persist.
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractError, setExtractError] = useState("");
-  const [extractionNotes, setExtractionNotes] = useState("");
-  const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
-
-  async function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== "application/pdf") {
-      setExtractError("Only PDF files are supported right now.");
-      return;
-    }
-
-    setIsExtracting(true);
-    setExtractError("");
-    setExtractionNotes("");
-    setLowConfidenceFields([]);
-
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
-      setIsExtracting(false);
-      setExtractError("Not logged in — please log into Zyntask in this browser first, then retry.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      // Vercel hard-caps serverless function request bodies at 4.5MB.
-      // Full annual reports routinely run 20-50MB, so anything above a
-      // safe margin under that goes to Vercel Blob directly from the
-      // browser first, and only the resulting URL is sent to our own
-      // route - the raw file never passes through a Function body.
-      const FUNCTION_BODY_SAFE_LIMIT = 4 * 1024 * 1024; // 4MB
-      let res: Response;
-
-      if (file.size > FUNCTION_BODY_SAFE_LIMIT) {
-        const blob = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/sentinel/extract-upload",
-          clientPayload: JSON.stringify({ accessToken }),
-        });
-        res = await fetch("/api/sentinel/extract", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
-        });
-      } else {
-        res = await fetch("/api/sentinel/extract", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: formData,
-        });
-      }
-
-      const json = await res.json();
-      if (!res.ok) {
-        setExtractError(json.error ?? "Extraction failed.");
-        setIsExtracting(false);
-        return;
-      }
-
-      if (json.period_type) setPeriodType(json.period_type);
-      if (json.period_label) setPeriodLabel(json.period_label);
-      if (json.period_end_date) setPeriodEndDate(json.period_end_date);
-      if (json.basis) setBasis(json.basis);
-      if (json.source_file) setSourceFile(json.source_file);
-
-      const f = json.fields ?? {};
-      const asStr = (v: unknown) => (v === null || v === undefined ? "" : String(v));
-      if ("revenue_from_operations" in f) setRevenue(asStr(f.revenue_from_operations));
-      if ("other_income" in f) setOtherIncome(asStr(f.other_income));
-      if ("total_income" in f) setTotalIncome(asStr(f.total_income));
-      if ("total_expenses" in f) setTotalExpenses(asStr(f.total_expenses));
-      if ("ebitda" in f) setEbitda(asStr(f.ebitda));
-      if ("depreciation_amortisation" in f) setDepreciation(asStr(f.depreciation_amortisation));
-      if ("finance_costs" in f) setFinanceCosts(asStr(f.finance_costs));
-      if ("exceptional_items" in f) setExceptionalItems(asStr(f.exceptional_items));
-      if ("profit_before_tax" in f) setPbt(asStr(f.profit_before_tax));
-      if ("tax_expense" in f) setTaxExpense(asStr(f.tax_expense));
-      if ("profit_after_tax" in f) setPat(asStr(f.profit_after_tax));
-      if ("current_assets" in f) setCurrentAssets(asStr(f.current_assets));
-      if ("current_liabilities" in f) setCurrentLiabilities(asStr(f.current_liabilities));
-      if ("inventory" in f) setInventory(asStr(f.inventory));
-      if ("trade_receivables" in f) setTradeReceivables(asStr(f.trade_receivables));
-      if ("trade_payables" in f) setTradePayables(asStr(f.trade_payables));
-      if ("total_debt" in f) setTotalDebt(asStr(f.total_debt));
-      if ("total_equity" in f) setTotalEquity(asStr(f.total_equity));
-
-      setExtractionNotes(json.extraction_notes ?? "");
-      setLowConfidenceFields(json.low_confidence_fields ?? []);
-    } catch (err) {
-      setExtractError(err instanceof Error ? err.message : "Extraction request failed.");
-    } finally {
-      setIsExtracting(false);
-    }
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -243,10 +109,12 @@ export default function DataEntryPage() {
       return;
     }
 
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
       setStatus("error");
-      setMessage("Not logged in — please log into Zyntask in this browser first, then retry.");
+      setMessage("Not logged in — please log into Sentinel in this browser first, then retry.");
       return;
     }
 
@@ -283,7 +151,7 @@ export default function DataEntryPage() {
       capex: null,
       source_file: sourceFile.trim() || "manual-entry",
       source_page: null,
-      extraction_notes: extractionNotes.trim() || null,
+      extraction_notes: null,
     };
 
     const payload =
@@ -304,7 +172,7 @@ export default function DataEntryPage() {
       const res = await fetch("/api/sentinel/statement", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -312,20 +180,11 @@ export default function DataEntryPage() {
       const json = await res.json();
       if (!res.ok) {
         setStatus("error");
-        // A 422 data-quality rejection returns `details` (one entry per
-        // issue found) alongside a summary `error` - show the full list
-        // when present, since a single-line summary loses the specifics
-        // an analyst needs to fix the entry.
-        setMessage(
-          Array.isArray(json.details) && json.details.length > 0
-            ? json.details.join("  \u2022  ")
-            : json.error ?? "Something went wrong."
-        );
+        setMessage(json.error ?? "Something went wrong.");
         return;
       }
       setStatus("done");
       setLastWorkspaceId(json.workspace_id);
-      setSaveWarnings(Array.isArray(json.warnings) ? json.warnings : []);
       setMessage(
         `Saved (${json.status}). Workspace ID: ${json.workspace_id} — copy this to add another period to the same company.`
       );
@@ -345,42 +204,13 @@ export default function DataEntryPage() {
 
       <div style={{ marginTop: 16 }}>
         <label style={{ marginRight: 16 }}>
-          <input
-            type="radio"
-            checked={mode === "new"}
-            onChange={() => setMode("new")}
-          />{" "}
+          <input type="radio" checked={mode === "new"} onChange={() => setMode("new")} />{" "}
           New company
         </label>
         <label>
-          <input
-            type="radio"
-            checked={mode === "existing"}
-            onChange={() => setMode("existing")}
-          />{" "}
+          <input type="radio" checked={mode === "existing"} onChange={() => setMode("existing")} />{" "}
           Add period to existing company
         </label>
-      </div>
-
-      <div style={SECTION}>
-        <h2 style={{ fontSize: 16, fontWeight: 600 }}>Upload PDF to auto-fill (optional)</h2>
-        <p style={{ fontSize: 13, color: "#555" }}>
-          Text-based PDFs only — scanned/image-only filings aren't supported yet. This only fills
-          in the fields below; nothing is saved until you review and click Save period.
-        </p>
-        <input type="file" accept="application/pdf" onChange={handleFileSelected} disabled={isExtracting} />
-        {isExtracting && <p style={{ fontSize: 13, color: "#555" }}>Extracting…</p>}
-        {extractError && <p style={{ fontSize: 13, color: "#b00" }}>{extractError}</p>}
-        {extractionNotes && (
-          <p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>
-            <strong>Extraction notes:</strong> {extractionNotes}
-          </p>
-        )}
-        {lowConfidenceFields.length > 0 && (
-          <p style={{ fontSize: 13, color: "#b60", marginTop: 4 }}>
-            <strong>Double-check these before saving:</strong> {lowConfidenceFields.join(", ")}
-          </p>
-        )}
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -530,18 +360,6 @@ export default function DataEntryPage() {
           <p style={{ marginTop: 16, color: status === "error" ? "#b00" : "#080", fontSize: 14 }}>
             {message}
           </p>
-        )}
-        {saveWarnings.length > 0 && status === "done" && (
-          <div style={{ marginTop: 8, padding: "10px 14px", background: "#fdf6e3", border: "1px solid #e0c674" }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "#7a5c00", margin: "0 0 4px 0" }}>
-              Saved, but worth a second look:
-            </p>
-            {saveWarnings.map((w, i) => (
-              <p key={i} style={{ fontSize: 13, color: "#7a5c00", margin: "2px 0" }}>
-                • {w}
-              </p>
-            ))}
-          </div>
         )}
         {lastWorkspaceId && status === "done" && mode === "new" && (
           <p style={{ fontSize: 13, color: "#555" }}>
