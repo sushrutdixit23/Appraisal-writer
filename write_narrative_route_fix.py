@@ -1,4 +1,9 @@
-// Sentinel — investigation generation. Rebuilt around workspace_id and
+import pathlib
+
+path = pathlib.Path("app/api/sentinel/narrative/route.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — investigation generation. Rebuilt around workspace_id and
 // the full chain: Observation (flags, already computed) -> AI Analysis
 // (two-turn hypothesis+peer-check, unchanged from Phase 1) -> Suggested
 // Questions/Actions (new — a third, tightly-scoped call) -> Confidence
@@ -303,3 +308,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed" }, { status: 502 });
   }
 }
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
