@@ -1,0 +1,341 @@
+import pathlib
+
+path = pathlib.Path("app/api/sentinel/narrative/route.ts")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+content = r'''// Sentinel — investigation generation. Rebuilt around workspace_id and
+// the full chain: Observation (flags, already computed) -> AI Analysis
+// (two-turn hypothesis+peer-check, unchanged from Phase 1) -> Suggested
+// Questions/Actions (new — a third, tightly-scoped call) -> Confidence
+// (computed deterministically via computeConfidence, NEVER asked of
+// Claude — see anomaly.ts). Writes to sentinel_investigations, not the
+// old sentinel_reviews table.
+
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
+import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
+import { getSectorConfig } from "../../../sentinel/lib/config";
+import type {
+  AnomalyFlag,
+  FinancialStatement,
+  PeerRow,
+  Workspace,
+} from "../../../sentinel/lib/types";
+
+const MODEL = "claude-sonnet-5";
+
+const inr = (v: number) =>
+  `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cr`;
+
+function companyContext(
+  ws: Workspace,
+  stmt: FinancialStatement,
+  prior: FinancialStatement | null
+): string {
+  const lines = [
+    `${ws.company_name} (${stmt.period_label}, ${stmt.basis}):`,
+    `  Revenue: ${inr(stmt.revenue_from_operations)}`,
+    `  PAT: ${inr(stmt.profit_after_tax)}`,
+    `  PBT: ${inr(stmt.profit_before_tax)}`,
+  ];
+  if (stmt.exceptional_items) {
+    lines.push(`  Exceptional items: ${inr(stmt.exceptional_items)}`);
+  }
+  if (prior) {
+    lines.push(
+      `  Prior year (${prior.period_label}): Revenue ${inr(prior.revenue_from_operations)}, ` +
+        `PAT ${inr(prior.profit_after_tax)}`
+    );
+  }
+  return lines.join("\n");
+}
+
+function peerContextForMetrics(
+  rows: PeerRow[],
+  metrics: string[],
+  flaggedWorkspaceId: string
+): string {
+  const seen = new Set<string>();
+  const sections: string[] = [];
+  for (const metric of metrics) {
+    if (seen.has(metric)) continue;
+    seen.add(metric);
+    const isRatio = metric.includes("yoy") || metric.includes("margin") || metric.includes("pct");
+    const lines = rows
+      .filter((r) => r.ratios[metric] != null)
+      .sort((a, b) => (b.ratios[metric] ?? 0) - (a.ratios[metric] ?? 0))
+      .map((r) => {
+        const v = r.ratios[metric] as number;
+        const formatted = isRatio
+          ? `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`
+          : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const marker = r.workspace_id === flaggedWorkspaceId ? " <- flagged company" : "";
+        return `  ${r.company_name}: ${formatted}${marker}`;
+      });
+    sections.push(`${metric}:\n${lines.join("\n")}`);
+  }
+  return sections.join("\n\n");
+}
+
+/** The single peer most comparable to the subject by revenue scale -
+ * closest absolute revenue, excluding the subject itself. Real advisory
+ * work (GDT, TSR benchmarking decks) names one specific peer rather than
+ * only citing a sector average - "you vs your closest comp" is a sharper,
+ * more defensible comparison than "you vs the mean of five companies at
+ * very different scales". Returns null if there's no other peer to name. */
+function findClosestPeer(rows: PeerRow[], subjectWorkspaceId: string): PeerRow | null {
+  const subject = rows.find((r) => r.workspace_id === subjectWorkspaceId);
+  if (!subject) return null;
+  const others = rows.filter((r) => r.workspace_id !== subjectWorkspaceId);
+  if (others.length === 0) return null;
+  others.sort(
+    (a, b) =>
+      Math.abs(a.revenue_cr - subject.revenue_cr) - Math.abs(b.revenue_cr - subject.revenue_cr)
+  );
+  return others[0];
+}
+
+async function callClaude(
+  system: string,
+  messages: { role: "user" | "assistant"; content: string }[],
+  maxTokens: number
+): Promise<string> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, thinking: { type: "disabled" }, system, messages }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic API error (${res.status}): ${errText.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const textBlock = (data.content ?? []).find((b: { type?: string }) => b.type === "text");
+  if (!textBlock) throw new Error("No text block in Anthropic response");
+  return textBlock.text as string;
+}
+
+/** Turn 3: suggested questions + actions + two Investigation Engine V2
+ * chain steps (possible_causes, financial_impact), as strict JSON.
+ * Extends the existing call rather than adding a new API round-trip -
+ * these two are just as cheap to ask for in the same response. Failure
+ * here is still non-fatal — an investigation without these is still a
+ * complete, approvable finding; it just falls back to empty/null rather
+ * than failing the whole generation over a secondary enrichment step.
+ * Actions carry an "Owner · Timeline: text" prefix (matching the
+ * GDT/TSR advisory format) baked directly into the string, so no schema
+ * or rendering change is needed anywhere else in the app. */
+async function getStructuredExtras(
+  system: string,
+  priorMessages: { role: "user" | "assistant"; content: string }[]
+): Promise<{
+  questions: string[];
+  actions: string[];
+  possibleCauses: string[];
+  financialImpact: string | null;
+}> {
+  const prompt =
+    "Based on your analysis above, provide four things as JSON:\n" +
+    "1. possible_causes: 2-4 distinct, specific hypothesized causes for this finding " +
+    "(not generic - name the actual mechanism, e.g. \"one-off goodwill impairment on the " +
+    "Indonesia subsidiary\" not \"unusual items\").\n" +
+    "2. financial_impact: ONE clear paragraph quantifying the impact, showing your calculation " +
+    'inline using the actual numbers already given to you, in the form "input × input = result" ' +
+    "- never state a figure you can't derive from the data you were given.\n" +
+    "3. questions: 2-4 specific follow-up questions an analyst should ask to verify or refine " +
+    "this finding.\n" +
+    "4. actions: 2-4 concrete next actions, each prefixed with a plausible owner role and a " +
+    'realistic timeline in this exact format: "Owner · Timeline: action text" (e.g. ' +
+    '"Finance Head · 0-2 weeks: Commission a physical stock count of closing inventory").\n\n' +
+    'Respond with ONLY this JSON shape, no other text: {"possible_causes": ["...","..."], ' +
+    '"financial_impact": "...", "questions": ["...","..."], "actions": ["...","..."]}';
+  try {
+    const raw = await callClaude(system, [...priorMessages, { role: "user", content: prompt }], 550);
+    const cleaned = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const questions = Array.isArray(parsed.questions) ? parsed.questions.filter((q: unknown) => typeof q === "string") : [];
+    const actions = Array.isArray(parsed.actions) ? parsed.actions.filter((a: unknown) => typeof a === "string") : [];
+    const possibleCauses = Array.isArray(parsed.possible_causes)
+      ? parsed.possible_causes.filter((c: unknown) => typeof c === "string")
+      : [];
+    const financialImpact = typeof parsed.financial_impact === "string" ? parsed.financial_impact : null;
+    return { questions, actions, possibleCauses, financialImpact };
+  } catch {
+    return { questions: [], actions: [], possibleCauses: [], financialImpact: null };
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  );
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+  const userId = userData.user.id;
+
+  const { workspace_id, period_label } = await req.json();
+  if (!workspace_id || !period_label) {
+    return NextResponse.json({ error: "Missing workspace_id or period_label" }, { status: 400 });
+  }
+
+  const { data: wsData, error: wsError } = await supabase
+    .from("sentinel_workspaces")
+    .select("*")
+    .eq("id", workspace_id)
+    .single();
+  if (wsError || !wsData) {
+    return NextResponse.json({ error: "Workspace not found or not accessible" }, { status: 404 });
+  }
+  const workspace = wsData as Workspace;
+
+  const { data: allWsData, error: allWsError } = await supabase
+    .from("sentinel_workspaces")
+    .select("*")
+    .eq("sector", workspace.sector);
+  const { data: stmtData, error: stmtError } = await supabase
+    .from("sentinel_statements")
+    .select("*")
+    .in(
+      "workspace_id",
+      ((allWsData ?? []) as Workspace[]).map((w) => w.id)
+    );
+  if (allWsError || stmtError) {
+    return NextResponse.json({ error: (allWsError ?? stmtError)!.message }, { status: 500 });
+  }
+  const sectorWorkspaces = (allWsData ?? []) as Workspace[];
+  const statements = (stmtData ?? []) as FinancialStatement[];
+
+  const peerRows = buildPeerTable(sectorWorkspaces, statements, workspace_id, "FY");
+  const allFlags = runAllChecks(peerRows, workspace.sector);
+  const flags: AnomalyFlag[] = allFlags.filter(
+    (f) => f.workspace_id === workspace_id && f.period_label === period_label
+  );
+  if (flags.length === 0) {
+    return NextResponse.json({ error: "No flags for this workspace/period" }, { status: 404 });
+  }
+
+  const stmt = statements.find((s) => s.workspace_id === workspace_id && s.period_label === period_label);
+  if (!stmt) {
+    return NextResponse.json({ error: "Statement not found" }, { status: 404 });
+  }
+  const prior = findPriorYear(stmt, statements);
+  const sectorCfg = getSectorConfig(workspace.sector);
+
+  const systemPrompt =
+    `You are a financial analyst covering the ${sectorCfg.display_name} sector.\n\n` +
+    `${sectorCfg.narrative_context}\n\n` +
+    "Be concrete and specific. Do not pad with generic caveats. If the data doesn't " +
+    "support a confident conclusion, say what additional information would resolve it. " +
+    "If multiple flags are given, consider whether they're connected before treating them " +
+    "as separate stories. When you state a rupee or percentage impact, show the calculation " +
+    "inline using the actual numbers given to you, in the form \"input \u00d7 input = result\" " +
+    "(e.g. \"Revenue \u20b922.7cr \u00d7 (15% - 7.9%) = \u20b91.6cr\") rather than stating the number " +
+    "alone - never state a figure you can't derive from the data you were given.";
+
+  const flagsBlock = flags.map((f) => `- ${f.description}`).join("\n");
+  const plural = flags.length > 1 ? "flags were" : "flag was";
+
+  const turn1User =
+    `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}\n\n` +
+    "Based only on this company's own data, what's your initial hypothesis for " +
+    "why this happened? If there's more than one flag, say whether you think they're " +
+    "connected or separate issues. 2-4 sentences.";
+
+  try {
+    const hypothesis = await callClaude(systemPrompt, [{ role: "user", content: turn1User }], 500);
+
+    const metrics = flags.map((f) => f.metric);
+    const peerContext = peerContextForMetrics(peerRows, metrics, workspace_id);
+    const closestPeer = findClosestPeer(peerRows, workspace_id);
+    const closestPeerBlock = closestPeer
+      ? `\n\nClosest comparable peer by revenue scale: ${closestPeer.company_name} ` +
+        `(revenue ${inr(closestPeer.revenue_cr)}). Where it sharpens the analysis, compare the ` +
+        `subject directly against this named company rather than only citing a sector-wide ` +
+        `average - a well-matched named peer is a stronger benchmark than a broad average.`
+      : "";
+    const turn2User =
+      `Here's how each flagged metric compares across the sector peer set for the same period:\n\n` +
+      `${peerContext}${closestPeerBlock}\n\n` +
+      "Does this peer context CONFIRM your hypothesis (a sector-wide effect), RULE IT OUT " +
+      "(this looks company-specific), or point to something else? Start your reply with " +
+      "exactly one short bolded verdict line using markdown (e.g. **Confirms sector-wide " +
+      "effect**, **Rules out sector-wide effect**, or **Points to something else**), then a " +
+      "blank line, then your final analyst narrative in 3-5 sentences covering all the flags " +
+      "together.";
+
+    const turn2Messages: { role: "user" | "assistant"; content: string }[] = [
+      { role: "user", content: turn1User },
+      { role: "assistant", content: hypothesis },
+      { role: "user", content: turn2User },
+    ];
+    const finalNarrative = await callClaude(systemPrompt, turn2Messages, 700);
+
+    const extras = await getStructuredExtras(systemPrompt, [
+      ...turn2Messages,
+      { role: "assistant", content: finalNarrative },
+    ]);
+
+    const confidence = computeConfidence(flags, peerRows.length);
+
+    const { error: upsertError } = await supabase.from("sentinel_investigations").upsert(
+      {
+        workspace_id,
+        // Inherits whatever review cycle the underlying statement is
+        // already attached to (set via Add Period's "Review cycle"
+        // picker) - no new request parameter or caller change needed.
+        // A statement with no review cycle attached simply produces an
+        // unattached investigation, same as before this change.
+        review_cycle_id: stmt.review_cycle_id ?? null,
+        owner_id: userId,
+        period_label,
+        status: "pending",
+        observation: flags,
+        initial_hypothesis: hypothesis,
+        ai_narrative: finalNarrative,
+        // Investigation Engine V2: named_peer is deterministic (already
+        // computed above for the prompt, costs nothing extra to persist);
+        // possible_causes and financial_impact come from the same
+        // extended turn-3 call as questions/actions.
+        named_peer: closestPeer?.company_name ?? null,
+        possible_causes: extras.possibleCauses,
+        financial_impact: extras.financialImpact,
+        confidence_score: confidence.score,
+        confidence_signals: confidence.signals,
+        suggested_questions: extras.questions,
+        suggested_actions: extras.actions,
+        final_narrative: null,
+        reviewer_notes: null,
+        archived_at: null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "workspace_id,owner_id,period_label" }
+    );
+    if (upsertError) {
+      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ status: "drafted" });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed" }, { status: 502 });
+  }
+}
+'''
+
+path.write_text(content, encoding="utf-8")
+print(f"OK — wrote {len(content.encode('utf-8'))} bytes to {path}")
