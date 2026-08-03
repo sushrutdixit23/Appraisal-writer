@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
 import { buildPeerTable } from "../lib/engine";
+import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
 
@@ -45,6 +46,24 @@ const selectStyle: React.CSSProperties = {
 function peerValue(row: PeerRow, key: string): number | null {
   if (key === "revenue_cr" || key === "pat_cr") return row[key as "revenue_cr" | "pat_cr"];
   return row.ratios[key] ?? null;
+}
+
+function formatBenchmarkNote(b: Benchmark | null, isRatio: boolean): string | null {
+  if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
+  const sign = b.gapToClosestPeer >= 0 ? "+" : "";
+  const gap = isRatio
+    ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
+    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return `vs ${b.closestPeer.company_name}: ${gap}`;
+}
+
+function formatIndustryLine(b: Benchmark | null, isRatio: boolean): string | null {
+  if (!b || b.industryAverage == null || !b.industryLeader) return null;
+  const fmt = (v: number) =>
+    isRatio ? `${(v * 100).toFixed(1)}%` : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return `Industry avg ${fmt(b.industryAverage)} \u00b7 Leader ${b.industryLeader.company_name} (${fmt(
+    b.industryLeader.value
+  )})`;
 }
 
 export default function DeepAnalysisPage() {
@@ -109,6 +128,7 @@ export default function DeepAnalysisPage() {
   );
   const peerRows = buildPeerTable(sectorWorkspaces, statements, subjectId, "FY");
   const peerMetric = PEER_METRICS.find((m) => m.key === peerMetricKey)!;
+  const peerBenchmark = getBenchmark(peerRows, subjectId, peerMetricKey);
   const barData = peerRows
     .map((r) => ({ label: r.company_name, value: peerValue(r, peerMetricKey) }))
     .filter((d): d is { label: string; value: number } => d.value != null);
@@ -199,6 +219,17 @@ export default function DeepAnalysisPage() {
             </option>
           ))}
         </select>
+        {(formatBenchmarkNote(peerBenchmark, peerMetric.isRatio) ||
+          formatIndustryLine(peerBenchmark, peerMetric.isRatio)) && (
+          <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "-0.6rem 0 1rem 0" }}>
+            {[
+              formatBenchmarkNote(peerBenchmark, peerMetric.isRatio),
+              formatIndustryLine(peerBenchmark, peerMetric.isRatio),
+            ]
+              .filter(Boolean)
+              .join(" \u00b7 ")}
+          </p>
+        )}
         <HorizontalBarChart data={barData} isRatio={peerMetric.isRatio} highlightLabel={subjectWorkspace.company_name} />
         {peerRows.some((r) => r.basis_caveat) && (
           <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>

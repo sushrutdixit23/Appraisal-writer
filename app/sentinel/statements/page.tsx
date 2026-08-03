@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { buildPeerTable } from "../lib/engine";
+import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
 
@@ -58,6 +60,15 @@ function yoyPct(current: number | null, prior: number | null): string {
   if (current == null || prior == null || prior === 0) return "\u2014";
   const pct = ((current - prior) / Math.abs(prior)) * 100;
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
+
+function formatVsPeer(b: Benchmark | null | undefined, isRatio: boolean): string {
+  if (!b || !b.closestPeer || b.gapToClosestPeer == null) return "\u2014";
+  const sign = b.gapToClosestPeer >= 0 ? "+" : "";
+  const gap = isRatio
+    ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
+    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return `${gap} vs ${b.closestPeer.company_name}`;
 }
 
 function downloadCsv(workspace: Workspace, periods: FinancialStatement[]) {
@@ -138,6 +149,21 @@ export default function FinancialStatementsPage() {
   const patMargins = periods.map((p) =>
     p.revenue_from_operations !== 0 ? p.profit_after_tax / p.revenue_from_operations : null
   );
+
+  // Benchmark Engine wiring: peer context is inherently latest-period,
+  // same scoping YoY% already uses (last two periods only, regardless
+  // of how many years the table shows) - "vs Peers" sits alongside
+  // YoY% as a single extra column rather than one per period.
+  const sectorWorkspaces = workspaces.filter((w) => w.sector === workspace.sector);
+  const peerRows = buildPeerTable(sectorWorkspaces, statements, subjectId, "FY");
+  const showPeerCol = !commonSize && peerRows.length > 1;
+  const rowBenchmarks: Partial<Record<keyof FinancialStatement, Benchmark>> = {
+    revenue_from_operations: getBenchmark(peerRows, subjectId, "revenue_cr"),
+    profit_before_tax: getBenchmark(peerRows, subjectId, "pbt_cr"),
+    profit_after_tax: getBenchmark(peerRows, subjectId, "pat_cr"),
+  };
+  const ebitdaMarginBenchmark = getBenchmark(peerRows, subjectId, "ebitda_margin");
+  const patMarginBenchmark = getBenchmark(peerRows, subjectId, "pat_margin");
 
   const cellStyle: React.CSSProperties = {
     padding: "0.55rem 0.9rem",
@@ -229,6 +255,11 @@ export default function FinancialStatementsPage() {
                     YoY %
                   </th>
                 )}
+                {showPeerCol && (
+                  <th style={{ ...cellStyle, fontWeight: 600, color: T.accent, fontSize: "0.75rem", textTransform: "uppercase" }}>
+                    vs Peers
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -257,6 +288,11 @@ export default function FinancialStatementsPage() {
                       )}
                     </td>
                   )}
+                  {showPeerCol && (
+                    <td style={{ ...cellStyle, color: T.inkSoft, fontSize: "0.78rem" }}>
+                      {formatVsPeer(rowBenchmarks[row.key], false)}
+                    </td>
+                  )}
                 </tr>
               ))}
               <tr>
@@ -269,6 +305,11 @@ export default function FinancialStatementsPage() {
                   </td>
                 ))}
                 {periods.length >= 2 && !commonSize && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
+                {showPeerCol && (
+                  <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
+                    {formatVsPeer(ebitdaMarginBenchmark, true)}
+                  </td>
+                )}
               </tr>
               <tr>
                 <td style={{ ...labelCellStyle, fontWeight: 400, color: T.inkSoft, fontStyle: "italic" }}>
@@ -280,6 +321,11 @@ export default function FinancialStatementsPage() {
                   </td>
                 ))}
                 {periods.length >= 2 && !commonSize && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
+                {showPeerCol && (
+                  <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
+                    {formatVsPeer(patMarginBenchmark, true)}
+                  </td>
+                )}
               </tr>
             </tbody>
           </table>
