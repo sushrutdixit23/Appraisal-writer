@@ -101,6 +101,21 @@ const DERIVED_RATIOS: RatioDef[] = [
     id: "payable_days",
     compute: (s) => safeDays(s.trade_payables, s.total_expenses),
   },
+  {
+    id: "cash_conversion_cycle",
+    // Inventory days + receivable days - payable days, using the exact
+    // same three formulas already defined above rather than
+    // recomputing them a different way. Null if any of the three
+    // inputs is missing - same null-safe convention as the rest of
+    // this file.
+    compute: (s) => {
+      const inv = safeDays(s.inventory, s.total_expenses);
+      const rec = safeDays(s.trade_receivables, s.revenue_from_operations);
+      const pay = safeDays(s.trade_payables, s.total_expenses);
+      if (inv == null || rec == null || pay == null) return null;
+      return inv + rec - pay;
+    },
+  },
 ];
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {

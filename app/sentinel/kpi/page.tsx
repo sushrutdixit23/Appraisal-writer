@@ -121,14 +121,24 @@ function ChartCard({
 const pct = (v: number | null) => (v == null ? "\u2014" : `${(v * 100).toFixed(1)}%`);
 const num = (v: number | null) =>
   v == null ? "\u2014" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const days = (v: number | null) => (v == null ? "\u2014" : `${v.toFixed(0)}d`);
+const ratioX = (v: number | null) => (v == null ? "\u2014" : `${v.toFixed(2)}x`);
 
-function formatBenchmarkNote(b: Benchmark | null, isRatio: boolean): string | null {
+function formatBenchmarkNote(
+  b: Benchmark | null,
+  unit: "pp" | "cr" | "x" | "d"
+): string | null {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
-  const gap = isRatio
-    ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
-    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
-  return `vs ${b.closestPeer.company_name}: ${gap}`;
+  const magnitude =
+    unit === "pp"
+      ? `${(b.gapToClosestPeer * 100).toFixed(1)}pp`
+      : unit === "x"
+      ? `${b.gapToClosestPeer.toFixed(2)}x`
+      : unit === "d"
+      ? `${b.gapToClosestPeer.toFixed(0)}d`
+      : `${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
+  return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
 }
 
 function formatIndustryLine(b: Benchmark | null, isRatio: boolean): string | null {
@@ -211,6 +221,14 @@ export default function KpiDashboardPage() {
   const ebitdaBenchmark = getBenchmark(peerRows, selected.id, "ebitda_margin");
   const patBenchmark = getBenchmark(peerRows, selected.id, "pat_margin");
   const yoyBenchmark = getBenchmark(peerRows, selected.id, "yoy_revenue_growth");
+  const patAbsBenchmark = getBenchmark(peerRows, selected.id, "pat_cr");
+  const patYoyBenchmark = getBenchmark(peerRows, selected.id, "yoy_pat_growth");
+  const currentRatioBenchmark = getBenchmark(peerRows, selected.id, "current_ratio");
+  const debtEquityBenchmark = getBenchmark(peerRows, selected.id, "debt_to_equity", "lower_is_better");
+  const inventoryDaysBenchmark = getBenchmark(peerRows, selected.id, "inventory_days", "lower_is_better");
+  const receivableDaysBenchmark = getBenchmark(peerRows, selected.id, "receivable_days", "lower_is_better");
+  const payableDaysBenchmark = getBenchmark(peerRows, selected.id, "payable_days");
+  const cccBenchmark = getBenchmark(peerRows, selected.id, "cash_conversion_cycle", "lower_is_better");
 
   const ownFYStatements = statements
     .filter((s) => s.workspace_id === selected.id && s.period_type === "FY")
@@ -328,22 +346,62 @@ export default function KpiDashboardPage() {
         <KpiCard
           label="Revenue (latest FY)"
           value={selfRow ? num(selfRow.revenue_cr) : "\u2014"}
-          note={formatBenchmarkNote(revenueBenchmark, false)}
+          note={formatBenchmarkNote(revenueBenchmark, "cr")}
         />
         <KpiCard
           label="EBITDA margin"
           value={pct(selfRow?.ratios.ebitda_margin ?? null)}
-          note={formatBenchmarkNote(ebitdaBenchmark, true)}
+          note={formatBenchmarkNote(ebitdaBenchmark, "pp")}
         />
         <KpiCard
           label="PAT margin"
           value={pct(selfRow?.ratios.pat_margin ?? null)}
-          note={formatBenchmarkNote(patBenchmark, true)}
+          note={formatBenchmarkNote(patBenchmark, "pp")}
         />
         <KpiCard
           label="Revenue YoY"
           value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
-          note={formatBenchmarkNote(yoyBenchmark, true)}
+          note={formatBenchmarkNote(yoyBenchmark, "pp")}
+        />
+        <KpiCard
+          label="PAT (latest FY)"
+          value={selfRow ? num(selfRow.pat_cr) : "\u2014"}
+          note={formatBenchmarkNote(patAbsBenchmark, "cr")}
+        />
+        <KpiCard
+          label="PAT YoY"
+          value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
+          note={formatBenchmarkNote(patYoyBenchmark, "pp")}
+        />
+        <KpiCard
+          label="Current Ratio"
+          value={ratioX(selfRow?.ratios.current_ratio ?? null)}
+          note={formatBenchmarkNote(currentRatioBenchmark, "x")}
+        />
+        <KpiCard
+          label="Debt-to-Equity"
+          value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
+          note={formatBenchmarkNote(debtEquityBenchmark, "x")}
+        />
+        <KpiCard
+          label="Inventory Days"
+          value={days(selfRow?.ratios.inventory_days ?? null)}
+          note={formatBenchmarkNote(inventoryDaysBenchmark, "d")}
+        />
+        <KpiCard
+          label="Receivable Days"
+          value={days(selfRow?.ratios.receivable_days ?? null)}
+          note={formatBenchmarkNote(receivableDaysBenchmark, "d")}
+        />
+        <KpiCard
+          label="Payable Days"
+          value={days(selfRow?.ratios.payable_days ?? null)}
+          note={formatBenchmarkNote(payableDaysBenchmark, "d")}
+        />
+        <KpiCard
+          label="Cash Conversion Cycle"
+          value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
+          note={formatBenchmarkNote(cccBenchmark, "d")}
         />
       </div>
 
