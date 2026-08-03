@@ -14,8 +14,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
-import { buildPeerTable, buildTimeSeries } from "../lib/engine";
+import { buildPeerTable, buildTimeSeries, findPriorYear } from "../lib/engine";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
+import { computeHealthScore, type HealthCategory, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
 
@@ -40,6 +41,40 @@ function KpiCard({ label, value, note }: { label: string; value: string; note?: 
       {note && (
         <p style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.35rem 0 0 0" }}>{note}</p>
       )}
+    </div>
+  );
+}
+
+const HEALTH_COLORS: Record<HealthStatus, { bg: string; text: string; statusLabel: string }> = {
+  healthy: { bg: "#E8F0E3", text: "#2F5233", statusLabel: "Healthy" },
+  watch: { bg: "#FBF0DC", text: "#8A6416", statusLabel: "Watch" },
+  concern: { bg: "#FBE4D8", text: "#9A4A1F", statusLabel: "Concern" },
+  critical: { bg: "#F6DCDC", text: "#8C2A2A", statusLabel: "Critical" },
+  no_data: { bg: T.background, text: T.inkSoft, statusLabel: "No data" },
+};
+
+function HealthChip({ category }: { category: HealthCategory }) {
+  const colors = HEALTH_COLORS[category.status];
+  return (
+    <div
+      style={{ background: colors.bg, borderRadius: 3, padding: "0.7rem 0.8rem" }}
+      title={category.detail ?? undefined}
+    >
+      <p
+        style={{
+          fontSize: "0.6rem",
+          fontWeight: 500,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: colors.text,
+          margin: "0 0 0.3rem 0",
+        }}
+      >
+        {category.label}
+      </p>
+      <p style={{ fontSize: "0.85rem", fontWeight: 600, color: colors.text, margin: 0 }}>
+        {colors.statusLabel}
+      </p>
     </div>
   );
 }
@@ -177,6 +212,17 @@ export default function KpiDashboardPage() {
   const patBenchmark = getBenchmark(peerRows, selected.id, "pat_margin");
   const yoyBenchmark = getBenchmark(peerRows, selected.id, "yoy_revenue_growth");
 
+  const ownFYStatements = statements
+    .filter((s) => s.workspace_id === selected.id && s.period_type === "FY")
+    .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
+  const latestOwnStatement = ownFYStatements[ownFYStatements.length - 1] ?? null;
+  const priorOwnStatement = latestOwnStatement
+    ? findPriorYear(latestOwnStatement, statements)
+    : null;
+  const healthScore = latestOwnStatement
+    ? computeHealthScore(latestOwnStatement, priorOwnStatement, selected.sector)
+    : null;
+
   const revenueTrend = buildTimeSeries(selected, statements, "revenue_from_operations");
   const patTrend = buildTimeSeries(selected, statements, "profit_after_tax");
 
@@ -218,6 +264,56 @@ export default function KpiDashboardPage() {
           </option>
         ))}
       </select>
+
+      {healthScore && (
+        <div
+          style={{
+            background: T.card,
+            border: `1px solid ${T.rule}`,
+            borderRadius: 3,
+            padding: "1.4rem 1.6rem",
+            marginBottom: "1.75rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: "0.7rem", marginBottom: "1rem" }}>
+            <p
+              style={{
+                fontSize: "0.7rem",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: T.inkSoft,
+                margin: 0,
+              }}
+            >
+              Business Health
+            </p>
+            <span
+              style={{
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: HEALTH_COLORS[healthScore.overall].text,
+                background: HEALTH_COLORS[healthScore.overall].bg,
+                borderRadius: 3,
+                padding: "0.15rem 0.55rem",
+              }}
+            >
+              Overall: {HEALTH_COLORS[healthScore.overall].statusLabel}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "0.6rem",
+            }}
+          >
+            {healthScore.categories.map((c) => (
+              <HealthChip key={c.key} category={c} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div
         style={{
