@@ -158,6 +158,7 @@ export default function KpiDashboardPage() {
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingPptx, setDownloadingPptx] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -234,6 +235,36 @@ export default function KpiDashboardPage() {
       alert(e instanceof Error ? e.message : "PDF export failed");
     } finally {
       setDownloadingPdf(false);
+    }
+  }
+
+  async function exportPptx() {
+    setDownloadingPptx(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch("/api/sentinel/export/pptx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workspace_id: selected.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selected.company_name.replace(/\s+/g, "_")}_Board_Deck.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "PPTX export failed");
+    } finally {
+      setDownloadingPptx(false);
     }
   }
 
@@ -321,24 +352,44 @@ export default function KpiDashboardPage() {
             </option>
           ))}
         </select>
-        <button
-          onClick={exportPdf}
-          disabled={downloadingPdf}
-          style={{
-            fontFamily: "inherit",
-            fontSize: "0.85rem",
-            fontWeight: 500,
-            padding: "0.5rem 1.1rem",
-            border: `1px solid ${T.ink}`,
-            borderRadius: 3,
-            background: "transparent",
-            color: T.ink,
-            cursor: downloadingPdf ? "default" : "pointer",
-            opacity: downloadingPdf ? 0.6 : 1,
-          }}
-        >
-          {downloadingPdf ? "Generating PDF\u2026" : "Export PDF"}
-        </button>
+        <div style={{ display: "flex", gap: "0.6rem" }}>
+          <button
+            onClick={exportPdf}
+            disabled={downloadingPdf}
+            style={{
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              padding: "0.5rem 1.1rem",
+              border: `1px solid ${T.ink}`,
+              borderRadius: 3,
+              background: "transparent",
+              color: T.ink,
+              cursor: downloadingPdf ? "default" : "pointer",
+              opacity: downloadingPdf ? 0.6 : 1,
+            }}
+          >
+            {downloadingPdf ? "Generating PDF\u2026" : "Export PDF"}
+          </button>
+          <button
+            onClick={exportPptx}
+            disabled={downloadingPptx}
+            style={{
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              padding: "0.5rem 1.1rem",
+              border: `1px solid ${T.ink}`,
+              borderRadius: 3,
+              background: "transparent",
+              color: T.ink,
+              cursor: downloadingPptx ? "default" : "pointer",
+              opacity: downloadingPptx ? 0.6 : 1,
+            }}
+          >
+            {downloadingPptx ? "Generating PPTX\u2026" : "Export PPTX"}
+          </button>
+        </div>
       </div>
 
       {healthScore && (
