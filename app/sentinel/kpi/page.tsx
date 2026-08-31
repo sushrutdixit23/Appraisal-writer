@@ -157,6 +157,7 @@ export default function KpiDashboardPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -205,6 +206,37 @@ export default function KpiDashboardPage() {
   }
 
   const selected = workspaces.find((w) => w.id === selectedId) ?? workspaces[0];
+
+  async function exportPdf() {
+    setDownloadingPdf(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch("/api/sentinel/export/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workspace_id: selected.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selected.company_name.replace(/\s+/g, "_")}_MIS_Pack.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "PDF export failed");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   const sectorPeers = workspaces.filter((w) => w.sector === selected.sector);
   const peerRows = buildPeerTable(sectorPeers, statements, selected.id, "FY");
   const selfRow = peerRows.find((r) => r.is_subject) ?? null;
@@ -262,26 +294,52 @@ export default function KpiDashboardPage() {
         Computed metrics, not narrative — every figure here traces to the underlying statement
       </p>
 
-      <select
-        value={selectedId}
-        onChange={(e) => setSelectedId(e.target.value)}
+      <div
         style={{
-          fontFamily: "inherit",
-          fontSize: "0.9rem",
-          padding: "0.5rem 0.8rem",
-          border: `1px solid ${T.rule}`,
-          borderRadius: 3,
-          background: T.card,
-          color: T.ink,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: "1.6rem",
         }}
       >
-        {workspaces.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.company_name}
-          </option>
-        ))}
-      </select>
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          style={{
+            fontFamily: "inherit",
+            fontSize: "0.9rem",
+            padding: "0.5rem 0.8rem",
+            border: `1px solid ${T.rule}`,
+            borderRadius: 3,
+            background: T.card,
+            color: T.ink,
+          }}
+        >
+          {workspaces.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.company_name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={exportPdf}
+          disabled={downloadingPdf}
+          style={{
+            fontFamily: "inherit",
+            fontSize: "0.85rem",
+            fontWeight: 500,
+            padding: "0.5rem 1.1rem",
+            border: `1px solid ${T.ink}`,
+            borderRadius: 3,
+            background: "transparent",
+            color: T.ink,
+            cursor: downloadingPdf ? "default" : "pointer",
+            opacity: downloadingPdf ? 0.6 : 1,
+          }}
+        >
+          {downloadingPdf ? "Generating PDF\u2026" : "Export PDF"}
+        </button>
+      </div>
 
       {healthScore && (
         <div
