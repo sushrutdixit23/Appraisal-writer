@@ -101,6 +101,7 @@ export default function FinancialStatementsPage() {
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [commonSize, setCommonSize] = useState(false);
+  const [downloadingXlsx, setDownloadingXlsx] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -142,6 +143,36 @@ export default function FinancialStatementsPage() {
   const periods = statements
     .filter((s) => s.workspace_id === subjectId && s.period_type === "FY")
     .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
+
+  async function exportXlsx() {
+    setDownloadingXlsx(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch("/api/sentinel/export/xlsx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workspace_id: workspace.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${workspace.company_name.replace(/\s+/g, "_")}_Income_Statement.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Excel export failed");
+    } finally {
+      setDownloadingXlsx(false);
+    }
+  }
 
   const ebitdaMargins = periods.map((p) =>
     p.ebitda != null && p.revenue_from_operations !== 0 ? p.ebitda / p.revenue_from_operations : null
@@ -211,22 +242,42 @@ export default function FinancialStatementsPage() {
             Show as % of revenue
           </label>
         </div>
-        <button
-          onClick={() => downloadCsv(workspace, periods)}
-          style={{
-            fontFamily: "inherit",
-            fontSize: "0.85rem",
-            fontWeight: 500,
-            padding: "0.5rem 1.1rem",
-            border: `1px solid ${T.ink}`,
-            borderRadius: 3,
-            background: "transparent",
-            color: T.ink,
-            cursor: "pointer",
-          }}
-        >
-          Download CSV
-        </button>
+        <div style={{ display: "flex", gap: "0.6rem" }}>
+          <button
+            onClick={() => downloadCsv(workspace, periods)}
+            style={{
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              padding: "0.5rem 1.1rem",
+              border: `1px solid ${T.ink}`,
+              borderRadius: 3,
+              background: "transparent",
+              color: T.ink,
+              cursor: "pointer",
+            }}
+          >
+            Download CSV
+          </button>
+          <button
+            onClick={exportXlsx}
+            disabled={downloadingXlsx}
+            style={{
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              padding: "0.5rem 1.1rem",
+              border: `1px solid ${T.ink}`,
+              borderRadius: 3,
+              background: "transparent",
+              color: T.ink,
+              cursor: downloadingXlsx ? "default" : "pointer",
+              opacity: downloadingXlsx ? 0.6 : 1,
+            }}
+          >
+            {downloadingXlsx ? "Generating Excel\u2026" : "Export Excel"}
+          </button>
+        </div>
       </div>
 
       {periods.length === 0 ? (
