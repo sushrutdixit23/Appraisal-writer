@@ -98,6 +98,11 @@ const KPI_DEFS: {
   },
 ];
 
+// Takes up to maxLen chars, cutting at the first ". " if one falls
+// within that window, else hard-truncating with a trailing ellipsis -
+// used as a fallback for narratives with no bolded verdict line (see
+// extractVerdict below) - the normal case now goes through the verdict
+// instead, which is already short by the generation prompt's own design.
 function firstSentence(text: string, maxLen: number): string {
   const period = text.indexOf(". ");
   if (period !== -1 && period < maxLen) {
@@ -105,6 +110,27 @@ function firstSentence(text: string, maxLen: number): string {
   }
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen).trim() + "...";
+}
+
+// The narrative generation prompt (see narrative/route.ts) always
+// starts turn 2's reply with exactly one short bolded markdown verdict
+// line, then a blank line, then the full analyst narrative - same
+// structure Investigation Queue's parseVerdict already splits apart.
+// Reimplemented here (not imported - that is a page-local helper) so
+// the deck's headline is the clean verdict text, never the raw
+// "**verdict**" markup or a blind mid-sentence truncation spanning
+// both the verdict and the body.
+function extractVerdict(narrative: string): { verdict: string | null; body: string } {
+  if (!narrative.startsWith("**")) {
+    return { verdict: null, body: narrative };
+  }
+  const closeIdx = narrative.indexOf("**", 2);
+  if (closeIdx === -1) {
+    return { verdict: null, body: narrative };
+  }
+  const verdict = narrative.slice(2, closeIdx);
+  const body = narrative.slice(closeIdx + 2).trim();
+  return { verdict, body };
 }
 
 export async function POST(req: NextRequest) {
@@ -213,10 +239,11 @@ export async function POST(req: NextRequest) {
         (inv.status === "approved" || inv.status === "edited"
           ? inv.final_narrative
           : inv.ai_narrative) ?? "No narrative on file.";
+      const { verdict, body } = extractVerdict(narrative);
       return {
         periodLabel: inv.period_label,
         status: inv.status,
-        headline: firstSentence(narrative, 160),
+        headline: verdict ?? firstSentence(body, 160),
         confidenceScore: inv.confidence_score,
       };
     });
