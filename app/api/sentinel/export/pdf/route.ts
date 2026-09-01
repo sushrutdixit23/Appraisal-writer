@@ -62,6 +62,25 @@ function gapNote(
   return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
 }
 
+// The narrative generation prompt (see narrative/route.ts) always
+// starts turn 2's reply with exactly one short bolded markdown verdict
+// line, then a blank line, then the full analyst narrative - same
+// structure Investigation Queue's parseVerdict already splits apart,
+// and the same plain-string implementation used in the PPTX export
+// route (no regex, no backslash-escaping surface for this to break on).
+function extractVerdict(narrative: string): { verdict: string | null; body: string } {
+  if (!narrative.startsWith("**")) {
+    return { verdict: null, body: narrative };
+  }
+  const closeIdx = narrative.indexOf("**", 2);
+  if (closeIdx === -1) {
+    return { verdict: null, body: narrative };
+  }
+  const verdict = narrative.slice(2, closeIdx);
+  const body = narrative.slice(closeIdx + 2).trim();
+  return { verdict, body };
+}
+
 const KPI_DEFS: {
   label: string;
   metric: string;
@@ -237,16 +256,21 @@ export async function POST(req: NextRequest) {
       return (b.confidence_score ?? 0) - (a.confidence_score ?? 0);
     })
     .slice(0, 5)
-    .map((inv) => ({
-      periodLabel: inv.period_label,
-      status: inv.status,
-      confidenceScore: inv.confidence_score,
-      namedPeer: inv.named_peer,
-      narrative:
+    .map((inv) => {
+      const rawNarrative =
         (inv.status === "approved" || inv.status === "edited"
           ? inv.final_narrative
-          : inv.ai_narrative) ?? "No narrative on file.",
-    }));
+          : inv.ai_narrative) ?? "No narrative on file.";
+      const { verdict, body } = extractVerdict(rawNarrative);
+      return {
+        periodLabel: inv.period_label,
+        status: inv.status,
+        confidenceScore: inv.confidence_score,
+        namedPeer: inv.named_peer,
+        verdict,
+        narrative: body,
+      };
+    });
 
   const sectorCfg = getSectorConfig(workspace.sector);
 

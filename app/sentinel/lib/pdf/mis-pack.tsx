@@ -21,6 +21,7 @@ export type MisPackInvestigation = {
   status: string;
   confidenceScore: number | null;
   namedPeer: string | null;
+  verdict: string | null;
   narrative: string;
 };
 
@@ -160,6 +161,7 @@ const styles = StyleSheet.create({
   investigationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
   investigationPeriod: { fontSize: 9, fontFamily: "Helvetica-Bold" },
   investigationStatus: { fontSize: 7.5, color: INK_SOFT, textTransform: "uppercase" },
+  investigationVerdict: { fontSize: 9, fontFamily: "Helvetica-Bold", color: ACCENT, marginBottom: 4 },
   investigationNarrative: { fontSize: 8.5, lineHeight: 1.5, marginBottom: 4 },
   investigationMeta: { fontSize: 7.5, color: INK_SOFT },
   footer: {
@@ -264,6 +266,7 @@ function InvestigationsSection({ investigations }: { investigations: MisPackInve
             <Text style={styles.investigationPeriod}>{inv.periodLabel}</Text>
             <Text style={styles.investigationStatus}>{inv.status}</Text>
           </View>
+          {inv.verdict && <Text style={styles.investigationVerdict}>{inv.verdict}</Text>}
           <Text style={styles.investigationNarrative}>{inv.narrative}</Text>
           <Text style={styles.investigationMeta}>
             {inv.confidenceScore != null ? `Confidence: ${inv.confidenceScore}%` : "Confidence: —"}
