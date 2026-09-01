@@ -15,10 +15,10 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
 import { buildPeerTable, buildTimeSeries, findPriorYear } from "../lib/engine";
-import { getBenchmark, type Benchmark } from "../lib/benchmark";
-import { computeHealthScore, type HealthCategory, type HealthStatus } from "../lib/health";
+import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
+import { computeHealthScore, type HealthCategory, type HealthScore, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
-import type { FinancialStatement, Workspace } from "../lib/types";
+import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
 
 function KpiCard({ label, value, note }: { label: string; value: string; note?: string | null }) {
   return (
@@ -150,6 +150,94 @@ function formatIndustryLine(b: Benchmark | null, isRatio: boolean): string | nul
   )})`;
 }
 
+const PEER_RANKING_METRICS: {
+  label: string;
+  metric: string;
+  direction: "higher_is_better" | "lower_is_better";
+  unit: "pp" | "cr" | "x" | "d";
+}[] = [
+  { label: "Revenue", metric: "revenue_cr", direction: "higher_is_better", unit: "cr" },
+  { label: "EBITDA Margin", metric: "ebitda_margin", direction: "higher_is_better", unit: "pp" },
+  { label: "PAT Margin", metric: "pat_margin", direction: "higher_is_better", unit: "pp" },
+  { label: "Revenue YoY", metric: "yoy_revenue_growth", direction: "higher_is_better", unit: "pp" },
+  { label: "PAT YoY", metric: "yoy_pat_growth", direction: "higher_is_better", unit: "pp" },
+  { label: "Current Ratio", metric: "current_ratio", direction: "higher_is_better", unit: "x" },
+  { label: "Debt-to-Equity", metric: "debt_to_equity", direction: "lower_is_better", unit: "x" },
+  { label: "Inventory Days", metric: "inventory_days", direction: "lower_is_better", unit: "d" },
+  { label: "Receivable Days", metric: "receivable_days", direction: "lower_is_better", unit: "d" },
+  { label: "Cash Conversion Cycle", metric: "cash_conversion_cycle", direction: "lower_is_better", unit: "d" },
+];
+
+function formatByUnit(v: number, unit: "pp" | "cr" | "x" | "d"): string {
+  if (unit === "pp") return `${(v * 100).toFixed(1)}%`;
+  if (unit === "x") return `${v.toFixed(2)}x`;
+  if (unit === "d") return `${v.toFixed(0)}d`;
+  return v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+// Computed directly from peerRows (not approximated from percentile) so
+// the displayed rank is always an exact "N of M" against the real
+// values on file, using the same null-safe metric extraction
+// getBenchmark itself uses via getMetricValue.
+function computeRank(
+  rows: PeerRow[],
+  subjectId: string,
+  metric: string,
+  direction: "higher_is_better" | "lower_is_better"
+): { rank: number; total: number } | null {
+  const values = rows
+    .map((r) => ({ id: r.workspace_id, value: getMetricValue(r, metric) }))
+    .filter((x): x is { id: string; value: number } => x.value != null);
+  const subject = values.find((x) => x.id === subjectId);
+  if (!subject) return null;
+  const better = values.filter((x) =>
+    direction === "higher_is_better" ? x.value > subject.value : x.value < subject.value
+  ).length;
+  return { rank: better + 1, total: values.length };
+}
+
+function RankStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p
+        style={{
+          fontSize: "0.62rem",
+          fontWeight: 500,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: T.inkSoft,
+          margin: "0 0 0.3rem 0",
+        }}
+      >
+        {label}
+      </p>
+      <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 500, color: T.ink, margin: 0 }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+// Quick Financial Summary - deterministic, not AI prose. Stitches
+// together the already-computed Health Engine detail sentences for the
+// categories that matter most (same convention as everywhere else in
+// Sentinel: reuse what is already computed rather than generate new
+// text), so this can never say something the Business Health card
+// itself would not also support.
+function buildQuickSummary(healthScore: HealthScore): string | null {
+  const priorityOrder = ["growth", "profitability", "liquidity", "leverage", "working_capital"];
+  const sentences = priorityOrder
+    .map((key) => healthScore.categories.find((c) => c.key === key))
+    .filter((c): c is HealthCategory => c != null && c.detail != null)
+    .slice(0, 3)
+    .map((c) => {
+      const d = c.detail as string;
+      return d.charAt(0).toUpperCase() + d.slice(1);
+    });
+  if (sentences.length === 0) return null;
+  return sentences.join(". ") + ".";
+}
+
 export default function KpiDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -159,6 +247,7 @@ export default function KpiDashboardPage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
+  const [rankingMetric, setRankingMetric] = useState(PEER_RANKING_METRICS[0].metric);
 
   useEffect(() => {
     (async () => {
@@ -272,6 +361,11 @@ export default function KpiDashboardPage() {
   const peerRows = buildPeerTable(sectorPeers, statements, selected.id, "FY");
   const selfRow = peerRows.find((r) => r.is_subject) ?? null;
 
+  const rankingDef =
+    PEER_RANKING_METRICS.find((m) => m.metric === rankingMetric) ?? PEER_RANKING_METRICS[0];
+  const rankingBenchmark = getBenchmark(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
+  const rank = computeRank(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
+
   const revenueData = peerRows.map((r) => ({ label: r.company_name, value: r.revenue_cr }));
   const patMarginData = peerRows
     .filter((r) => r.ratios.pat_margin != null)
@@ -303,6 +397,7 @@ export default function KpiDashboardPage() {
   const healthScore = latestOwnStatement
     ? computeHealthScore(latestOwnStatement, priorOwnStatement, selected.sector)
     : null;
+  const quickSummary = healthScore ? buildQuickSummary(healthScore) : null;
 
   const revenueTrend = buildTimeSeries(selected, statements, "revenue_from_operations");
   const patTrend = buildTimeSeries(selected, statements, "profit_after_tax");
@@ -533,6 +628,127 @@ export default function KpiDashboardPage() {
       <ChartCard title="PAT margin vs. peers" subtitle={formatIndustryLine(patBenchmark, true)}>
         <HorizontalBarChart data={patMarginData} isRatio={true} highlightLabel={selected.company_name} />
       </ChartCard>
+
+      <div
+        style={{
+          background: T.card,
+          border: `1px solid ${T.rule}`,
+          borderRadius: 3,
+          padding: "1.4rem 1.6rem",
+          marginBottom: "1.4rem",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1.2rem",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: T.inkSoft,
+              margin: 0,
+            }}
+          >
+            Peer Ranking
+          </p>
+          <select
+            value={rankingMetric}
+            onChange={(e) => setRankingMetric(e.target.value)}
+            style={{
+              fontFamily: "inherit",
+              fontSize: "0.85rem",
+              padding: "0.4rem 0.6rem",
+              border: `1px solid ${T.rule}`,
+              borderRadius: 3,
+              background: T.card,
+              color: T.ink,
+            }}
+          >
+            {PEER_RANKING_METRICS.map((m) => (
+              <option key={m.metric} value={m.metric}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "1rem",
+          }}
+        >
+          <RankStat label="Rank" value={rank ? `${rank.rank} of ${rank.total}` : "\u2014"} />
+          <RankStat
+            label="Percentile"
+            value={
+              rankingBenchmark.percentile != null ? `${Math.round(rankingBenchmark.percentile)}th` : "\u2014"
+            }
+          />
+          <RankStat
+            label="Industry Average"
+            value={
+              rankingBenchmark.industryAverage != null
+                ? formatByUnit(rankingBenchmark.industryAverage, rankingDef.unit)
+                : "\u2014"
+            }
+          />
+          <RankStat
+            label="Industry Leader"
+            value={
+              rankingBenchmark.industryLeader
+                ? `${rankingBenchmark.industryLeader.company_name} (${formatByUnit(
+                    rankingBenchmark.industryLeader.value,
+                    rankingDef.unit
+                  )})`
+                : "\u2014"
+            }
+          />
+          <RankStat
+            label="Closest Peer"
+            value={rankingBenchmark.closestPeer ? rankingBenchmark.closestPeer.company_name : "\u2014"}
+          />
+          <RankStat
+            label="Gap to Closest Peer"
+            value={formatBenchmarkNote(rankingBenchmark, rankingDef.unit) ?? "\u2014"}
+          />
+        </div>
+      </div>
+
+      {quickSummary && (
+        <div
+          style={{
+            background: T.card,
+            border: `1px solid ${T.rule}`,
+            borderRadius: 3,
+            padding: "1.4rem 1.6rem",
+            marginBottom: "1.4rem",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: T.inkSoft,
+              margin: "0 0 0.8rem 0",
+            }}
+          >
+            Quick Financial Summary
+          </p>
+          <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: T.ink, margin: 0 }}>
+            {quickSummary}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
