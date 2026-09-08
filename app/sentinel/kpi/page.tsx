@@ -238,6 +238,87 @@ function buildQuickSummary(healthScore: HealthScore): string | null {
   return sentences.join(". ") + ".";
 }
 
+function CapitalStructureCard({ stmt }: { stmt: FinancialStatement | null }) {
+  const debt = stmt?.total_debt ?? null;
+  const equity = stmt?.total_equity ?? null;
+  const total = debt != null && equity != null ? debt + equity : null;
+  const hasData = debt != null && equity != null && total != null && total > 0;
+  const debtPct = hasData ? ((debt as number) / (total as number)) * 100 : 0;
+  const equityPct = hasData ? 100 - debtPct : 0;
+
+  return (
+    <div
+      style={{
+        background: T.card,
+        border: `1px solid ${T.rule}`,
+        borderRadius: 3,
+        padding: "1.4rem 1.6rem",
+        marginBottom: "1.4rem",
+      }}
+    >
+      <p
+        style={{
+          fontSize: "0.7rem",
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: T.inkSoft,
+          margin: "0 0 1rem 0",
+        }}
+      >
+        Capital Structure
+      </p>
+      {hasData ? (
+        <>
+          <div
+            style={{
+              display: "flex",
+              height: "1.4rem",
+              borderRadius: 3,
+              overflow: "hidden",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div style={{ width: `${debtPct}%`, background: T.accent }} />
+            <div style={{ width: `${equityPct}%`, background: T.rule }} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: "0.68rem",
+              color: T.inkSoft,
+              marginBottom: "1rem",
+            }}
+          >
+            <span>Debt {debtPct.toFixed(0)}%</span>
+            <span>Equity {equityPct.toFixed(0)}%</span>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "1rem",
+            }}
+          >
+            <RankStat label="Total Debt" value={num(debt)} />
+            <RankStat label="Total Equity" value={num(equity)} />
+            <RankStat
+              label="Debt-to-Equity"
+              value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}
+            />
+            <RankStat label="Debt-to-Capital" value={pct((debt as number) / (total as number))} />
+          </div>
+        </>
+      ) : (
+        <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: 0 }}>
+          No Balance Sheet data on file yet for this company.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function KpiDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -749,6 +830,8 @@ export default function KpiDashboardPage() {
           </p>
         </div>
       )}
+
+      <CapitalStructureCard stmt={latestOwnStatement} />
     </div>
   );
 }

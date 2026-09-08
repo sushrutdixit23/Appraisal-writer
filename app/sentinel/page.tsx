@@ -14,7 +14,7 @@ import { groupFlagsByWorkspace, runAllChecks } from "./lib/anomaly";
 import { buildPeerTable } from "./lib/engine";
 import { parseVerdict } from "./lib/format";
 import { SERIF, T } from "./lib/theme";
-import type { AnomalyFlag, FinancialStatement, Investigation, Workspace } from "./lib/types";
+import type { AnomalyFlag, FinancialStatement, Investigation, Recommendation, Workspace } from "./lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
@@ -189,6 +189,98 @@ const btnBase: React.CSSProperties = {
 };
 const btnPrimary: React.CSSProperties = { ...btnBase, background: T.ink, color: T.background };
 
+const PRIORITY_COLOR: Record<string, string> = {
+  High: "#8C2A2A",
+  Medium: "#8A6416",
+  Low: T.inkSoft,
+};
+
+function RecommendationCard({
+  rec,
+  onDecide,
+}: {
+  rec: Recommendation;
+  onDecide: (rec: Recommendation, decision: "approve" | "reject" | "implement") => void;
+}) {
+  return (
+    <div
+      style={{
+        background: T.background,
+        border: `1px solid ${T.rule}`,
+        borderLeft: `2px solid ${PRIORITY_COLOR[rec.priority] ?? T.inkSoft}`,
+        padding: "0.9rem 1.1rem",
+        marginBottom: "0.7rem",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.4rem" }}>
+        <p style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "0.98rem", color: T.ink, margin: 0 }}>
+          {rec.title}
+        </p>
+        <span
+          style={{
+            fontSize: "0.64rem",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: PRIORITY_COLOR[rec.priority] ?? T.inkSoft,
+          }}
+        >
+          {rec.priority} priority
+        </span>
+      </div>
+      <p style={{ fontSize: "0.85rem", lineHeight: 1.6, color: T.ink, margin: "0 0 0.5rem 0" }}>
+        {rec.business_value}
+      </p>
+      {rec.financial_impact && (
+        <p style={{ fontSize: "0.82rem", color: T.inkSoft, margin: "0 0 0.5rem 0" }}>
+          Impact: {rec.financial_impact}
+        </p>
+      )}
+      <p style={{ fontSize: "0.75rem", color: T.inkSoft, margin: "0 0 0.6rem 0" }}>
+        {rec.owner} - {rec.timeline} - {rec.difficulty}
+        {rec.confidence_score != null ? ` - Confidence: ${rec.confidence_score}%` : ""}
+      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span
+          style={{
+            fontSize: "0.66rem",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: T.inkSoft,
+          }}
+        >
+          {rec.status}
+        </span>
+        {rec.status === "pending" && (
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              style={{ ...btnBase, padding: "0.35rem 0.8rem", fontSize: "0.78rem" }}
+              onClick={() => onDecide(rec, "approve")}
+            >
+              Approve
+            </button>
+            <button
+              style={{ ...btnBase, padding: "0.35rem 0.8rem", fontSize: "0.78rem" }}
+              onClick={() => onDecide(rec, "reject")}
+            >
+              Reject
+            </button>
+          </div>
+        )}
+        {rec.status === "approved" && (
+          <button
+            style={{ ...btnBase, padding: "0.35rem 0.8rem", fontSize: "0.78rem" }}
+            onClick={() => onDecide(rec, "implement")}
+          >
+            Mark Implemented
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function InvestigationQueuePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -200,6 +292,7 @@ export default function InvestigationQueuePage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [recommendations, setRecommendations] = useState<Map<string, Recommendation[]>>(new Map());
 
   const loadAll = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -207,9 +300,10 @@ export default function InvestigationQueuePage() {
       router.push("/login");
       return;
     }
-    const [wsRes, invRes] = await Promise.all([
+    const [wsRes, invRes, recRes] = await Promise.all([
       supabase.from("sentinel_workspaces").select("*"),
       supabase.from("sentinel_investigations").select("*"),
+      supabase.from("sentinel_recommendations").select("*"),
     ]);
     if (wsRes.error) {
       setError(wsRes.error.message);
@@ -234,6 +328,15 @@ export default function InvestigationQueuePage() {
         m.set(`${inv.workspace_id}|${inv.period_label}`, inv);
       }
       setInvestigations(m);
+    }
+    if (!recRes.error) {
+      const rm = new Map<string, Recommendation[]>();
+      for (const rec of (recRes.data ?? []) as Recommendation[]) {
+        if (!rec.investigation_id) continue;
+        if (!rm.has(rec.investigation_id)) rm.set(rec.investigation_id, []);
+        rm.get(rec.investigation_id)!.push(rec);
+      }
+      setRecommendations(rm);
     }
     setLoading(false);
   }, [router]);
@@ -333,6 +436,19 @@ export default function InvestigationQueuePage() {
       .from("sentinel_investigations")
       .update({ status: "pending", final_narrative: null, archived_at: null, updated_at: new Date().toISOString() })
       .eq("id", inv.id);
+    if (updateError) {
+      alert(updateError.message);
+      return;
+    }
+    await loadAll();
+  }
+
+  async function decideRecommendation(rec: Recommendation, decision: "approve" | "reject" | "implement") {
+    const status = decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "implemented";
+    const { error: updateError } = await supabase
+      .from("sentinel_recommendations")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", rec.id);
     if (updateError) {
       alert(updateError.message);
       return;
@@ -467,6 +583,15 @@ export default function InvestigationQueuePage() {
 
                 <InvestigationExtras inv={inv} />
 
+                {(recommendations.get(inv.id) ?? []).length > 0 && (
+                  <>
+                    <Eyebrow>Recommendations</Eyebrow>
+                    {(recommendations.get(inv.id) ?? []).map((rec) => (
+                      <RecommendationCard key={rec.id} rec={rec} onDecide={decideRecommendation} />
+                    ))}
+                  </>
+                )}
+
                 {inv.suggested_questions.length > 0 && (
                   <>
                     <Eyebrow>Suggested questions</Eyebrow>
@@ -553,6 +678,14 @@ export default function InvestigationQueuePage() {
                       );
                     })()}
                     <InvestigationExtras inv={inv} />
+                    {(recommendations.get(inv.id) ?? []).length > 0 && (
+                      <>
+                        <Eyebrow>Recommendations</Eyebrow>
+                        {(recommendations.get(inv.id) ?? []).map((rec) => (
+                          <RecommendationCard key={rec.id} rec={rec} onDecide={decideRecommendation} />
+                        ))}
+                      </>
+                    )}
                     {inv.reviewer_notes && (
                       <p style={{ fontSize: "0.8rem", color: T.inkSoft, margin: "0.5rem 0 0 0" }}>
                         Reviewer notes: {inv.reviewer_notes}

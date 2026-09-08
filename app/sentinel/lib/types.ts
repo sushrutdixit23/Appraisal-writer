@@ -189,3 +189,32 @@ export type ReviewCycle = {
   created_by: string;
   created_at: string;
 };
+
+export type RecommendationPriority = "High" | "Medium" | "Low";
+export type RecommendationDifficulty = "Easy" | "Medium" | "Hard";
+export type RecommendationStatus = "pending" | "approved" | "rejected" | "implemented";
+
+// Recommendation Engine (Phase A/B) - structured recommendations,
+// separated from investigations per the roadmap. confidence_score is
+// always inherited from the parent investigation's own computed score
+// at generation time, never asked of Claude directly - same rule as
+// everywhere else in Sentinel.
+export type Recommendation = {
+  id: string;
+  workspace_id: string;
+  investigation_id: string | null;
+  review_cycle_id: string | null;
+  owner_id: string;
+  title: string;
+  priority: RecommendationPriority;
+  business_value: string;
+  financial_impact: string | null;
+  owner: string;
+  timeline: string;
+  difficulty: RecommendationDifficulty;
+  confidence_score: number | null;
+  evidence: string | null;
+  status: RecommendationStatus;
+  created_at: string;
+  updated_at: string;
+};
