@@ -615,6 +615,18 @@ export default function KpiDashboardPage() {
               <HealthChip key={c.key} category={c} />
             ))}
           </div>
+          <a
+            href={`/sentinel?workspace=${selected.id}`}
+            style={{
+              fontSize: "0.78rem",
+              color: T.accent,
+              textDecoration: "none",
+              marginTop: "1rem",
+              display: "inline-block",
+            }}
+          >
+            View Investigations for {selected.company_name} &gt;
+          </a>
         </div>
       )}
 
