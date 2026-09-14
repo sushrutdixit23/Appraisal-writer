@@ -20,9 +20,19 @@ import { computeHealthScore, type HealthCategory, type HealthScore, type HealthS
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
 
-function KpiCard({ label, value, note }: { label: string; value: string; note?: string | null }) {
+function KpiCard({
+  label,
+  value,
+  note,
+  formula,
+}: {
+  label: string;
+  value: string;
+  note?: string | null;
+  formula?: string;
+}) {
   return (
-    <div style={{ background: T.card, padding: "1rem 1.1rem" }}>
+    <div style={{ background: T.card, padding: "1rem 1.1rem" }} title={formula}>
       <p
         style={{
           fontSize: "0.62rem",
@@ -644,61 +654,73 @@ export default function KpiDashboardPage() {
           label="Revenue (latest FY)"
           value={selfRow ? num(selfRow.revenue_cr) : "\u2014"}
           note={formatBenchmarkNote(revenueBenchmark, "cr")}
+          formula="As reported: Revenue from Operations"
         />
         <KpiCard
           label="EBITDA margin"
           value={pct(selfRow?.ratios.ebitda_margin ?? null)}
           note={formatBenchmarkNote(ebitdaBenchmark, "pp")}
+          formula="EBITDA / Revenue from Operations"
         />
         <KpiCard
           label="PAT margin"
           value={pct(selfRow?.ratios.pat_margin ?? null)}
           note={formatBenchmarkNote(patBenchmark, "pp")}
+          formula="Profit After Tax / Revenue from Operations"
         />
         <KpiCard
           label="Revenue YoY"
           value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
           note={formatBenchmarkNote(yoyBenchmark, "pp")}
+          formula="(Current Revenue - Prior Revenue) / Prior Revenue"
         />
         <KpiCard
           label="PAT (latest FY)"
           value={selfRow ? num(selfRow.pat_cr) : "\u2014"}
           note={formatBenchmarkNote(patAbsBenchmark, "cr")}
+          formula="As reported: Profit After Tax"
         />
         <KpiCard
           label="PAT YoY"
           value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
           note={formatBenchmarkNote(patYoyBenchmark, "pp")}
+          formula="(Current PAT - Prior PAT) / Prior PAT"
         />
         <KpiCard
           label="Current Ratio"
           value={ratioX(selfRow?.ratios.current_ratio ?? null)}
           note={formatBenchmarkNote(currentRatioBenchmark, "x")}
+          formula="Current Assets / Current Liabilities"
         />
         <KpiCard
           label="Debt-to-Equity"
           value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
           note={formatBenchmarkNote(debtEquityBenchmark, "x")}
+          formula="Total Debt / Total Equity"
         />
         <KpiCard
           label="Inventory Days"
           value={days(selfRow?.ratios.inventory_days ?? null)}
           note={formatBenchmarkNote(inventoryDaysBenchmark, "d")}
+          formula="(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
         />
         <KpiCard
           label="Receivable Days"
           value={days(selfRow?.ratios.receivable_days ?? null)}
           note={formatBenchmarkNote(receivableDaysBenchmark, "d")}
+          formula="(Trade Receivables / Revenue from Operations) x 365"
         />
         <KpiCard
           label="Payable Days"
           value={days(selfRow?.ratios.payable_days ?? null)}
           note={formatBenchmarkNote(payableDaysBenchmark, "d")}
+          formula="(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
         />
         <KpiCard
           label="Cash Conversion Cycle"
           value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
           note={formatBenchmarkNote(cccBenchmark, "d")}
+          formula="Inventory Days + Receivable Days - Payable Days"
         />
       </div>
 
