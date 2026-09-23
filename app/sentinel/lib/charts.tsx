@@ -30,7 +30,15 @@ export function HorizontalBarChart({
   const sorted = [...data].sort((a, b) => b.value - a.value);
   const labelWidth = 150;
   const chartWidth = 640;
-  const barAreaWidth = chartWidth - labelWidth;
+  // Reserve a fixed gutter for the value label drawn just past each
+  // bar's end - without this, a bar at (or near) the dataset's max
+  // fills the entire remaining width and its label is pushed past the
+  // SVG's own viewBox edge, getting clipped (a missing or truncated
+  // number on the longest bar). barAreaWidth now stops short of the
+  // full chart width by valueGutter, guaranteeing every label has room
+  // to render fully regardless of how close a value is to the max.
+  const valueGutter = 70;
+  const barAreaWidth = chartWidth - labelWidth - valueGutter;
   const rowH = height;
   const rowGap = 14;
   const totalH = sorted.length * (rowH + rowGap);
