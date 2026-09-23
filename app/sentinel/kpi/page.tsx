@@ -1,14 +1,35 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel — KPI Dashboard. The Intelligence Layer per the vision doc:
-// computed metrics an analyst works with directly, not narrative. First
-// page in the app to actually render charts.tsx (HorizontalBarChart,
-// TrendLineChart) - those were built earlier but never wired up. Trend
-// charts only get meaningfully better as more periods exist per company
-// (see Add Period) - for a company with only one period on file, the
-// trend chart legitimately shows a single point, which is expected, not
-// a bug.
+// Sentinel - KPI Dashboard, redesigned. The Intelligence Layer per the
+// vision doc: computed metrics an analyst works with directly, not
+// narrative.
+//
+// Redesign notes (why this looks different from before):
+// - The old layout stacked 7-8 independently bordered/rounded boxes of
+//   equal visual weight (Business Health, five separate chart cards,
+//   Peer Ranking, Quick Summary, Capital Structure) with no hierarchy
+//   between "this is the verdict" and "this is supporting detail."
+// - This version leads with an unboxed masthead - company name, overall
+//   health, and the Quick Financial Summary paragraph together, the way
+//   a real financial report leads with an opinion before its schedules
+//   - then groups what follows into five clearly bordered "schedules"
+//   (Business Health, Key Figures, Peer Standing, Trend, Capital
+//   Structure) instead of eight arbitrary boxes.
+// - Peer Ranking's metric selector previously only drove the rank/
+//   percentile numbers; the three chart cards below it were hardcoded
+//   to Revenue/EBITDA/PAT regardless of what was selected. Peer
+//   Standing now shares one selector across both the ranking stats and
+//   the bar chart, and covers all 10 ranking metrics instead of 3.
+// - Removed tracked-out uppercase section labels and middle-dot-joined
+//   meta strings throughout in favor of plain sentence-case headings -
+//   decorative conventions, not information.
+//
+// charts.tsx (HorizontalBarChart, TrendLineChart) is untouched - only
+// how this page wraps them changed. Trend charts only get meaningfully
+// better as more periods exist per company (see Add Period) - for a
+// company with only one period on file, the trend chart legitimately
+// shows a single point, which is expected, not a bug.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,124 +41,13 @@ import { computeHealthScore, type HealthCategory, type HealthScore, type HealthS
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
 
-function KpiCard({
-  label,
-  value,
-  note,
-  formula,
-}: {
-  label: string;
-  value: string;
-  note?: string | null;
-  formula?: string;
-}) {
-  return (
-    <div style={{ background: T.card, padding: "1rem 1.1rem" }} title={formula}>
-      <p
-        style={{
-          fontSize: "0.62rem",
-          fontWeight: 500,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: T.inkSoft,
-          margin: "0 0 0.35rem 0",
-        }}
-      >
-        {label}
-      </p>
-      <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 500, color: T.ink, margin: 0 }}>
-        {value}
-      </p>
-      {note && (
-        <p style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.35rem 0 0 0" }}>{note}</p>
-      )}
-    </div>
-  );
-}
-
-const HEALTH_COLORS: Record<HealthStatus, { bg: string; text: string; statusLabel: string }> = {
-  healthy: { bg: "#E8F0E3", text: "#2F5233", statusLabel: "Healthy" },
-  watch: { bg: "#FBF0DC", text: "#8A6416", statusLabel: "Watch" },
-  concern: { bg: "#FBE4D8", text: "#9A4A1F", statusLabel: "Concern" },
-  critical: { bg: "#F6DCDC", text: "#8C2A2A", statusLabel: "Critical" },
-  no_data: { bg: T.background, text: T.inkSoft, statusLabel: "No data" },
-};
-
-function HealthChip({ category }: { category: HealthCategory }) {
-  const colors = HEALTH_COLORS[category.status];
-  return (
-    <div
-      style={{ background: colors.bg, borderRadius: 3, padding: "0.7rem 0.8rem" }}
-      title={category.detail ?? undefined}
-    >
-      <p
-        style={{
-          fontSize: "0.6rem",
-          fontWeight: 500,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-          color: colors.text,
-          margin: "0 0 0.3rem 0",
-        }}
-      >
-        {category.label}
-      </p>
-      <p style={{ fontSize: "0.85rem", fontWeight: 600, color: colors.text, margin: 0 }}>
-        {colors.statusLabel}
-      </p>
-    </div>
-  );
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        background: T.card,
-        border: `1px solid ${T.rule}`,
-        borderRadius: 3,
-        padding: "1.4rem 1.6rem",
-        marginBottom: "1.4rem",
-      }}
-    >
-      <p
-        style={{
-          fontSize: "0.7rem",
-          fontWeight: 600,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: T.inkSoft,
-          margin: subtitle ? "0 0 0.3rem 0" : "0 0 1rem 0",
-        }}
-      >
-        {title}
-      </p>
-      {subtitle && (
-        <p style={{ fontSize: "0.72rem", color: T.inkSoft, margin: "0 0 1rem 0" }}>{subtitle}</p>
-      )}
-      {children}
-    </div>
-  );
-}
-
-const pct = (v: number | null) => (v == null ? "\u2014" : `${(v * 100).toFixed(1)}%`);
+const pct = (v: number | null) => (v == null ? "-" : `${(v * 100).toFixed(1)}%`);
 const num = (v: number | null) =>
-  v == null ? "\u2014" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-const days = (v: number | null) => (v == null ? "\u2014" : `${v.toFixed(0)}d`);
-const ratioX = (v: number | null) => (v == null ? "\u2014" : `${v.toFixed(2)}x`);
+  v == null ? "-" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const days = (v: number | null) => (v == null ? "-" : `${v.toFixed(0)}d`);
+const ratioX = (v: number | null) => (v == null ? "-" : `${v.toFixed(2)}x`);
 
-function formatBenchmarkNote(
-  b: Benchmark | null,
-  unit: "pp" | "cr" | "x" | "d"
-): string | null {
+function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
   const magnitude =
@@ -151,32 +61,20 @@ function formatBenchmarkNote(
   return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
 }
 
-function formatIndustryLine(b: Benchmark | null, isRatio: boolean): string | null {
+function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
   if (!b || b.industryAverage == null || !b.industryLeader) return null;
   const fmt = (v: number) =>
-    isRatio ? `${(v * 100).toFixed(1)}%` : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-  return `Industry avg ${fmt(b.industryAverage)} \u00b7 Leader ${b.industryLeader.company_name} (${fmt(
+    unit === "pp"
+      ? `${(v * 100).toFixed(1)}%`
+      : unit === "x"
+      ? `${v.toFixed(2)}x`
+      : unit === "d"
+      ? `${v.toFixed(0)}d`
+      : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return `Industry average ${fmt(b.industryAverage)}, led by ${b.industryLeader.company_name} at ${fmt(
     b.industryLeader.value
-  )})`;
+  )}`;
 }
-
-const PEER_RANKING_METRICS: {
-  label: string;
-  metric: string;
-  direction: "higher_is_better" | "lower_is_better";
-  unit: "pp" | "cr" | "x" | "d";
-}[] = [
-  { label: "Revenue", metric: "revenue_cr", direction: "higher_is_better", unit: "cr" },
-  { label: "EBITDA Margin", metric: "ebitda_margin", direction: "higher_is_better", unit: "pp" },
-  { label: "PAT Margin", metric: "pat_margin", direction: "higher_is_better", unit: "pp" },
-  { label: "Revenue YoY", metric: "yoy_revenue_growth", direction: "higher_is_better", unit: "pp" },
-  { label: "PAT YoY", metric: "yoy_pat_growth", direction: "higher_is_better", unit: "pp" },
-  { label: "Current Ratio", metric: "current_ratio", direction: "higher_is_better", unit: "x" },
-  { label: "Debt-to-Equity", metric: "debt_to_equity", direction: "lower_is_better", unit: "x" },
-  { label: "Inventory Days", metric: "inventory_days", direction: "lower_is_better", unit: "d" },
-  { label: "Receivable Days", metric: "receivable_days", direction: "lower_is_better", unit: "d" },
-  { label: "Cash Conversion Cycle", metric: "cash_conversion_cycle", direction: "lower_is_better", unit: "d" },
-];
 
 function formatByUnit(v: number, unit: "pp" | "cr" | "x" | "d"): string {
   if (unit === "pp") return `${(v * 100).toFixed(1)}%`;
@@ -206,33 +104,21 @@ function computeRank(
   return { rank: better + 1, total: values.length };
 }
 
-function RankStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p
-        style={{
-          fontSize: "0.62rem",
-          fontWeight: 500,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-          color: T.inkSoft,
-          margin: "0 0 0.3rem 0",
-        }}
-      >
-        {label}
-      </p>
-      <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 500, color: T.ink, margin: 0 }}>
-        {value}
-      </p>
-    </div>
-  );
+// Generalized version of the old hardcoded revenueData/patMarginData/
+// ebitdaMarginData builders - drives the Peer Standing bar chart off
+// whichever metric is currently selected, using the same getMetricValue
+// extraction computeRank and getBenchmark already use.
+function buildBarData(rows: PeerRow[], metric: string): { label: string; value: number }[] {
+  return rows
+    .map((r) => ({ label: r.company_name, value: getMetricValue(r, metric) }))
+    .filter((d): d is { label: string; value: number } => d.value != null);
 }
 
 // Quick Financial Summary - deterministic, not AI prose. Stitches
 // together the already-computed Health Engine detail sentences for the
 // categories that matter most (same convention as everywhere else in
 // Sentinel: reuse what is already computed rather than generate new
-// text), so this can never say something the Business Health card
+// text), so this can never say something the Business Health section
 // itself would not also support.
 function buildQuickSummary(healthScore: HealthScore): string | null {
   const priorityOrder = ["growth", "profitability", "liquidity", "leverage", "working_capital"];
@@ -248,83 +134,149 @@ function buildQuickSummary(healthScore: HealthScore): string | null {
   return sentences.join(". ") + ".";
 }
 
-function CapitalStructureCard({ stmt }: { stmt: FinancialStatement | null }) {
-  const debt = stmt?.total_debt ?? null;
-  const equity = stmt?.total_equity ?? null;
-  const total = debt != null && equity != null ? debt + equity : null;
-  const hasData = debt != null && equity != null && total != null && total > 0;
-  const debtPct = hasData ? ((debt as number) / (total as number)) * 100 : 0;
-  const equityPct = hasData ? 100 - debtPct : 0;
+const PEER_RANKING_METRICS: {
+  label: string;
+  metric: string;
+  direction: "higher_is_better" | "lower_is_better";
+  unit: "pp" | "cr" | "x" | "d";
+}[] = [
+  { label: "Revenue", metric: "revenue_cr", direction: "higher_is_better", unit: "cr" },
+  { label: "EBITDA margin", metric: "ebitda_margin", direction: "higher_is_better", unit: "pp" },
+  { label: "PAT margin", metric: "pat_margin", direction: "higher_is_better", unit: "pp" },
+  { label: "Revenue YoY", metric: "yoy_revenue_growth", direction: "higher_is_better", unit: "pp" },
+  { label: "PAT YoY", metric: "yoy_pat_growth", direction: "higher_is_better", unit: "pp" },
+  { label: "Current ratio", metric: "current_ratio", direction: "higher_is_better", unit: "x" },
+  { label: "Debt-to-equity", metric: "debt_to_equity", direction: "lower_is_better", unit: "x" },
+  { label: "Inventory days", metric: "inventory_days", direction: "lower_is_better", unit: "d" },
+  { label: "Receivable days", metric: "receivable_days", direction: "lower_is_better", unit: "d" },
+  { label: "Cash conversion cycle", metric: "cash_conversion_cycle", direction: "lower_is_better", unit: "d" },
+];
 
+const HEALTH_COLORS: Record<HealthStatus, { text: string; statusLabel: string }> = {
+  healthy: { text: "#2F5233", statusLabel: "Healthy" },
+  watch: { text: "#8A6416", statusLabel: "Watch" },
+  concern: { text: "#9A4A1F", statusLabel: "Concern" },
+  critical: { text: "#8C2A2A", statusLabel: "Critical" },
+  no_data: { text: T.inkSoft, statusLabel: "No data" },
+};
+
+const selectStyle: React.CSSProperties = {
+  fontFamily: "inherit",
+  fontSize: "0.85rem",
+  padding: "0.4rem 0.6rem",
+  border: `1px solid ${T.rule}`,
+  borderRadius: 3,
+  background: T.card,
+  color: T.ink,
+};
+
+const btnQuiet: React.CSSProperties = {
+  fontFamily: "inherit",
+  fontSize: "0.8rem",
+  padding: "0.4rem 0.9rem",
+  border: `1px solid ${T.rule}`,
+  borderRadius: 3,
+  background: "transparent",
+  color: T.inkSoft,
+  cursor: "pointer",
+};
+
+// A schedule: the one repeated bordered-section treatment in this
+// redesign, used deliberately for the five things that really are
+// distinct exhibits (Business Health, Key Figures, Peer Standing,
+// Trend, Capital Structure) - not applied to every element on the
+// page, which was the old pattern.
+function Schedule({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string | null;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div
+    <section
       style={{
         background: T.card,
         border: `1px solid ${T.rule}`,
         borderRadius: 3,
-        padding: "1.4rem 1.6rem",
-        marginBottom: "1.4rem",
+        padding: "1.5rem 1.7rem",
+        marginBottom: "1.5rem",
       }}
     >
-      <p
+      <div
         style={{
-          fontSize: "0.7rem",
-          fontWeight: 600,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: T.inkSoft,
-          margin: "0 0 1rem 0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: subtitle ? "0.3rem" : "1.1rem",
         }}
       >
-        Capital Structure
+        <h3 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "1.05rem", color: T.ink, margin: 0 }}>
+          {title}
+        </h3>
+        {right}
+      </div>
+      {subtitle && <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 1.1rem 0" }}>{subtitle}</p>}
+      {children}
+    </section>
+  );
+}
+
+function StatFigure({
+  label,
+  value,
+  note,
+  formula,
+}: {
+  label: string;
+  value: string;
+  note?: string | null;
+  formula?: string;
+}) {
+  return (
+    <div style={{ background: T.card, padding: "1rem 1.1rem" }} title={formula}>
+      <p style={{ fontSize: "0.74rem", color: T.inkSoft, margin: "0 0 0.35rem 0" }}>{label}</p>
+      <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 500, color: T.ink, margin: 0 }}>
+        {value}
       </p>
-      {hasData ? (
-        <>
-          <div
-            style={{
-              display: "flex",
-              height: "1.4rem",
-              borderRadius: 3,
-              overflow: "hidden",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <div style={{ width: `${debtPct}%`, background: T.accent }} />
-            <div style={{ width: `${equityPct}%`, background: T.rule }} />
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "0.68rem",
-              color: T.inkSoft,
-              marginBottom: "1rem",
-            }}
-          >
-            <span>Debt {debtPct.toFixed(0)}%</span>
-            <span>Equity {equityPct.toFixed(0)}%</span>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "1rem",
-            }}
-          >
-            <RankStat label="Total Debt" value={num(debt)} />
-            <RankStat label="Total Equity" value={num(equity)} />
-            <RankStat
-              label="Debt-to-Equity"
-              value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}
-            />
-            <RankStat label="Debt-to-Capital" value={pct((debt as number) / (total as number))} />
-          </div>
-        </>
-      ) : (
-        <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: 0 }}>
-          No Balance Sheet data on file yet for this company.
-        </p>
-      )}
+      {note && <p style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.35rem 0 0 0" }}>{note}</p>}
+    </div>
+  );
+}
+
+function HealthRow({ category, isLast }: { category: HealthCategory; isLast: boolean }) {
+  const colors = HEALTH_COLORS[category.status];
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0.6rem 0",
+        borderBottom: isLast ? "none" : `1px solid ${T.rule}`,
+      }}
+      title={category.detail ?? undefined}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: colors.text, flexShrink: 0 }} />
+        <span style={{ fontSize: "0.9rem", color: T.ink }}>{category.label}</span>
+      </div>
+      <span style={{ fontSize: "0.84rem", fontWeight: 600, color: colors.text }}>{colors.statusLabel}</span>
+    </div>
+  );
+}
+
+function RankStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p style={{ fontSize: "0.72rem", color: T.inkSoft, margin: "0 0 0.3rem 0" }}>{label}</p>
+      <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 500, color: T.ink, margin: 0 }}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -370,7 +322,7 @@ export default function KpiDashboardPage() {
     })();
   }, [router]);
 
-  if (loading) return <p style={{ color: T.inkSoft }}>Loading Sentinel…</p>;
+  if (loading) return <p style={{ color: T.inkSoft }}>Loading Sentinel...</p>;
   if (error) return <p style={{ color: T.ink }}>Could not load data: {error}</p>;
 
   if (workspaces.length === 0) {
@@ -456,14 +408,7 @@ export default function KpiDashboardPage() {
     PEER_RANKING_METRICS.find((m) => m.metric === rankingMetric) ?? PEER_RANKING_METRICS[0];
   const rankingBenchmark = getBenchmark(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
   const rank = computeRank(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
-
-  const revenueData = peerRows.map((r) => ({ label: r.company_name, value: r.revenue_cr }));
-  const patMarginData = peerRows
-    .filter((r) => r.ratios.pat_margin != null)
-    .map((r) => ({ label: r.company_name, value: r.ratios.pat_margin as number }));
-  const ebitdaMarginData = peerRows
-    .filter((r) => r.ratios.ebitda_margin != null)
-    .map((r) => ({ label: r.company_name, value: r.ratios.ebitda_margin as number }));
+  const rankingBarData = buildBarData(peerRows, rankingDef.metric);
 
   const revenueBenchmark = getBenchmark(peerRows, selected.id, "revenue_cr");
   const ebitdaBenchmark = getBenchmark(peerRows, selected.id, "ebitda_margin");
@@ -482,9 +427,7 @@ export default function KpiDashboardPage() {
     .filter((s) => s.workspace_id === selected.id && s.period_type === "FY")
     .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
   const latestOwnStatement = ownFYStatements[ownFYStatements.length - 1] ?? null;
-  const priorOwnStatement = latestOwnStatement
-    ? findPriorYear(latestOwnStatement, statements)
-    : null;
+  const priorOwnStatement = latestOwnStatement ? findPriorYear(latestOwnStatement, statements) : null;
   const healthScore = latestOwnStatement
     ? computeHealthScore(latestOwnStatement, priorOwnStatement, selected.sector)
     : null;
@@ -493,24 +436,15 @@ export default function KpiDashboardPage() {
   const revenueTrend = buildTimeSeries(selected, statements, "revenue_from_operations");
   const patTrend = buildTimeSeries(selected, statements, "profit_after_tax");
 
+  const debt = latestOwnStatement?.total_debt ?? null;
+  const equity = latestOwnStatement?.total_equity ?? null;
+  const capitalTotal = debt != null && equity != null ? debt + equity : null;
+  const hasCapitalData = debt != null && equity != null && capitalTotal != null && capitalTotal > 0;
+  const debtPct = hasCapitalData ? ((debt as number) / (capitalTotal as number)) * 100 : 0;
+  const equityPct = hasCapitalData ? 100 - debtPct : 0;
+
   return (
     <div>
-      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>
-        KPI Dashboard
-      </h1>
-      <p
-        style={{
-          fontSize: "0.7rem",
-          fontWeight: 500,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: T.inkSoft,
-          margin: "0.45rem 0 1.2rem 0",
-        }}
-      >
-        Computed metrics, not narrative — every figure here traces to the underlying statement
-      </p>
-
       <div
         style={{
           display: "flex",
@@ -519,353 +453,248 @@ export default function KpiDashboardPage() {
           marginBottom: "1.6rem",
         }}
       >
-        <select
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-          style={{
-            fontFamily: "inherit",
-            fontSize: "0.9rem",
-            padding: "0.5rem 0.8rem",
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            background: T.card,
-            color: T.ink,
-          }}
-        >
+        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={selectStyle}>
           {workspaces.map((w) => (
             <option key={w.id} value={w.id}>
               {w.company_name}
             </option>
           ))}
         </select>
-        <div style={{ display: "flex", gap: "0.6rem" }}>
-          <button
-            onClick={exportPdf}
-            disabled={downloadingPdf}
-            style={{
-              fontFamily: "inherit",
-              fontSize: "0.85rem",
-              fontWeight: 500,
-              padding: "0.5rem 1.1rem",
-              border: `1px solid ${T.ink}`,
-              borderRadius: 3,
-              background: "transparent",
-              color: T.ink,
-              cursor: downloadingPdf ? "default" : "pointer",
-              opacity: downloadingPdf ? 0.6 : 1,
-            }}
-          >
-            {downloadingPdf ? "Generating PDF\u2026" : "Export PDF"}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button onClick={exportPdf} disabled={downloadingPdf} style={{ ...btnQuiet, opacity: downloadingPdf ? 0.6 : 1 }}>
+            {downloadingPdf ? "Generating PDF..." : "Export PDF"}
           </button>
-          <button
-            onClick={exportPptx}
-            disabled={downloadingPptx}
-            style={{
-              fontFamily: "inherit",
-              fontSize: "0.85rem",
-              fontWeight: 500,
-              padding: "0.5rem 1.1rem",
-              border: `1px solid ${T.ink}`,
-              borderRadius: 3,
-              background: "transparent",
-              color: T.ink,
-              cursor: downloadingPptx ? "default" : "pointer",
-              opacity: downloadingPptx ? 0.6 : 1,
-            }}
-          >
-            {downloadingPptx ? "Generating PPTX\u2026" : "Export PPTX"}
+          <button onClick={exportPptx} disabled={downloadingPptx} style={{ ...btnQuiet, opacity: downloadingPptx ? 0.6 : 1 }}>
+            {downloadingPptx ? "Generating PPTX..." : "Export PPTX"}
           </button>
         </div>
+      </div>
+
+      <div style={{ marginBottom: "2rem" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "0.8rem", flexWrap: "wrap" }}>
+          <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", color: T.ink, margin: 0 }}>
+            {selected.company_name}
+          </h1>
+          {latestOwnStatement && (
+            <span style={{ fontSize: "0.85rem", color: T.inkSoft }}>{latestOwnStatement.period_label}</span>
+          )}
+          {healthScore && (
+            <span style={{ fontSize: "0.95rem", fontWeight: 600, color: HEALTH_COLORS[healthScore.overall].text }}>
+              {HEALTH_COLORS[healthScore.overall].statusLabel}
+            </span>
+          )}
+        </div>
+        {quickSummary && (
+          <p style={{ fontSize: "1rem", lineHeight: 1.65, color: T.ink, margin: "0.9rem 0 0 0", maxWidth: 720 }}>
+            {quickSummary}
+          </p>
+        )}
+        {healthScore && (
+          <a
+            href={`/sentinel?workspace=${selected.id}`}
+            style={{ fontSize: "0.82rem", color: T.accent, textDecoration: "none", marginTop: "0.7rem", display: "inline-block" }}
+          >
+            View investigations for {selected.company_name} &gt;
+          </a>
+        )}
       </div>
 
       {healthScore && (
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            padding: "1.4rem 1.6rem",
-            marginBottom: "1.75rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "baseline", gap: "0.7rem", marginBottom: "1rem" }}>
-            <p
-              style={{
-                fontSize: "0.7rem",
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: T.inkSoft,
-                margin: 0,
-              }}
-            >
-              Business Health
-            </p>
-            <span
-              style={{
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                color: HEALTH_COLORS[healthScore.overall].text,
-                background: HEALTH_COLORS[healthScore.overall].bg,
-                borderRadius: 3,
-                padding: "0.15rem 0.55rem",
-              }}
-            >
-              Overall: {HEALTH_COLORS[healthScore.overall].statusLabel}
-            </span>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "0.6rem",
-            }}
-          >
-            {healthScore.categories.map((c) => (
-              <HealthChip key={c.key} category={c} />
+        <Schedule title="Business health">
+          <div>
+            {healthScore.categories.map((c, i) => (
+              <HealthRow key={c.key} category={c} isLast={i === healthScore.categories.length - 1} />
             ))}
           </div>
-          <a
-            href={`/sentinel?workspace=${selected.id}`}
-            style={{
-              fontSize: "0.78rem",
-              color: T.accent,
-              textDecoration: "none",
-              marginTop: "1rem",
-              display: "inline-block",
-            }}
-          >
-            View Investigations for {selected.company_name} &gt;
-          </a>
-        </div>
+        </Schedule>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 1,
-          background: T.rule,
-          border: `1px solid ${T.rule}`,
-          marginBottom: "1.75rem",
-        }}
-      >
-        <KpiCard
-          label="Revenue (latest FY)"
-          value={selfRow ? num(selfRow.revenue_cr) : "\u2014"}
-          note={formatBenchmarkNote(revenueBenchmark, "cr")}
-          formula="As reported: Revenue from Operations"
-        />
-        <KpiCard
-          label="EBITDA margin"
-          value={pct(selfRow?.ratios.ebitda_margin ?? null)}
-          note={formatBenchmarkNote(ebitdaBenchmark, "pp")}
-          formula="EBITDA / Revenue from Operations"
-        />
-        <KpiCard
-          label="PAT margin"
-          value={pct(selfRow?.ratios.pat_margin ?? null)}
-          note={formatBenchmarkNote(patBenchmark, "pp")}
-          formula="Profit After Tax / Revenue from Operations"
-        />
-        <KpiCard
-          label="Revenue YoY"
-          value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
-          note={formatBenchmarkNote(yoyBenchmark, "pp")}
-          formula="(Current Revenue - Prior Revenue) / Prior Revenue"
-        />
-        <KpiCard
-          label="PAT (latest FY)"
-          value={selfRow ? num(selfRow.pat_cr) : "\u2014"}
-          note={formatBenchmarkNote(patAbsBenchmark, "cr")}
-          formula="As reported: Profit After Tax"
-        />
-        <KpiCard
-          label="PAT YoY"
-          value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
-          note={formatBenchmarkNote(patYoyBenchmark, "pp")}
-          formula="(Current PAT - Prior PAT) / Prior PAT"
-        />
-        <KpiCard
-          label="Current Ratio"
-          value={ratioX(selfRow?.ratios.current_ratio ?? null)}
-          note={formatBenchmarkNote(currentRatioBenchmark, "x")}
-          formula="Current Assets / Current Liabilities"
-        />
-        <KpiCard
-          label="Debt-to-Equity"
-          value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
-          note={formatBenchmarkNote(debtEquityBenchmark, "x")}
-          formula="Total Debt / Total Equity"
-        />
-        <KpiCard
-          label="Inventory Days"
-          value={days(selfRow?.ratios.inventory_days ?? null)}
-          note={formatBenchmarkNote(inventoryDaysBenchmark, "d")}
-          formula="(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
-        />
-        <KpiCard
-          label="Receivable Days"
-          value={days(selfRow?.ratios.receivable_days ?? null)}
-          note={formatBenchmarkNote(receivableDaysBenchmark, "d")}
-          formula="(Trade Receivables / Revenue from Operations) x 365"
-        />
-        <KpiCard
-          label="Payable Days"
-          value={days(selfRow?.ratios.payable_days ?? null)}
-          note={formatBenchmarkNote(payableDaysBenchmark, "d")}
-          formula="(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
-        />
-        <KpiCard
-          label="Cash Conversion Cycle"
-          value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
-          note={formatBenchmarkNote(cccBenchmark, "d")}
-          formula="Inventory Days + Receivable Days - Payable Days"
-        />
-      </div>
-
-      <ChartCard title={"Revenue trend \u2014 " + selected.company_name}>
-        <TrendLineChart data={revenueTrend} isRatio={false} />
-      </ChartCard>
-
-      <ChartCard title={"PAT trend \u2014 " + selected.company_name}>
-        <TrendLineChart data={patTrend} isRatio={false} />
-      </ChartCard>
-
-      <ChartCard title="Revenue vs. peers (latest FY)" subtitle={formatIndustryLine(revenueBenchmark, false)}>
-        <HorizontalBarChart data={revenueData} isRatio={false} highlightLabel={selected.company_name} />
-      </ChartCard>
-
-      <ChartCard title="EBITDA margin vs. peers" subtitle={formatIndustryLine(ebitdaBenchmark, true)}>
-        <HorizontalBarChart data={ebitdaMarginData} isRatio={true} highlightLabel={selected.company_name} />
-      </ChartCard>
-
-      <ChartCard title="PAT margin vs. peers" subtitle={formatIndustryLine(patBenchmark, true)}>
-        <HorizontalBarChart data={patMarginData} isRatio={true} highlightLabel={selected.company_name} />
-      </ChartCard>
-
-      <div
-        style={{
-          background: T.card,
-          border: `1px solid ${T.rule}`,
-          borderRadius: 3,
-          padding: "1.4rem 1.6rem",
-          marginBottom: "1.4rem",
-        }}
-      >
+      <Schedule title="Key figures">
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1.2rem",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 1,
+            background: T.rule,
+            border: `1px solid ${T.rule}`,
           }}
         >
-          <p
-            style={{
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: T.inkSoft,
-              margin: 0,
-            }}
-          >
-            Peer Ranking
-          </p>
-          <select
-            value={rankingMetric}
-            onChange={(e) => setRankingMetric(e.target.value)}
-            style={{
-              fontFamily: "inherit",
-              fontSize: "0.85rem",
-              padding: "0.4rem 0.6rem",
-              border: `1px solid ${T.rule}`,
-              borderRadius: 3,
-              background: T.card,
-              color: T.ink,
-            }}
-          >
+          <StatFigure
+            label="Revenue (latest FY)"
+            value={selfRow ? num(selfRow.revenue_cr) : "-"}
+            note={formatBenchmarkNote(revenueBenchmark, "cr")}
+            formula="As reported: Revenue from Operations"
+          />
+          <StatFigure
+            label="EBITDA margin"
+            value={pct(selfRow?.ratios.ebitda_margin ?? null)}
+            note={formatBenchmarkNote(ebitdaBenchmark, "pp")}
+            formula="EBITDA / Revenue from Operations"
+          />
+          <StatFigure
+            label="PAT margin"
+            value={pct(selfRow?.ratios.pat_margin ?? null)}
+            note={formatBenchmarkNote(patBenchmark, "pp")}
+            formula="Profit After Tax / Revenue from Operations"
+          />
+          <StatFigure
+            label="Revenue YoY"
+            value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
+            note={formatBenchmarkNote(yoyBenchmark, "pp")}
+            formula="(Current Revenue - Prior Revenue) / Prior Revenue"
+          />
+          <StatFigure
+            label="PAT (latest FY)"
+            value={selfRow ? num(selfRow.pat_cr) : "-"}
+            note={formatBenchmarkNote(patAbsBenchmark, "cr")}
+            formula="As reported: Profit After Tax"
+          />
+          <StatFigure
+            label="PAT YoY"
+            value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
+            note={formatBenchmarkNote(patYoyBenchmark, "pp")}
+            formula="(Current PAT - Prior PAT) / Prior PAT"
+          />
+          <StatFigure
+            label="Current ratio"
+            value={ratioX(selfRow?.ratios.current_ratio ?? null)}
+            note={formatBenchmarkNote(currentRatioBenchmark, "x")}
+            formula="Current Assets / Current Liabilities"
+          />
+          <StatFigure
+            label="Debt-to-equity"
+            value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
+            note={formatBenchmarkNote(debtEquityBenchmark, "x")}
+            formula="Total Debt / Total Equity"
+          />
+          <StatFigure
+            label="Inventory days"
+            value={days(selfRow?.ratios.inventory_days ?? null)}
+            note={formatBenchmarkNote(inventoryDaysBenchmark, "d")}
+            formula="(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
+          />
+          <StatFigure
+            label="Receivable days"
+            value={days(selfRow?.ratios.receivable_days ?? null)}
+            note={formatBenchmarkNote(receivableDaysBenchmark, "d")}
+            formula="(Trade Receivables / Revenue from Operations) x 365"
+          />
+          <StatFigure
+            label="Payable days"
+            value={days(selfRow?.ratios.payable_days ?? null)}
+            note={formatBenchmarkNote(payableDaysBenchmark, "d")}
+            formula="(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
+          />
+          <StatFigure
+            label="Cash conversion cycle"
+            value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
+            note={formatBenchmarkNote(cccBenchmark, "d")}
+            formula="Inventory Days + Receivable Days - Payable Days"
+          />
+        </div>
+      </Schedule>
+
+      <Schedule
+        title="Peer standing"
+        subtitle={formatIndustryLine(rankingBenchmark, rankingDef.unit)}
+        right={
+          <select value={rankingMetric} onChange={(e) => setRankingMetric(e.target.value)} style={selectStyle}>
             {PEER_RANKING_METRICS.map((m) => (
               <option key={m.metric} value={m.metric}>
                 {m.label}
               </option>
             ))}
           </select>
-        </div>
+        }
+      >
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
             gap: "1rem",
+            marginBottom: "1.5rem",
           }}
         >
-          <RankStat label="Rank" value={rank ? `${rank.rank} of ${rank.total}` : "\u2014"} />
+          <RankStat label="Rank" value={rank ? `${rank.rank} of ${rank.total}` : "-"} />
           <RankStat
             label="Percentile"
-            value={
-              rankingBenchmark.percentile != null ? `${Math.round(rankingBenchmark.percentile)}th` : "\u2014"
-            }
+            value={rankingBenchmark.percentile != null ? `${Math.round(rankingBenchmark.percentile)}th` : "-"}
           />
           <RankStat
-            label="Industry Average"
-            value={
-              rankingBenchmark.industryAverage != null
-                ? formatByUnit(rankingBenchmark.industryAverage, rankingDef.unit)
-                : "\u2014"
-            }
+            label="Closest peer"
+            value={rankingBenchmark.closestPeer ? rankingBenchmark.closestPeer.company_name : "-"}
           />
           <RankStat
-            label="Industry Leader"
+            label="Gap to closest peer"
+            value={formatBenchmarkNote(rankingBenchmark, rankingDef.unit) ?? "-"}
+          />
+          <RankStat
+            label="Industry leader"
             value={
               rankingBenchmark.industryLeader
                 ? `${rankingBenchmark.industryLeader.company_name} (${formatByUnit(
                     rankingBenchmark.industryLeader.value,
                     rankingDef.unit
                   )})`
-                : "\u2014"
+                : "-"
             }
           />
           <RankStat
-            label="Closest Peer"
-            value={rankingBenchmark.closestPeer ? rankingBenchmark.closestPeer.company_name : "\u2014"}
-          />
-          <RankStat
-            label="Gap to Closest Peer"
-            value={formatBenchmarkNote(rankingBenchmark, rankingDef.unit) ?? "\u2014"}
+            label="Industry average"
+            value={
+              rankingBenchmark.industryAverage != null
+                ? formatByUnit(rankingBenchmark.industryAverage, rankingDef.unit)
+                : "-"
+            }
           />
         </div>
-      </div>
+        <HorizontalBarChart
+          data={rankingBarData}
+          isRatio={rankingDef.unit === "pp"}
+          highlightLabel={selected.company_name}
+        />
+      </Schedule>
 
-      {quickSummary && (
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            padding: "1.4rem 1.6rem",
-            marginBottom: "1.4rem",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: T.inkSoft,
-              margin: "0 0 0.8rem 0",
-            }}
-          >
-            Quick Financial Summary
-          </p>
-          <p style={{ fontSize: "0.92rem", lineHeight: 1.6, color: T.ink, margin: 0 }}>
-            {quickSummary}
-          </p>
+      <Schedule title="Trend">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
+          <div>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue</p>
+            <TrendLineChart data={revenueTrend} isRatio={false} />
+          </div>
+          <div>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax</p>
+            <TrendLineChart data={patTrend} isRatio={false} />
+          </div>
         </div>
-      )}
+      </Schedule>
 
-      <CapitalStructureCard stmt={latestOwnStatement} />
+      <Schedule title="Capital structure">
+        {hasCapitalData ? (
+          <>
+            <div style={{ display: "flex", height: "1.4rem", borderRadius: 3, overflow: "hidden", marginBottom: "0.5rem" }}>
+              <div style={{ width: `${debtPct}%`, background: T.accent }} />
+              <div style={{ width: `${equityPct}%`, background: T.rule }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: T.inkSoft, marginBottom: "1.3rem" }}>
+              <span>Debt {debtPct.toFixed(0)}%</span>
+              <span>Equity {equityPct.toFixed(0)}%</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+              <RankStat label="Total debt" value={num(debt)} />
+              <RankStat label="Total equity" value={num(equity)} />
+              <RankStat
+                label="Debt-to-equity"
+                value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}
+              />
+              <RankStat label="Debt-to-capital" value={pct((debt as number) / (capitalTotal as number))} />
+            </div>
+          </>
+        ) : (
+          <p style={{ fontSize: "0.88rem", color: T.inkSoft, margin: 0 }}>
+            No Balance Sheet data on file yet for this company.
+          </p>
+        )}
+      </Schedule>
     </div>
   );
 }

@@ -72,6 +72,8 @@ function bandFromSeverity(severity: number): Exclude<HealthStatus, "no_data"> {
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+const inr = (v: number) =>
+  `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cr`;
 
 export function computeHealthScore(
   stmt: FinancialStatement,
@@ -197,11 +199,47 @@ export function computeHealthScore(
 
   // Cash Flow — no cash-flow fields are extracted anywhere in the schema
   // yet (see types.ts). Permanently no_data until that changes.
-  categories.push({
-    key: "cash_flow", label: "Cash Flow", status: "no_data",
-    metric_label: null, value: null,
-    detail: "Cash Flow statement not yet extracted for this company",
-  });
+  // Cash Flow - operating cash flow vs. PAT (cash conversion of
+  // reported profit), a standard first-pass earnings-quality check:
+  // cash consistently falling well short of profit is a common red
+  // flag (aggressive revenue recognition, working capital
+  // deterioration). No existing anomaly.ts threshold to borrow here
+  // (nothing in config.ts covers cash flow), so OCF_TO_PAT_MIN below
+  // is a new, unvalidated starting assumption, flagged the same way
+  // Profitability's own 2-percentage-point reference already is -
+  // worth calibrating against real filings later, not treated as
+  // authoritative. When PAT is zero or negative the ratio itself
+  // isn't meaningful (dividing by a non-positive number), so that
+  // case falls back to whether operating cash flow itself is
+  // positive or negative, mirroring how Profitability already falls
+  // back to a sign-based check when there is no prior period to
+  // compare against.
+  {
+    const ocf = stmt.cash_from_operations;
+    const pat = stmt.profit_after_tax;
+    if (ocf == null) {
+      categories.push({
+        key: "cash_flow", label: "Cash Flow", status: "no_data",
+        metric_label: null, value: null, detail: null,
+      });
+    } else if (pat <= 0) {
+      const status = ocf > 0 ? "watch" : "critical";
+      categories.push({
+        key: "cash_flow", label: "Cash Flow", status,
+        metric_label: "Operating cash flow", value: ocf,
+        detail: `Operating cash flow of ${inr(ocf)} against a non-positive PAT of ${inr(pat)} - cash conversion ratio is not meaningful here`,
+      });
+    } else {
+      const OCF_TO_PAT_MIN = 0.7;
+      const ratio = ocf / pat;
+      const severity = OCF_TO_PAT_MIN / Math.max(ratio, 0.01);
+      categories.push({
+        key: "cash_flow", label: "Cash Flow", status: bandFromSeverity(severity),
+        metric_label: "OCF / PAT", value: ratio,
+        detail: `Operating cash flow of ${inr(ocf)} is ${(ratio * 100).toFixed(0)}% of PAT (${inr(pat)}), vs. the ${(OCF_TO_PAT_MIN * 100).toFixed(0)}% reference`,
+      });
+    }
+  }
 
   // Working Capital — receivable days vs. receivable_days_max (existing
   // threshold). See file header on why payable_days isn't included.

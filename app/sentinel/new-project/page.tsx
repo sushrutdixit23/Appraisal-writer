@@ -125,6 +125,21 @@ const BALANCE_SHEET_FIELDS: {
   { key: "total_equity", label: "Total Equity" },
 ];
 
+// Cash Flow fields - optional, feed the Health Engine's Cash Flow
+// category (operating cash flow vs. PAT). capex is captured even
+// though the current Cash Flow health check doesn't use it yet, since
+// it's part of the same statement section and cheap to collect now
+// rather than needing a second pass through this filing later.
+const CASH_FLOW_FIELDS: {
+  key: string;
+  label: string;
+}[] = [
+  { key: "cash_from_operations", label: "Cash from Operations" },
+  { key: "cash_from_investing", label: "Cash from Investing" },
+  { key: "cash_from_financing", label: "Cash from Financing" },
+  { key: "capex", label: "Capital Expenditure" },
+];
+
 export default function NewProjectPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -344,6 +359,10 @@ export default function NewProjectPage() {
       record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
     }
     for (const f of BALANCE_SHEET_FIELDS) {
+      const raw = values[f.key];
+      record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
+    }
+    for (const f of CASH_FLOW_FIELDS) {
       const raw = values[f.key];
       record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
     }

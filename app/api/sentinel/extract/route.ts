@@ -61,6 +61,10 @@ const FIELD_LIST = [
   "trade_payables",
   "total_debt",
   "total_equity",
+  "cash_from_operations",
+  "cash_from_investing",
+  "cash_from_financing",
+  "capex",
 ];
 
 const FINANCIAL_ANCHORS = [
