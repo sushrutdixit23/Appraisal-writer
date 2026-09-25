@@ -1,76 +1,74 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel - Deep Analysis, given the same visual treatment as the KPI
-// Dashboard redesign: a Schedule wrapper (bordered section, plain
-// serif heading, no tracked-out uppercase eyebrow) instead of each
-// section rolling its own box styling, and the decorative uppercase
-// subtitle under the H1 removed.
+// Sentinel - Deep Analysis, restructured to resolve a real overlap with
+// KPI Dashboard rather than just re-skinning it. KPI Dashboard's Peer
+// Standing section already owns "where does this company stand right
+// now" (rank, percentile, gap to closest peer) - and does it with more
+// depth than this page's old single-metric bar chart ever had. This
+// page's redesigned, non-duplicated job: how have these companies'
+// trajectories compared over time, not just where they stand today.
 //
-// Deliberately NOT given a masthead-style verdict header the way KPI
-// Dashboard was - this page is a cross-company exploration tool (any
-// company, any metric, any trend granularity), not a single-company
-// diagnostic, so there is no one "verdict" to lead with here. "Deep
-// Analysis" stays the literal page title rather than being swapped for
-// a company name.
+// The Peer Comparison bar chart is gone entirely (deleted, not
+// restyled). Trend is now a multi-company overlay: every sector peer's
+// line for the selected metric, on one chart, with the "Viewing as"
+// company highlighted in the brand accent color and every other peer
+// shown as a quiet gray context line. This is a genuine, common
+// analytical pattern (subject vs. the pack), not a stylistic choice -
+// see MultiTrendLineChart in charts.tsx.
 //
-// Worth knowing going in: Peer comparison here and KPI Dashboard's
-// Peer Standing now cover almost identical ground (same metric list,
-// same benchmark stats, same bar chart) - that overlap isn't resolved
-// by this redesign, since it's a product-scope question, not a styling
-// one. The one thing this page still does that KPI Dashboard doesn't:
-// trend across any of the 12 metrics with an FY/Quarterly toggle.
+// Cross-company date alignment is built from each statement's real
+// period_end_date, not from period_label strings - a plain label sort
+// would put "Q1 FY25" before "Q4 FY24" alphabetically, which is
+// chronologically wrong. Each company's line shows a real gap wherever
+// it has no data for a period, rather than interpolating across one.
 //
-// "Viewing as" still genuinely controls which bar gets highlighted in
-// the peer chart (is_subject is call-time now, not a hardcoded flag -
-// see engine.ts). Read-only, no review actions.
+// Known trade-off, stated plainly: with more than ~2 peer lines and
+// only one accent color under the brand spec, the non-highlighted
+// lines are not individually distinguishable from each other by color
+// alone - mitigated with a hover tooltip per point and the text legend
+// below the chart, not solved outright.
+//
+// "Viewing as" still genuinely controls which company's line is
+// highlighted and which sector's peer set is shown (is_subject is
+// call-time now, not a hardcoded flag - see engine.ts). Read-only, no
+// review actions.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
-import { buildPeerTable, buildTimeSeries, computeRatios, findPriorYear } from "../lib/engine";
+import { MultiTrendLineChart } from "../lib/charts";
+import { buildPeerTable, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
-import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
+import type { FinancialStatement, Workspace } from "../lib/types";
 
-const PEER_METRICS: {
+// One entry per metric, carrying both key namespaces this page needs:
+// peerKey for getBenchmark/PeerRow (revenue_cr/pat_cr for the two
+// absolute figures, same ratio id as trendKey for everything else),
+// trendKey for reading FinancialStatement/computeRatios directly. id is
+// a stable selector value distinct from both, since revenue/PAT would
+// otherwise have two different key spellings and no single identifier.
+const METRICS: {
+  id: string;
   label: string;
-  key: string;
+  peerKey: string;
+  trendKey: string;
   unit: "pp" | "cr" | "x" | "d";
   direction: "higher_is_better" | "lower_is_better";
 }[] = [
-  { label: "Revenue (Rs cr)", key: "revenue_cr", unit: "cr", direction: "higher_is_better" },
-  { label: "PAT (Rs cr)", key: "pat_cr", unit: "cr", direction: "higher_is_better" },
-  { label: "EBITDA margin", key: "ebitda_margin", unit: "pp", direction: "higher_is_better" },
-  { label: "PAT margin", key: "pat_margin", unit: "pp", direction: "higher_is_better" },
-  { label: "Revenue YoY", key: "yoy_revenue_growth", unit: "pp", direction: "higher_is_better" },
-  { label: "PAT YoY", key: "yoy_pat_growth", unit: "pp", direction: "higher_is_better" },
-  { label: "Current ratio", key: "current_ratio", unit: "x", direction: "higher_is_better" },
-  { label: "Debt-to-equity", key: "debt_to_equity", unit: "x", direction: "lower_is_better" },
-  { label: "Inventory days", key: "inventory_days", unit: "d", direction: "lower_is_better" },
-  { label: "Receivable days", key: "receivable_days", unit: "d", direction: "lower_is_better" },
-  { label: "Payable days", key: "payable_days", unit: "d", direction: "higher_is_better" },
-  { label: "Cash conversion cycle", key: "cash_conversion_cycle", unit: "d", direction: "lower_is_better" },
-];
-
-const TREND_METRICS: {
-  label: string;
-  key: string;
-  unit: "pp" | "cr" | "x" | "d";
-}[] = [
-  { label: "Revenue (Rs cr)", key: "revenue_from_operations", unit: "cr" },
-  { label: "PAT (Rs cr)", key: "profit_after_tax", unit: "cr" },
-  { label: "EBITDA margin", key: "ebitda_margin", unit: "pp" },
-  { label: "PAT margin", key: "pat_margin", unit: "pp" },
-  { label: "Revenue YoY", key: "yoy_revenue_growth", unit: "pp" },
-  { label: "PAT YoY", key: "yoy_pat_growth", unit: "pp" },
-  { label: "Current ratio", key: "current_ratio", unit: "x" },
-  { label: "Debt-to-equity", key: "debt_to_equity", unit: "x" },
-  { label: "Inventory days", key: "inventory_days", unit: "d" },
-  { label: "Receivable days", key: "receivable_days", unit: "d" },
-  { label: "Payable days", key: "payable_days", unit: "d" },
-  { label: "Cash conversion cycle", key: "cash_conversion_cycle", unit: "d" },
+  { id: "revenue", label: "Revenue", peerKey: "revenue_cr", trendKey: "revenue_from_operations", unit: "cr", direction: "higher_is_better" },
+  { id: "pat", label: "PAT", peerKey: "pat_cr", trendKey: "profit_after_tax", unit: "cr", direction: "higher_is_better" },
+  { id: "ebitda_margin", label: "EBITDA margin", peerKey: "ebitda_margin", trendKey: "ebitda_margin", unit: "pp", direction: "higher_is_better" },
+  { id: "pat_margin", label: "PAT margin", peerKey: "pat_margin", trendKey: "pat_margin", unit: "pp", direction: "higher_is_better" },
+  { id: "yoy_revenue_growth", label: "Revenue YoY", peerKey: "yoy_revenue_growth", trendKey: "yoy_revenue_growth", unit: "pp", direction: "higher_is_better" },
+  { id: "yoy_pat_growth", label: "PAT YoY", peerKey: "yoy_pat_growth", trendKey: "yoy_pat_growth", unit: "pp", direction: "higher_is_better" },
+  { id: "current_ratio", label: "Current ratio", peerKey: "current_ratio", trendKey: "current_ratio", unit: "x", direction: "higher_is_better" },
+  { id: "debt_to_equity", label: "Debt-to-equity", peerKey: "debt_to_equity", trendKey: "debt_to_equity", unit: "x", direction: "lower_is_better" },
+  { id: "inventory_days", label: "Inventory days", peerKey: "inventory_days", trendKey: "inventory_days", unit: "d", direction: "lower_is_better" },
+  { id: "receivable_days", label: "Receivable days", peerKey: "receivable_days", trendKey: "receivable_days", unit: "d", direction: "lower_is_better" },
+  { id: "payable_days", label: "Payable days", peerKey: "payable_days", trendKey: "payable_days", unit: "d", direction: "higher_is_better" },
+  { id: "cash_conversion_cycle", label: "Cash conversion cycle", peerKey: "cash_conversion_cycle", trendKey: "cash_conversion_cycle", unit: "d", direction: "lower_is_better" },
 ];
 
 const selectStyle: React.CSSProperties = {
@@ -82,25 +80,6 @@ const selectStyle: React.CSSProperties = {
   background: T.card,
   color: T.ink,
 };
-
-function peerValue(row: PeerRow, key: string): number | null {
-  if (key === "revenue_cr" || key === "pat_cr") return row[key as "revenue_cr" | "pat_cr"];
-  return row.ratios[key] ?? null;
-}
-
-function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
-  if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
-  const sign = b.gapToClosestPeer >= 0 ? "+" : "";
-  const magnitude =
-    unit === "pp"
-      ? `${(b.gapToClosestPeer * 100).toFixed(1)}pp`
-      : unit === "x"
-      ? `${b.gapToClosestPeer.toFixed(2)}x`
-      : unit === "d"
-      ? `${b.gapToClosestPeer.toFixed(0)}d`
-      : `${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
-  return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
-}
 
 function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
   if (!b || b.industryAverage == null || !b.industryLeader) return null;
@@ -117,13 +96,6 @@ function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"):
   )}`;
 }
 
-// buildTimeSeries (engine.ts) only matches ONE exact period_type per
-// call, so it cannot natively produce a single Q1-through-Q4-across-
-// years trend line. This reimplements its exact same logic (same raw-
-// field set, same computeRatios/findPriorYear fallback for everything
-// else) but merged across all four quarter types - the one case
-// buildTimeSeries itself cannot express, not a new computation
-// convention.
 const RAW_TREND_FIELDS = new Set([
   "revenue_from_operations",
   "profit_after_tax",
@@ -131,17 +103,30 @@ const RAW_TREND_FIELDS = new Set([
   "ebitda",
 ]);
 
-function computeQuarterlyTrend(
+type TrendPoint = { label: string; value: number; date: string };
+
+// One company's points for one metric, over one granularity - carries
+// the real period_end_date alongside each point so multiple companies'
+// series can be merged onto one correctly-ordered timeline later
+// (buildUnifiedTimeline below), since period_label strings alone don't
+// sort safely across companies (e.g. "Q1 FY25" < "Q4 FY24" alphabetically,
+// which is chronologically wrong).
+function buildTrendPoints(
   workspace: Workspace,
   statements: FinancialStatement[],
-  metricKey: string
-): { label: string; value: number }[] {
-  const own = statements
-    .filter((s) => s.workspace_id === workspace.id && ["Q1", "Q2", "Q3", "Q4"].includes(s.period_type))
+  metricKey: string,
+  periodType: "FY" | "quarterly"
+): TrendPoint[] {
+  const relevant = statements
+    .filter(
+      (s) =>
+        s.workspace_id === workspace.id &&
+        (periodType === "FY" ? s.period_type === "FY" : ["Q1", "Q2", "Q3", "Q4"].includes(s.period_type))
+    )
     .sort((a, b) => (a.period_end_date < b.period_end_date ? -1 : 1));
 
-  const out: { label: string; value: number }[] = [];
-  for (const stmt of own) {
+  const out: TrendPoint[] = [];
+  for (const stmt of relevant) {
     let value: number | null;
     if (RAW_TREND_FIELDS.has(metricKey)) {
       value = (stmt as unknown as Record<string, number | null>)[metricKey] ?? null;
@@ -150,9 +135,26 @@ function computeQuarterlyTrend(
       const ratios = computeRatios(stmt, prior, workspace.sector);
       value = ratios[metricKey] ?? null;
     }
-    if (value != null) out.push({ label: stmt.period_label, value });
+    if (value != null) out.push({ label: stmt.period_label, value, date: stmt.period_end_date });
   }
   return out;
+}
+
+function buildUnifiedTimeline(allPoints: TrendPoint[][]): { date: string; label: string }[] {
+  const map = new Map<string, string>();
+  for (const points of allPoints) {
+    for (const p of points) {
+      if (!map.has(p.date)) map.set(p.date, p.label);
+    }
+  }
+  return [...map.entries()]
+    .map(([date, label]) => ({ date, label }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function alignToTimeline(points: TrendPoint[], timeline: { date: string }[]): (number | null)[] {
+  const byDate = new Map(points.map((p) => [p.date, p.value]));
+  return timeline.map((t) => byDate.get(t.date) ?? null);
 }
 
 // A schedule: same bordered-section treatment as the KPI Dashboard
@@ -205,11 +207,9 @@ export default function DeepAnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [peerMetricKey, setPeerMetricKey] = useState(PEER_METRICS[0].key);
-  const [trendWorkspaceId, setTrendWorkspaceId] = useState<string | null>(null);
-  const [trendMetricKey, setTrendMetricKey] = useState(TREND_METRICS[1].key);
-  const [trendPeriodType, setTrendPeriodType] = useState<"FY" | "quarterly">("FY");
+  const [primaryId, setPrimaryId] = useState<string | null>(null);
+  const [metricId, setMetricId] = useState(METRICS[0].id);
+  const [periodType, setPeriodType] = useState<"FY" | "quarterly">("FY");
 
   useEffect(() => {
     (async () => {
@@ -226,7 +226,7 @@ export default function DeepAnalysisPage() {
       }
       const ws = (wsData ?? []) as Workspace[];
       setWorkspaces(ws);
-      if (ws.length > 0) setSubjectId(ws[0].id);
+      if (ws.length > 0) setPrimaryId(ws[0].id);
 
       const { data: stmtData, error: stmtError } = await supabase
         .from("sentinel_statements")
@@ -243,30 +243,34 @@ export default function DeepAnalysisPage() {
 
   if (loading) return <p style={{ color: T.inkSoft }}>Loading Sentinel...</p>;
   if (error) return <p style={{ color: T.ink }}>Could not load data: {error}</p>;
-  if (workspaces.length === 0 || !subjectId) {
+  if (workspaces.length === 0 || !primaryId) {
     return <p style={{ color: T.inkSoft }}>No workspaces available yet.</p>;
   }
 
-  const subjectWorkspace = workspaces.find((w) => w.id === subjectId)!;
-  const sectorWorkspaces = workspaces.filter((w) => w.sector === subjectWorkspace.sector);
+  const primaryWorkspace = workspaces.find((w) => w.id === primaryId)!;
+  const sectorWorkspaces = workspaces.filter((w) => w.sector === primaryWorkspace.sector);
   const allWorkspacesSorted = [...workspaces].sort((a, b) =>
     a.company_name.localeCompare(b.company_name)
   );
-  const peerRows = buildPeerTable(sectorWorkspaces, statements, subjectId, "FY");
-  const peerMetric = PEER_METRICS.find((m) => m.key === peerMetricKey)!;
-  const peerBenchmark = getBenchmark(peerRows, subjectId, peerMetricKey, peerMetric.direction);
-  const barData = peerRows
-    .map((r) => ({ label: r.company_name, value: peerValue(r, peerMetricKey) }))
-    .filter((d): d is { label: string; value: number } => d.value != null);
 
-  const activeTrendId = trendWorkspaceId ?? subjectId;
-  const trendWorkspace = workspaces.find((w) => w.id === activeTrendId);
-  const trendMetric = TREND_METRICS.find((m) => m.key === trendMetricKey)!;
-  const trendData = trendWorkspace
-    ? trendPeriodType === "FY"
-      ? buildTimeSeries(trendWorkspace, statements, trendMetricKey, "FY")
-      : computeQuarterlyTrend(trendWorkspace, statements, trendMetricKey)
-    : [];
+  const metric = METRICS.find((m) => m.id === metricId) ?? METRICS[0];
+
+  const peerRows = buildPeerTable(sectorWorkspaces, statements, primaryId, "FY");
+  const benchmark = getBenchmark(peerRows, primaryId, metric.peerKey, metric.direction);
+  const industryLine = formatIndustryLine(benchmark, metric.unit);
+
+  const perCompany = sectorWorkspaces.map((w) => ({
+    workspace: w,
+    points: buildTrendPoints(w, statements, metric.trendKey, periodType),
+  }));
+  const timeline = buildUnifiedTimeline(perCompany.map((p) => p.points));
+  const xLabels = timeline.map((t) => t.label);
+  const series = perCompany.map(({ workspace, points }) => ({
+    label: workspace.company_name,
+    values: alignToTimeline(points, timeline),
+    highlight: workspace.id === primaryId,
+  }));
+  const hasAnyData = series.some((s) => s.values.some((v) => v != null));
 
   return (
     <div>
@@ -280,7 +284,7 @@ export default function DeepAnalysisPage() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <label style={{ fontSize: "0.8rem", color: T.inkSoft }}>Viewing as</label>
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={selectStyle}>
+          <select value={primaryId} onChange={(e) => setPrimaryId(e.target.value)} style={selectStyle}>
             {allWorkspacesSorted.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.company_name}
@@ -289,86 +293,35 @@ export default function DeepAnalysisPage() {
           </select>
         </div>
         <a
-          href={`/sentinel?workspace=${subjectId}`}
+          href={`/sentinel?workspace=${primaryId}`}
           style={{ fontSize: "0.82rem", color: T.accent, textDecoration: "none" }}
         >
-          View investigations for {subjectWorkspace.company_name} &gt;
+          View investigations for {primaryWorkspace.company_name} &gt;
         </a>
       </div>
 
-      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", color: T.ink, margin: "0 0 1.8rem 0" }}>
+      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", color: T.ink, margin: "0 0 0.5rem 0" }}>
         Deep Analysis
       </h1>
+      <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: "0 0 1.8rem 0" }}>
+        How trajectories compare over time, not just where things stand today.
+      </p>
 
       <Schedule
-        title="Peer comparison"
-        subtitle={
-          [
-            `${subjectWorkspace.company_name}'s bar is highlighted. Absolute figures are not directly comparable across standalone vs. consolidated companies.`,
-            formatIndustryLine(peerBenchmark, peerMetric.unit),
-          ]
-            .filter(Boolean)
-            .join(" ")
-        }
-        right={
-          <select value={peerMetricKey} onChange={(e) => setPeerMetricKey(e.target.value)} style={selectStyle}>
-            {PEER_METRICS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        }
-      >
-        {formatBenchmarkNote(peerBenchmark, peerMetric.unit) && (
-          <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 1rem 0" }}>
-            {formatBenchmarkNote(peerBenchmark, peerMetric.unit)}
-          </p>
-        )}
-        <HorizontalBarChart
-          data={barData}
-          isRatio={peerMetric.unit === "pp"}
-          highlightLabel={subjectWorkspace.company_name}
-        />
-        {peerRows.some((r) => r.basis_caveat) && (
-          <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>
-            {peerRows
-              .filter((r) => r.basis_caveat)
-              .map((r) => `${r.company_name}: ${r.basis_caveat}`)
-              .join(" - ")}
-          </p>
-        )}
-      </Schedule>
-
-      <Schedule
-        title="Trend"
+        title="Trend comparison"
+        subtitle={industryLine}
         right={
           <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-            <select
-              value={activeTrendId ?? ""}
-              onChange={(e) => setTrendWorkspaceId(e.target.value)}
-              style={selectStyle}
-            >
-              {allWorkspacesSorted.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.company_name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={trendMetricKey}
-              onChange={(e) => setTrendMetricKey(e.target.value)}
-              style={selectStyle}
-            >
-              {TREND_METRICS.map((m) => (
-                <option key={m.key} value={m.key}>
+            <select value={metricId} onChange={(e) => setMetricId(e.target.value)} style={selectStyle}>
+              {METRICS.map((m) => (
+                <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
               ))}
             </select>
             <select
-              value={trendPeriodType}
-              onChange={(e) => setTrendPeriodType(e.target.value as "FY" | "quarterly")}
+              value={periodType}
+              onChange={(e) => setPeriodType(e.target.value as "FY" | "quarterly")}
               style={selectStyle}
             >
               <option value="FY">Annual (FY)</option>
@@ -377,13 +330,37 @@ export default function DeepAnalysisPage() {
           </div>
         }
       >
-        {trendData.length === 0 ? (
-          <p style={{ fontSize: "0.85rem", color: T.inkSoft }}>
-            {trendWorkspace?.company_name ?? "This company"} has no{" "}
-            {trendPeriodType === "FY" ? "annual" : "quarterly"} records for this metric yet.
-          </p>
+        {hasAnyData ? (
+          <>
+            <MultiTrendLineChart xLabels={xLabels} series={series} isRatio={metric.unit === "pp"} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem 1.1rem", marginTop: "1rem" }}>
+              {sectorWorkspaces.map((w) => (
+                <span
+                  key={w.id}
+                  style={{
+                    fontSize: "0.76rem",
+                    color: w.id === primaryId ? T.accent : T.inkSoft,
+                    fontWeight: w.id === primaryId ? 600 : 400,
+                  }}
+                >
+                  {w.company_name}
+                </span>
+              ))}
+            </div>
+            {peerRows.some((r) => r.basis_caveat) && (
+              <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>
+                {peerRows
+                  .filter((r) => r.basis_caveat)
+                  .map((r) => `${r.company_name}: ${r.basis_caveat}`)
+                  .join(" - ")}
+              </p>
+            )}
+          </>
         ) : (
-          <TrendLineChart data={trendData} isRatio={trendMetric.unit === "pp"} />
+          <p style={{ fontSize: "0.85rem", color: T.inkSoft }}>
+            No {periodType === "FY" ? "annual" : "quarterly"} records on file yet for this metric
+            across the {primaryWorkspace.sector} sector.
+          </p>
         )}
       </Schedule>
     </div>
