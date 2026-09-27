@@ -1,21 +1,63 @@
 "use client";
 
-// Sentinel — section layout. Dark #111111 brand rail on the left
+// Sentinel - section layout. Dark #111111 brand rail on the left
 // (Zyntask parent brand + Sentinel product name + section nav), sandstone
-// canvas on the right. Scoped to /sentinel/* only — nothing here leaks
+// canvas on the right. Scoped to /sentinel/* only - nothing here leaks
 // into the rest of the site's visual identity.
+//
+// Navigation pass: the nav array was missing two real, already-built
+// pages entirely - /sentinel/home (a portfolio-wide "what needs
+// attention" landing screen, per its own header comment explicitly
+// left the routing decision of whether it replaces the /sentinel root
+// open for later) and /sentinel/reviews (Review Cycles, previously
+// reachable only via a buried "Start one" link inside Add Period).
+// Both are added here. /sentinel/data-entry is a legacy manual-entry
+// page (no theme tokens, no Cash Flow fields, a different API route
+// than New Project) and is deliberately NOT added - it looks like a
+// deletion candidate, not a missing nav link, and that's a separate
+// decision from this pass.
+//
+// Grouped into Portfolio (no single-company selector - Home and
+// Executive Dashboard show everything across every company at once)
+// and Company (every other page's core interaction is "pick a company,
+// see its detail"). This is an objective split, not an arbitrary one.
+//
+// Active-state highlighting previously used an exact pathname match,
+// which would never highlight a nested route - visiting
+// /sentinel/reviews/<id> would not highlight "Review Cycles". isActive
+// below allows prefix-matching for nested routes while keeping the bare
+// /sentinel root (Investigation Queue) as an exact match only, since a
+// naive prefix match there would incorrectly highlight it on every
+// other Sentinel page too (they all start with "/sentinel/").
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SANS, SERIF, T } from "./lib/theme";
 
-const NAV = [
-  { href: "/sentinel", label: "Investigation Queue" },
-  { href: "/sentinel/statements", label: "Financial Statements" },
-  { href: "/sentinel/kpi", label: "KPI Dashboard" },
-  { href: "/sentinel/analysis", label: "Deep Analysis" },
-  { href: "/sentinel/executive", label: "Executive Dashboard" },
+const NAV_GROUPS: { label: string; items: { href: string; label: string }[] }[] = [
+  {
+    label: "Portfolio",
+    items: [
+      { href: "/sentinel/home", label: "Home" },
+      { href: "/sentinel/executive", label: "Executive Dashboard" },
+    ],
+  },
+  {
+    label: "Company",
+    items: [
+      { href: "/sentinel", label: "Investigation Queue" },
+      { href: "/sentinel/reviews", label: "Review Cycles" },
+      { href: "/sentinel/statements", label: "Financial Statements" },
+      { href: "/sentinel/kpi", label: "KPI Dashboard" },
+      { href: "/sentinel/analysis", label: "Deep Analysis" },
+    ],
+  },
 ];
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/sentinel") return pathname === "/sentinel";
+  return pathname === href || pathname.startsWith(href + "/");
+}
 
 export default function SentinelLayout({
   children,
@@ -113,35 +155,52 @@ export default function SentinelLayout({
             border: "1px solid rgba(237,231,220,0.22)",
             padding: "0.5rem 0.7rem",
             borderRadius: 3,
-            marginBottom: "1rem",
+            marginBottom: "1.2rem",
           }}
         >
           Manage Periods
         </Link>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {NAV.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
+          {NAV_GROUPS.map((group, groupIndex) => (
+            <div key={group.label} style={{ marginTop: groupIndex === 0 ? 0 : "1.1rem" }}>
+              <p
                 style={{
-                  textDecoration: "none",
-                  fontSize: "0.86rem",
-                  fontWeight: active ? 600 : 400,
-                  color: active ? T.sidebarText : T.sidebarTextMuted,
-                  padding: "0.55rem 0.7rem",
-                  background: active ? "rgba(164,117,81,0.22)" : "transparent",
-                  borderLeft: active
-                    ? `2px solid ${T.accent}`
-                    : "2px solid transparent",
+                  fontSize: "0.62rem",
+                  fontWeight: 500,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: T.sidebarTextMuted,
+                  margin: "0 0 0.4rem 0.7rem",
                 }}
               >
-                {item.label}
-              </Link>
-            );
-          })}
+                {group.label}
+              </p>
+              {group.items.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{
+                      display: "block",
+                      textDecoration: "none",
+                      fontSize: "0.86rem",
+                      fontWeight: active ? 600 : 400,
+                      color: active ? T.sidebarText : T.sidebarTextMuted,
+                      padding: "0.55rem 0.7rem",
+                      background: active ? "rgba(164,117,81,0.22)" : "transparent",
+                      borderLeft: active
+                        ? `2px solid ${T.accent}`
+                        : "2px solid transparent",
+                    }}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <p
