@@ -126,16 +126,24 @@ test("the autofill and extract routes both declare the 300s ceiling Vercel allow
 
 import { uploadToBlob } from "../../app/sentinel/lib/uploadClient";
 
+/** A fake file of a real size, so a progress event's loaded/total ratio means something - the 13-byte `file()`
+ * helper above made every one of these tests' first progress call look like 100% (loaded >> total), which is
+ * exactly the production bug this file exists to catch: it silently defeated the stall test it was written
+ * for. */
+const bigFile = (name: string, size = 10_000_000) => new File([new Uint8Array(size)], name, { type: "application/pdf" });
+
 function neverResolves(
   onProgress: (loaded: number, total: number) => void,
-  schedule: number[] // delays, in ms, at which to call onProgress once each
+  schedule: number[], // delays, in ms, at which to call onProgress once each
+  loadedAt: (i: number, total: number) => number = (i, total) => Math.min(total - 1, (i + 1) * 1000) // stays under 100%
 ): Parameters<typeof uploadToBlob>[3] {
   return (_pathname, file, opts) =>
     new Promise((_resolve, reject) => {
       const timers = schedule.map((delay, i) =>
         setTimeout(() => {
-          onProgress((i + 1) * 1000, file.size);
-          opts.onUploadProgress({ loaded: (i + 1) * 1000, total: file.size, percentage: ((i + 1) * 1000 * 100) / file.size });
+          const loaded = loadedAt(i, file.size);
+          onProgress(loaded, file.size);
+          opts.onUploadProgress({ loaded, total: file.size, percentage: (loaded * 100) / file.size });
         }, delay)
       );
       opts.abortSignal.addEventListener("abort", () => {
@@ -145,10 +153,10 @@ function neverResolves(
     });
 }
 
-test("a stalled upload (no progress event for stallMs) is given up on with a clear message", async () => {
-  const fn = neverResolves(() => {}, [10]); // one progress event at 10ms, then nothing
+test("a stalled upload (no progress event for stallMs, still under 100%) is given up on with a clear message", async () => {
+  const fn = neverResolves(() => {}, [10]); // one progress event at 10ms, well under 100%, then nothing
   await assert.rejects(
-    uploadToBlob(file("big.pdf"), "tok", { stallMs: 60, maxUploadMs: 10_000 }, fn),
+    uploadToBlob(bigFile("big.pdf"), "tok", { stallMs: 60, maxUploadMs: 10_000 }, fn),
     (e: unknown) => e instanceof UploadError && e.timedOut === true && /stopped making progress/.test(e.message)
   );
 });
@@ -158,11 +166,30 @@ test("a slow but steadily progressing upload is never mistaken for stalled", asy
   let calls = 0;
   const fn = neverResolves(() => { calls++; }, [20, 50, 80, 110]);
   const result = await Promise.race([
-    uploadToBlob(file("big.pdf"), "tok", { stallMs: 60, maxUploadMs: 10_000 }, fn),
+    uploadToBlob(bigFile("big.pdf"), "tok", { stallMs: 60, maxUploadMs: 10_000 }, fn),
     new Promise((resolve) => setTimeout(() => resolve({ raced: true }), 150)),
   ]);
   assert.deepEqual(result, { raced: true }); // still running at 150ms - not aborted as stalled
   assert.equal(calls, 4);
+});
+
+test("once a progress event reports the file fully queued (loaded >= total), the stall clock stops being armed - only the overall cap can still end it", async () => {
+  // Mirrors the production bug: the local side reports 100% almost immediately (one event, well under stallMs),
+  // then genuinely nothing more happens - the real network transfer and server ack produce no progress event of
+  // their own. A naive stall timer would (and did) call this "stalled" long before the upload actually failed.
+  const fn: Parameters<typeof uploadToBlob>[3] = (_p, f, opts) =>
+    new Promise((_resolve, reject) => {
+      setTimeout(() => opts.onUploadProgress({ loaded: f.size, total: f.size, percentage: 100 }), 5);
+      opts.abortSignal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    });
+  const stillRunning = await Promise.race([
+    uploadToBlob(bigFile("big.pdf"), "tok", { stallMs: 30, maxUploadMs: 5_000 }, fn),
+    new Promise((resolve) => setTimeout(() => resolve({ raced: true }), 100)), // well past stallMs=30
+  ]);
+  assert.deepEqual(stillRunning, { raced: true }, "a 30ms stall threshold must not abort a fully-queued upload that is still legitimately finishing");
+
+  // and it does still end, eventually, via the unconditional outer cap - this is not "never times out again"
+  await assert.rejects(uploadToBlob(bigFile("big.pdf"), "tok", { stallMs: 30, maxUploadMs: 80 }, fn), UploadError);
 });
 
 test("continuous progress that never actually finishes still gives up at the hard cap", async () => {
@@ -177,7 +204,7 @@ test("continuous progress that never actually finishes still gives up at the har
     });
   };
   const started = Date.now();
-  await assert.rejects(uploadToBlob(file("big.pdf"), "tok", { stallMs: 10_000, maxUploadMs: 100 }, fn), UploadError);
+  await assert.rejects(uploadToBlob(bigFile("big.pdf"), "tok", { stallMs: 10_000, maxUploadMs: 100 }, fn), UploadError);
   assert.ok(Date.now() - started < 1000, "should have given up at the 100ms cap, not run away");
 });
 
@@ -188,7 +215,7 @@ test("a successful upload resolves with the blob url, forwarding every progress 
     opts.onUploadProgress({ loaded: f.size, total: f.size, percentage: 100 });
     return { url: "https://example.public.blob.vercel-storage.com/done.pdf" };
   };
-  const result = await uploadToBlob(file("big.pdf"), "tok", { onProgress: (p) => p.phase === "uploading" && seen.push(p.percentage) }, fn);
+  const result = await uploadToBlob(bigFile("big.pdf"), "tok", { onProgress: (p) => p.phase === "uploading" && seen.push(p.percentage) }, fn);
   assert.equal(result.url, "https://example.public.blob.vercel-storage.com/done.pdf");
   assert.deepEqual(seen, [50, 100]);
 });
@@ -197,7 +224,7 @@ test("the caller's own cancellation during upload is a plain abort, not the stal
   const fn: Parameters<typeof uploadToBlob>[3] = (_p, _f, opts) =>
     new Promise((_resolve, reject) => opts.abortSignal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
   const outer = new AbortController();
-  const promise = uploadToBlob(file("big.pdf"), "tok", { signal: outer.signal, stallMs: 10_000 }, fn);
+  const promise = uploadToBlob(bigFile("big.pdf"), "tok", { signal: outer.signal, stallMs: 10_000 }, fn);
   setTimeout(() => outer.abort(), 10);
   await assert.rejects(promise, (e: unknown) => !(e instanceof UploadError));
 });

@@ -21,8 +21,11 @@ const FUNCTION_BODY_SAFE_LIMIT = 4 * 1024 * 1024;
 /** The server read route's own ceiling, plus a margin - past this point the server has certainly given up even
  * if no response has arrived yet. */
 export const READ_TIMEOUT_MS = 320_000;
-/** No forward progress on the upload for this long means it has genuinely stalled, not just slowed down. */
-export const UPLOAD_STALL_MS = 45_000;
+/** No forward progress on the upload for this long means it has genuinely stalled, not just slowed down. Loose
+ * enough to tolerate real latency: the browser's own progress events (from @vercel/blob's chunked-stream
+ * tracking, or XHR's where fetch streaming is unavailable) can plausibly go quiet for a stretch on a slow
+ * connection without the transfer actually having stopped. */
+export const UPLOAD_STALL_MS = 90_000;
 /** A hard outer cap on the upload phase, reached only if progress keeps trickling in without ever finishing. */
 export const UPLOAD_MAX_MS = 20 * 60_000;
 
@@ -57,8 +60,15 @@ type BlobUploadFn = (
   }
 ) => Promise<{ url: string }>;
 
-/** The blob upload itself: aborted if progress stalls for too long, or if it simply never finishes. Every
- * progress event resets the stall clock, so a slow-but-moving upload is never mistaken for a stuck one.
+/** The blob upload itself: aborted if progress stalls for too long before it finishes, or if the whole phase
+ * simply runs too long. Every progress event resets the stall clock, so a slow-but-moving upload is never
+ * mistaken for a stuck one - except the stall clock stops being armed once a progress event reports the file
+ * fully queued (loaded >= total). Past that point the library has handed every byte to the browser's own
+ * network stack; what remains is the network actually delivering them and the server acknowledging receipt,
+ * neither of which produces another progress event to reset against, even though the upload is not stuck -
+ * this is exactly what was seen with a file under 9MB reported as "stalled" within 45 seconds: the local side
+ * had queued 100% almost immediately, then genuinely still had the real transfer left to finish. Only the
+ * overall UPLOAD_MAX_MS ceiling applies from that point on.
  * `uploadFn` defaults to the real @vercel/blob upload; a test passes a fake one instead of standing up a server
  * that speaks Blob's own presign-and-PUT protocol, so the timing logic here can be tested directly. */
 export async function uploadToBlob(
@@ -70,7 +80,9 @@ export async function uploadToBlob(
   const ctrl = new AbortController();
   const maxTimer = setTimeout(() => ctrl.abort(), options.maxUploadMs ?? UPLOAD_MAX_MS);
   let stallTimer: ReturnType<typeof setTimeout> = setTimeout(() => {}, 0);
+  let fullyQueued = false;
   const resetStall = () => {
+    if (fullyQueued) return;
     clearTimeout(stallTimer);
     stallTimer = setTimeout(() => ctrl.abort(), options.stallMs ?? UPLOAD_STALL_MS);
   };
@@ -85,7 +97,12 @@ export async function uploadToBlob(
       clientPayload: JSON.stringify({ accessToken: token }),
       abortSignal: ctrl.signal,
       onUploadProgress: (p) => {
-        resetStall();
+        if (p.loaded >= p.total) {
+          fullyQueued = true;
+          clearTimeout(stallTimer);
+        } else {
+          resetStall();
+        }
         options.onProgress?.({ phase: "uploading", loaded: p.loaded, total: p.total, percentage: p.percentage });
       },
     });
