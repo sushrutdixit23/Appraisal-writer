@@ -222,21 +222,24 @@ export function validateStatement(row: StatementRow, others: OtherStatement[]): 
       );
     }
   }
-  if (row.tax_expense != null) {
-    const expected = row.profit_before_tax! - row.tax_expense;
-    if (Math.abs(row.profit_after_tax! - expected) > Math.max(Math.abs(expected) * 0.02, 1)) {
+  // profit_before_tax and profit_after_tax are required at save time, but a draft mid-read (autofill,
+  // an AI extraction) can legitimately be missing either one - checkDraft's own contract is "required
+  // fields may be missing; skip nulls" (see extraction.ts), so these never assume either is present.
+  if (row.tax_expense != null && row.profit_before_tax != null && row.profit_after_tax != null) {
+    const expected = row.profit_before_tax - row.tax_expense;
+    if (Math.abs(row.profit_after_tax - expected) > Math.max(Math.abs(expected) * 0.02, 1)) {
       warn(
-        `Profit after tax (${money(row.profit_after_tax!)}) differs from profit before tax - tax (${money(expected)}). ` +
+        `Profit after tax (${money(row.profit_after_tax)}) differs from profit before tax - tax (${money(expected)}). ` +
           `This can be right if there are discontinued operations, associates or minority interest.`,
         ["profit_after_tax", "profit_before_tax", "tax_expense"]
       );
     }
   }
-  if (row.total_income != null && row.total_expenses != null) {
+  if (row.total_income != null && row.total_expenses != null && row.profit_before_tax != null) {
     const expected = row.total_income - row.total_expenses - (row.exceptional_items ?? 0);
-    if (Math.abs(row.profit_before_tax! - expected) > Math.max(Math.abs(row.total_income) * 0.02, 1)) {
+    if (Math.abs(row.profit_before_tax - expected) > Math.max(Math.abs(row.total_income) * 0.02, 1)) {
       warn(
-        `Profit before tax (${money(row.profit_before_tax!)}) differs from total income - total expenses - exceptional ` +
+        `Profit before tax (${money(row.profit_before_tax)}) differs from total income - total expenses - exceptional ` +
           `items (${money(expected)}). Check the sign of exceptional items (loss positive, gain negative).`,
         ["profit_before_tax", "total_income", "total_expenses", "exceptional_items"]
       );

@@ -304,6 +304,15 @@ test("an inconsistent draft names the fields involved, so they can be marked 've
   assert.deepEqual(bs[0].fields, ["total_assets", "total_liabilities", "total_equity"]);
 });
 
+test("a draft missing profit before/after tax is skipped, not crashed on - a real PDF (Tata Motors' FY26 filing) hit this", () => {
+  // tax_expense present without profit_before_tax or profit_after_tax: validateStatement used to assume
+  // (with a `!` non-null assertion) that both were always there, and crashed calling .toLocaleString() on
+  // null instead of skipping the check the way checkDraft's own contract promises it will.
+  assert.deepEqual(checkDraft({ revenue_from_operations: 1000, tax_expense: 30 }), []);
+  // total_income/total_expenses present without profit_before_tax: the second identity check had the same bug.
+  assert.deepEqual(checkDraft({ revenue_from_operations: 1000, total_income: 1050, total_expenses: 900 }), []);
+});
+
 // --- uploaded-file URLs -----------------------------------------------------------------------
 
 test("only blob URLs this app issued are ever fetched", () => {
