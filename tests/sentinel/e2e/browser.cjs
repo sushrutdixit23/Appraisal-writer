@@ -864,8 +864,10 @@ async function ready(page, url, waitFor) {
     await a.waitForSelector("text=Key figures");
     assert.equal(await stat(a, "Altman Z\u2033"), "-");
     assert.equal(await stat(a, "Beneish M score"), "-");
+    assert.equal(await stat(a, "Piotroski F-Score"), "-");
     const tiles = await a.locator('[data-stat="Altman Z\u2033"]').innerText();
     assert.match(tiles, /Needs retained earnings/);
+    assert.match(await a.locator('[data-stat="Piotroski F-Score"]').innerText(), /Needs this and last year/);
   }, a);
 
   await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {

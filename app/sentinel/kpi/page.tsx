@@ -49,7 +49,7 @@ import type { MetricKind } from "../lib/viz/format";
 import { VIZ } from "../lib/viz/tokens";
 import { buildPeerTable, buildTimeSeries, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
-import { altmanZone, BENEISH_THRESHOLD } from "../lib/ratios";
+import { altmanZone, BENEISH_THRESHOLD, piotroskiF } from "../lib/ratios";
 import { computeHealthScore, type HealthCategory, type HealthScore, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
@@ -461,6 +461,10 @@ export default function KpiDashboardPage() {
   const vs = priorOwnStatement?.period_label;
   const ratioNow = (id: string) => selfRow?.ratios[id] ?? null;
   const ratioPrev = (id: string) => priorRatios?.[id] ?? null;
+  // Read directly rather than through the ratios registry (which only carries a single number per id): the
+  // card needs maxScore too, since a criterion the company lacks data for (shares outstanding, cost of
+  // goods sold) is left out of the denominator rather than counted as a point not earned.
+  const piotroskiNow = latestOwnStatement ? piotroskiF(latestOwnStatement, priorOwnStatement) : null;
 
   const tiles: { label: string; value: string; note: string | null; formula: string; delta: TileDelta | null; spark: number[] }[] = [
     {
@@ -614,6 +618,24 @@ export default function KpiDashboardPage() {
       formula: "Beneish's eight-variable model on receivables, gross margin, asset quality, sales growth, depreciation, SG&A, leverage and accruals, against last year. Leverage uses total liabilities / assets and accruals use (PAT - cash from operations) / assets. A screen, not a verdict",
       delta: makeDelta("multiple", "lower", ratioNow("beneish_m"), ratioPrev("beneish_m"), vs),
       spark: series("beneish_m"),
+    },
+    {
+      label: "Piotroski F-Score",
+      value: piotroskiNow == null ? "-" : `${piotroskiNow.score}/${piotroskiNow.maxScore}`,
+      note:
+        piotroskiNow == null
+          ? "Needs this and last year's profit, assets, cash from operations, debt, current assets and liabilities, and revenue"
+          : piotroskiNow.score >= Math.ceil(piotroskiNow.maxScore * 0.75)
+            ? "Most signals point the right way"
+            : piotroskiNow.score <= Math.floor(piotroskiNow.maxScore * 0.25)
+              ? "Most signals point the wrong way"
+              : "A mixed picture",
+      formula:
+        "One point each for: positive ROA, positive cash from operations, ROA up on the year, cash from operations above profit after tax, " +
+        "leverage (debt / assets) down, current ratio up, no new shares issued, gross margin up, asset turnover up. The last two need cost of " +
+        "goods sold and shares outstanding respectively; out of 9 when both are on file, fewer otherwise. A screen, not a verdict",
+      delta: makeDelta("multiple", "higher", ratioNow("piotroski_f"), ratioPrev("piotroski_f"), vs),
+      spark: series("piotroski_f"),
     },
   ];
 

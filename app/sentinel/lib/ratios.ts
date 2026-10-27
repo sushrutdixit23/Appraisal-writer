@@ -186,3 +186,81 @@ export function beneishM(s: Stmt, prior: Stmt | null): BeneishResult | null {
   const score = -4.84 + 0.92 * i.dsri + 0.528 * i.gmi + 0.404 * i.aqi + 0.892 * i.sgi + 0.115 * i.depi - 0.172 * i.sgai + 4.679 * i.tata - 0.327 * i.lvgi;
   return { score, flagged: score > BENEISH_THRESHOLD, indices: i };
 }
+
+export type PiotroskiCriteria = {
+  positive_roa: boolean;
+  positive_cfo: boolean;
+  improving_roa: boolean;
+  cfo_exceeds_pat: boolean;
+  decreasing_leverage: boolean;
+  improving_current_ratio: boolean;
+  /** null when shares_outstanding is not on file for both years - a real company, not a weak signal. */
+  no_dilution: boolean | null;
+  /** null when cost_of_goods_sold is not on file for both years - most Indian filings, which present expenses
+   * by nature rather than by function, do not print a gross margin at all. */
+  improving_gross_margin: boolean | null;
+  improving_asset_turnover: boolean;
+};
+
+export type PiotroskiResult = {
+  score: number;
+  /** Out of 9 when every criterion could be scored, 8 or 7 when shares_outstanding and/or cost_of_goods_sold
+   * are missing - never a flat /9 that would quietly overstate a company lacking that data. */
+  maxScore: number;
+  criteria: PiotroskiCriteria;
+};
+
+/** Piotroski's nine-signal checklist for a full year against the year before, one point each: positive ROA,
+ * positive CFO, ROA up on the year, CFO above net income (accrual quality), leverage (total debt / assets)
+ * down, current ratio up, no new shares issued, gross margin up, asset turnover up. Built to separate
+ * genuinely improving companies from deteriorating ones within a value/screening universe - a checklist, like
+ * Altman Z'' and Beneish M, not a verdict. ROA here follows this file's own average-balance convention (closing
+ * balance alone with no prior year, the opening/closing average otherwise), not Piotroski's original
+ * beginning-of-year-only denominator, for consistency with ROE and ROCE above. */
+export function piotroskiF(s: Stmt, prior: Stmt | null): PiotroskiResult | null {
+  if (!isYear(s) || !prior || !isYear(prior)) return null;
+  const need = [
+    s.profit_after_tax, s.total_assets, s.cash_from_operations, s.total_debt, s.current_assets, s.current_liabilities,
+    s.revenue_from_operations, prior.profit_after_tax, prior.total_assets, prior.total_debt, prior.current_assets, prior.current_liabilities,
+  ];
+  if (need.some((v) => v == null)) return null;
+
+  const roa = (x: Stmt, px: Stmt | null) => div(x.profit_after_tax, averageBalance(x.total_assets, px?.total_assets));
+  const currentRatio = (x: Stmt) => div(x.current_assets, x.current_liabilities);
+  const leverage = (x: Stmt) => div(x.total_debt, x.total_assets);
+  const roaNow = roa(s, prior);
+  const roaPrior = roa(prior, null); // the prior year's own ROA uses its closing balance, same as any other "latest" reading
+  const curNow = currentRatio(s);
+  const curPrior = currentRatio(prior);
+  const levNow = leverage(s);
+  const levPrior = leverage(prior);
+  if ([roaNow, roaPrior, curNow, curPrior, levNow, levPrior].some((v) => v == null)) return null;
+
+  const noDilution =
+    s.shares_outstanding != null && prior.shares_outstanding != null ? s.shares_outstanding <= prior.shares_outstanding : null;
+  const grossMarginNow = div(s.revenue_from_operations - (s.cost_of_goods_sold ?? NaN), s.revenue_from_operations, false);
+  const grossMarginPrior = div(prior.revenue_from_operations - (prior.cost_of_goods_sold ?? NaN), prior.revenue_from_operations, false);
+  const improvingGrossMargin =
+    s.cost_of_goods_sold != null && prior.cost_of_goods_sold != null && grossMarginNow != null && grossMarginPrior != null
+      ? grossMarginNow > grossMarginPrior
+      : null;
+
+  const assetTurnover = (x: Stmt, px: Stmt | null) => div(x.revenue_from_operations, averageBalance(x.total_assets, px?.total_assets));
+  const atoNow = assetTurnover(s, prior);
+  const atoPrior = assetTurnover(prior, null);
+  if (atoNow == null || atoPrior == null) return null;
+
+  const criteria: PiotroskiCriteria = {
+    positive_roa: roaNow! > 0,
+    positive_cfo: s.cash_from_operations! > 0,
+    improving_roa: roaNow! > roaPrior!,
+    cfo_exceeds_pat: s.cash_from_operations! > s.profit_after_tax,
+    decreasing_leverage: levNow! < levPrior!,
+    improving_current_ratio: curNow! > curPrior!,
+    no_dilution: noDilution,
+    improving_gross_margin: improvingGrossMargin,
+    improving_asset_turnover: atoNow > atoPrior,
+  };
+  const scored = Object.values(criteria).filter((v) => v !== null);
+  return { score: scored.filter((v) => v === true).length, maxScore: scored.length, criteria };
+}

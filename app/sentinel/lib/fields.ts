@@ -15,6 +15,7 @@ export type NumericField = keyof Pick<
   | "trade_receivables" | "inventory" | "fixed_assets" | "total_liabilities" | "current_liabilities"
   | "trade_payables" | "total_debt" | "total_equity" | "cash_from_operations" | "cash_from_investing"
   | "cash_from_financing" | "capex" | "retained_earnings" | "cost_of_goods_sold" | "sga_expense"
+  | "shares_outstanding" | "unbilled_revenue"
 >;
 
 export type FieldDef = {
@@ -59,6 +60,7 @@ export const FIELD_SECTIONS: FieldSection[] = [
       { key: "current_assets", label: "Current assets" },
       { key: "cash_and_equivalents", label: "Cash & equivalents" },
       { key: "trade_receivables", label: "Trade receivables" },
+      { key: "unbilled_revenue", label: "Unbilled revenue", hint: "Work done but not yet invoiced; often printed with trade receivables" },
       { key: "inventory", label: "Inventory" },
       { key: "fixed_assets", label: "Fixed assets" },
       { key: "total_liabilities", label: "Total liabilities", hint: "Excluding equity" },
@@ -67,6 +69,7 @@ export const FIELD_SECTIONS: FieldSection[] = [
       { key: "total_debt", label: "Total debt", hint: "Current and non-current borrowings" },
       { key: "total_equity", label: "Total equity" },
       { key: "retained_earnings", label: "Retained earnings", hint: "Often shown as part of other equity" },
+      { key: "shares_outstanding", label: "Shares outstanding", hint: "Number of equity shares, not a currency figure - for the Piotroski score and peer valuation" },
     ],
   },
   {
@@ -83,7 +86,9 @@ export const FIELD_SECTIONS: FieldSection[] = [
 
 /** Columns added after the first release. Until the database has them, sending a null for one fails the whole save
  * ("could not find the column"), so a null is left out of a write unless the row already has the column. */
-export const OPTIONAL_COLUMNS: readonly NumericField[] = ["retained_earnings", "cost_of_goods_sold", "sga_expense"];
+export const OPTIONAL_COLUMNS: readonly NumericField[] = [
+  "retained_earnings", "cost_of_goods_sold", "sga_expense", "shares_outstanding", "unbilled_revenue",
+];
 
 export function withoutUnsetOptionalColumns<T extends object>(record: T, existing?: object | null): T {
   const out = { ...record } as Record<string, unknown>;

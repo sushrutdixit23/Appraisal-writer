@@ -75,6 +75,16 @@ export type FinancialStatement = {
   retained_earnings?: number | null;
   cost_of_goods_sold?: number | null;
   sga_expense?: number | null;
+  // Optional lines added for the Piotroski F-Score, peer valuation and the unbilled-revenue check - same
+  // "not yet in the database until its migration is applied" rule as the three fields just above.
+  // Shares outstanding: the no-dilution criterion in the Piotroski F-Score, and the share count a market
+  // price is divided by for market cap, P/E and EV multiples.
+  shares_outstanding?: number | null;
+  // Unbilled revenue (often printed with trade receivables as "trade receivables and unbilled revenue" in the
+  // cash flow note): tracked on its own so its growth can be compared with revenue's - growing materially
+  // faster than revenue, for an IT-services company especially, is a real, specific revenue-recognition
+  // red flag, not a generic one.
+  unbilled_revenue?: number | null;
 
   // Cash Flow — nullable, not yet extracted for the demo set
   cash_from_operations: number | null;

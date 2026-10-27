@@ -14,6 +14,7 @@ import {
   cashConversionToPat,
   interestCover,
   netDebtToEbitda,
+  piotroskiF,
   returnOnCapitalEmployed,
   returnOnEquity,
 } from "./ratios";
@@ -163,6 +164,7 @@ const DERIVED_RATIOS: RatioDef[] = [
   { id: "cfo_to_pat", compute: (s) => cashConversionToPat(s) },
   { id: "altman_z", compute: (s) => altmanZ(s)?.score ?? null },
   { id: "beneish_m", compute: (s, p) => beneishM(s, p)?.score ?? null },
+  { id: "piotroski_f", compute: (s, p) => piotroskiF(s, p)?.score ?? null },
 ];
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {

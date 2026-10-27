@@ -9,6 +9,7 @@ import {
   ebit,
   interestCover,
   netDebtToEbitda,
+  piotroskiF,
   returnOnCapitalEmployed,
   returnOnEquity,
 } from "../../app/sentinel/lib/ratios";
@@ -198,4 +199,60 @@ test("both scores are registered as ratios for every sector", () => {
   near(r.altman_z!, 3.715733333);
   assert.equal(r.beneish_m, null);
   near(computeRatios(m1, m0, "general").beneish_m!, -1.965425);
+});
+
+// FY26: PAT 90, assets 2,000, CFO 160, debt 400, current assets 600, current liabilities 500 (ratio 1.2),
+// revenue 1,000, COGS 600 (gross margin 0.4), 100 shares outstanding.
+const p1 = st("a", {
+  profit_after_tax: 90, total_assets: 2000, cash_from_operations: 160, total_debt: 400,
+  current_assets: 600, current_liabilities: 500, revenue_from_operations: 1000, cost_of_goods_sold: 600, shares_outstanding: 100,
+});
+// FY25: PAT 70, assets 1,800, CFO 120, debt 450, current assets 500, current liabilities 460 (ratio ~1.087),
+// revenue 900, COGS 600 (gross margin ~0.333), 100 shares outstanding - every signal points the right way.
+const p0 = st("a", {
+  period_label: "FY25", period_end_date: "2025-03-31", profit_after_tax: 70, total_assets: 1800, cash_from_operations: 120,
+  total_debt: 450, current_assets: 500, current_liabilities: 460, revenue_from_operations: 900, cost_of_goods_sold: 600, shares_outstanding: 100,
+});
+
+test("Piotroski F: every signal points the right way - a clean 9 of 9", () => {
+  const f = piotroskiF(p1, p0)!;
+  assert.equal(f.score, 9);
+  assert.equal(f.maxScore, 9);
+  assert.deepEqual(f.criteria, {
+    positive_roa: true, positive_cfo: true, improving_roa: true, cfo_exceeds_pat: true, decreasing_leverage: true,
+    improving_current_ratio: true, no_dilution: true, improving_gross_margin: true, improving_asset_turnover: true,
+  });
+});
+
+test("Piotroski F: a deteriorating, loss-making year scores the opposite signals", () => {
+  // A loss, cash burning faster than the loss itself, more debt, a tighter current ratio, new shares
+  // issued, a thinner margin - everything that was true above is now false.
+  const weak = st("a", {
+    profit_after_tax: -50, total_assets: 2200, cash_from_operations: -60, total_debt: 700,
+    current_assets: 400, current_liabilities: 450, revenue_from_operations: 950, cost_of_goods_sold: 700, shares_outstanding: 130,
+  });
+  const f = piotroskiF(weak, p1)!;
+  assert.equal(f.score, 0);
+  assert.equal(f.maxScore, 9);
+});
+
+test("Piotroski F: missing shares outstanding or COGS shrinks the denominator rather than counting against the score", () => {
+  const noShares = piotroskiF({ ...p1, shares_outstanding: null }, p0)!;
+  assert.equal(noShares.criteria.no_dilution, null);
+  assert.equal(noShares.maxScore, 8);
+  assert.equal(noShares.score, 8); // the other 8 signals are all still positive
+
+  const noCogsEither = piotroskiF({ ...p1, shares_outstanding: null, cost_of_goods_sold: null }, { ...p0, cost_of_goods_sold: null })!;
+  assert.equal(noCogsEither.criteria.improving_gross_margin, null);
+  assert.equal(noCogsEither.maxScore, 7);
+});
+
+test("Piotroski F is blank without a prior year, without the core inputs, or for a quarter", () => {
+  assert.equal(piotroskiF(p1, null), null);
+  assert.equal(piotroskiF({ ...p1, cash_from_operations: null }, p0), null);
+  assert.equal(piotroskiF({ ...p1, period_type: "Q2" }, p0), null);
+});
+
+test("Piotroski F is registered as a ratio for every sector", () => {
+  near(computeRatios(p1, p0, "technology").piotroski_f!, 9);
 });
