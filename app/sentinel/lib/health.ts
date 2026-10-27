@@ -276,13 +276,25 @@ export function computeHealthScore(
     }
   }
 
-  // Capital Allocation — needs ROE/ROCE/dividend data this schema
-  // doesn't model yet. Permanently no_data until that changes.
-  categories.push({
-    key: "capital_allocation", label: "Capital Allocation", status: "no_data",
-    metric_label: null, value: null,
-    detail: "ROE/ROCE/dividend data not yet modeled",
-  });
+  // Capital Allocation - graded on ROCE against the sector's roce_min (lower is worse, so severity is the
+  // minimum over the return: at the line = 1.0). Dividends are not modelled, so this is returns only.
+  {
+    const roce = ratios["roce"];
+    if (roce == null) {
+      categories.push({
+        key: "capital_allocation", label: "Capital Allocation", status: "no_data",
+        metric_label: null, value: null,
+        detail: "Needs a full year with total assets, current liabilities and finance costs",
+      });
+    } else {
+      const severity = roce <= 0 ? Infinity : t.roce_min / roce;
+      categories.push({
+        key: "capital_allocation", label: "Capital Allocation", status: bandFromSeverity(severity),
+        metric_label: "ROCE", value: roce,
+        detail: `${pct(roce)} return on capital employed vs. the ${pct(t.roce_min)} floor`,
+      });
+    }
+  }
 
   // Overall — equal-weighted average of every category that has data,
   // rounded back to the nearest band. no_data only if nothing at all is

@@ -38,7 +38,7 @@ import {
   ungroundedFields,
   type PdfPage,
 } from "../../../sentinel/lib/extraction";
-import { authenticate, getAdmin, isFailure } from "../../../sentinel/lib/server";
+import { authenticate, rateLimit, getAdmin, isFailure } from "../../../sentinel/lib/server";
 import { readUpload } from "../../../sentinel/lib/upload";
 
 export const runtime = "nodejs";
@@ -54,6 +54,8 @@ export async function POST(req: Request) {
   if (isFailure(a)) return a.error;
   const who = await authenticate(req, a.admin);
   if (isFailure(who)) return who.error;
+  const limited = rateLimit(who.userId, "extract", 20, 10 * 60_000);
+  if (limited) return limited.error;
 
   const upload = await readUpload(req);
   if ("error" in upload) return upload.error;

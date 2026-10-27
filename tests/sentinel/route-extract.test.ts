@@ -6,6 +6,7 @@ import test, { after, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { POST } from "../../app/api/sentinel/extract/route";
+import { resetRateLimits } from "../../app/sentinel/lib/server";
 import { FakeBackend, useBackend } from "./fake-backend";
 import { ANNUAL_REPORT_PAGES, makeBlankPdf, makePdf } from "./pdf-fixtures";
 
@@ -21,6 +22,7 @@ before(async () => {
 });
 after(() => backend.stop());
 beforeEach(() => {
+  resetRateLimits();
   backend.anthropicCalls = [];
 });
 
@@ -95,6 +97,15 @@ test("an unauthenticated upload is refused and nothing reaches the model", async
   assert.equal((await call(annualReport, { token: null })).status, 401);
   assert.equal((await call(annualReport, { token: "bad" })).status, 401);
   assert.equal(backend.anthropicCalls.length, 0);
+});
+
+test("a person who calls the model route too often is told to wait, and others are unaffected", async () => {
+  backend.anthropicReply = () => ({ text: modelReply() });
+  for (let i = 0; i < 20; i++) assert.equal((await call(annualReport, { basis: "consolidated" })).status, 200);
+  const blocked = await call(annualReport, { basis: "consolidated" });
+  assert.equal(blocked.status, 429);
+  assert.match(blocked.json.error, /Too many requests/);
+  assert.equal(backend.anthropicCalls.length, 20, "the blocked call must not reach the model");
 });
 
 test("a file that is not a PDF is refused, whatever it claims to be", async () => {

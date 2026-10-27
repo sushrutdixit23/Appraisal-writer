@@ -45,6 +45,34 @@ export async function authenticate(
   return { userId: data.user.id };
 }
 
+// A per-person ceiling on the routes that call the model, so one signed-in person (or a leaked token) cannot
+// run up the bill. Held in this server instance's memory: on serverless hosting each instance counts on its
+// own, so the real ceiling is the limit times the instances a burst reaches. It stops a loop or a
+// misbehaving client; a hard spend cap belongs at the model provider.
+const hits = new Map<string, number[]>();
+
+export function rateLimit(userId: string, bucket: string, max: number, windowMs: number, now = Date.now()): Failure | null {
+  const key = `${bucket}:${userId}`;
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= max) {
+    hits.set(key, recent);
+    const retryAfter = Math.max(1, Math.ceil((recent[0] + windowMs - now) / 1000));
+    return {
+      error: NextResponse.json(
+        { error: `Too many requests. Please wait ${retryAfter} seconds and try again.` },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      ),
+    };
+  }
+  recent.push(now);
+  hits.set(key, recent);
+  return null;
+}
+
+export function resetRateLimits(): void {
+  hits.clear();
+}
+
 /** Load the company the caller named, only if they may use it the way they intend. A company they
  * cannot see answers exactly like one that does not exist. */
 export async function loadWorkspaceFor(

@@ -233,3 +233,24 @@ In order of value for the effort:
   edit of a period during a conversion could be overwritten. Fine for one person, worth a database
   function if several people edit the same project.
 - A scanned PDF is refused; there is no OCR.
+
+## 12. Added after the rating: credit ratios and production basics
+
+- **Ratios** (`app/sentinel/lib/ratios.ts`, shown on KPIs and in peer benchmarks): ROE, ROCE, interest cover,
+  net debt / EBITDA, cash from operations / EBITDA and / PAT, and a DuPont split of ROE. Return and leverage
+  ratios use full years only (a quarter of earnings over a full balance would read four times too small) and
+  average opening and closing balances when last year is on file. A zero or negative denominator gives no
+  ratio rather than a misleading one. Capital Allocation in the health score now grades ROCE against a sector
+  floor (`roce_min`: tyre 10%, FMCG 15%, general 10%) - starting assumptions, not calibrated on filings.
+- **Rate limit** on the two model routes (extract, narrative): 20 calls per person per 10 minutes, held in
+  each server instance's memory, so on serverless hosting it stops loops and misuse but is not a hard spend
+  cap; set that at the model provider.
+- **CI** (`.github/workflows/sentinel.yml`): typecheck, `npm run test:sentinel` and `next build` on every push
+  and pull request. The browser checks are not in CI yet (they need Chromium and two dev servers).
+- **RLS** (`supabase/migrations/20261027000000_sentinel_rls_proposed.sql`): proposed policies written from the
+  access rules, **not applied**; read the header before running them.
+
+Still open from the rating: measuring extraction accuracy on real filings (needs the files), exchange XBRL as
+a primary source, persisting per-field provenance and a change history (needs a schema change), and the
+Altman Z and Beneish M scores (need cost of goods sold, SG&A, retained earnings and market value of equity,
+which the schema does not hold).

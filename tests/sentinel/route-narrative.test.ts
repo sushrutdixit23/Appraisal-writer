@@ -5,6 +5,7 @@ import test, { after, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { POST } from "../../app/api/sentinel/narrative/route";
+import { resetRateLimits } from "../../app/sentinel/lib/server";
 import { FakeBackend, useBackend } from "./fake-backend";
 
 const A = randomUUID();
@@ -28,6 +29,7 @@ function fy(workspace_id: string, label: string, end: string, revenue: number, p
 }
 
 beforeEach(() => {
+  resetRateLimits();
   backend.tables = {};
   backend.anthropicCalls = [];
   wsA = randomUUID(); wsB = randomUUID(); wsRef = randomUUID();

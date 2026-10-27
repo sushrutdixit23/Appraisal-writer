@@ -7,6 +7,14 @@
 // are genuinely sector-specific judgment calls, not data).
 
 import type { FinancialStatement } from "./types";
+import {
+  cashConversionToEbitda,
+  cashConversionToPat,
+  interestCover,
+  netDebtToEbitda,
+  returnOnCapitalEmployed,
+  returnOnEquity,
+} from "./ratios";
 
 export type RatioDef = {
   id: string;
@@ -57,6 +65,9 @@ export type SectorConfig = {
     debt_equity_max: number;
     inventory_days_max: number;
     receivable_days_max: number;
+    /** Return on capital employed below which capital allocation is a concern. A starting assumption (about a
+     * cost of capital), not calibrated against filings. */
+    roce_min: number;
   };
   narrative_context: string;
   derived_ratios: RatioDef[];
@@ -141,6 +152,13 @@ const DERIVED_RATIOS: RatioDef[] = [
       return inv + rec - pay;
     },
   },
+  // Returns, coverage and cash conversion: definitions and null rules in ratios.ts.
+  { id: "roe", compute: (s, p) => returnOnEquity(s, p) },
+  { id: "roce", compute: (s, p) => returnOnCapitalEmployed(s, p) },
+  { id: "interest_cover", compute: (s) => interestCover(s) },
+  { id: "net_debt_to_ebitda", compute: (s) => netDebtToEbitda(s) },
+  { id: "cfo_to_ebitda", compute: (s) => cashConversionToEbitda(s) },
+  { id: "cfo_to_pat", compute: (s) => cashConversionToPat(s) },
 ];
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
@@ -158,6 +176,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       debt_equity_max: 2.0,
       inventory_days_max: 60,
       receivable_days_max: 60,
+      roce_min: 0.1,
     },
     narrative_context:
       "Tyre manufacturers are exposed to natural rubber and crude-derivative " +
@@ -179,6 +198,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       debt_equity_max: 1.0,
       inventory_days_max: 60,
       receivable_days_max: 30,
+      roce_min: 0.15,
     },
     narrative_context:
       "FMCG companies are exposed to commodity input cost cycles (milk, wheat, " +
@@ -205,6 +225,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       debt_equity_max: 2.5,
       inventory_days_max: 75,
       receivable_days_max: 75,
+      roce_min: 0.1,
     },
     narrative_context:
       "No sector-specific tuning has been applied for this company's industry " +

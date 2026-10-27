@@ -162,6 +162,11 @@ const PEER_RANKING_METRICS: {
   { label: "Inventory days", metric: "inventory_days", direction: "lower_is_better", unit: "d" },
   { label: "Receivable days", metric: "receivable_days", direction: "lower_is_better", unit: "d" },
   { label: "Cash conversion cycle", metric: "cash_conversion_cycle", direction: "lower_is_better", unit: "d" },
+  { label: "ROE", metric: "roe", direction: "higher_is_better", unit: "pp" },
+  { label: "ROCE", metric: "roce", direction: "higher_is_better", unit: "pp" },
+  { label: "Interest cover", metric: "interest_cover", direction: "higher_is_better", unit: "x" },
+  { label: "Net debt / EBITDA", metric: "net_debt_to_ebitda", direction: "lower_is_better", unit: "x" },
+  { label: "Cash from operations / PAT", metric: "cfo_to_pat", direction: "higher_is_better", unit: "x" },
 ];
 
 const HEALTH_COLORS: Record<HealthStatus, { text: string; statusLabel: string }> = {
@@ -552,6 +557,46 @@ export default function KpiDashboardPage() {
       formula: "Inventory Days + Receivable Days - Payable Days",
       delta: makeDelta("days", "lower", ratioNow("cash_conversion_cycle"), ratioPrev("cash_conversion_cycle"), vs),
       spark: series("cash_conversion_cycle"),
+    },
+    {
+      label: "ROE",
+      value: pct(ratioNow("roe")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "roe"), "pp", du),
+      formula: "PAT / average equity (opening and closing; closing only when there is no prior year). Full years only; blank when equity is zero or negative",
+      delta: makeDelta("percent", "higher", ratioNow("roe"), ratioPrev("roe"), vs),
+      spark: series("roe"),
+    },
+    {
+      label: "ROCE",
+      value: pct(ratioNow("roce")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "roce"), "pp", du),
+      formula: "EBIT / average capital employed, where EBIT = profit before tax + finance costs and capital employed = total assets - current liabilities. Full years only",
+      delta: makeDelta("percent", "higher", ratioNow("roce"), ratioPrev("roce"), vs),
+      spark: series("roce"),
+    },
+    {
+      label: "Interest cover",
+      value: ratioX(ratioNow("interest_cover")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "interest_cover"), "x", du),
+      formula: "EBIT / finance costs: how many times the year's interest was earned",
+      delta: makeDelta("multiple", "higher", ratioNow("interest_cover"), ratioPrev("interest_cover"), vs),
+      spark: series("interest_cover"),
+    },
+    {
+      label: "Net debt / EBITDA",
+      value: ratioX(ratioNow("net_debt_to_ebitda")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "net_debt_to_ebitda", "lower_is_better"), "x", du),
+      formula: "(Total debt - cash and equivalents) / EBITDA. Negative means more cash than debt. Full years only",
+      delta: makeDelta("multiple", "lower", ratioNow("net_debt_to_ebitda"), ratioPrev("net_debt_to_ebitda"), vs),
+      spark: series("net_debt_to_ebitda"),
+    },
+    {
+      label: "Cash from operations / PAT",
+      value: ratioX(ratioNow("cfo_to_pat")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "cfo_to_pat"), "x", du),
+      formula: "Cash from operations / PAT. Persistently below 1x means profit is not turning into cash",
+      delta: makeDelta("multiple", "higher", ratioNow("cfo_to_pat"), ratioPrev("cfo_to_pat"), vs),
+      spark: series("cfo_to_pat"),
     },
   ];
 

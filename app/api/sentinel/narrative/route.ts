@@ -11,7 +11,7 @@ import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
-import { authenticate, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
+import { authenticate, rateLimit, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { formatMoney } from "../../../sentinel/lib/units";
 import type {
   AnomalyFlag,
@@ -184,6 +184,8 @@ export async function POST(req: Request) {
   const { admin: supabase } = a;
   const who = await authenticate(req, supabase);
   if (isFailure(who)) return who.error;
+  const limited = rateLimit(who.userId, "narrative", 20, 10 * 60_000);
+  if (limited) return limited.error;
   const userId = who.userId;
 
   let body: { workspace_id?: unknown; period_label?: unknown };
