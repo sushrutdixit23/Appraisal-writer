@@ -208,6 +208,10 @@ export type ExtractionDraft = {
   period_end_date: string | null;
   basis: Basis | null;
   fields: Partial<Record<NumericField, number>>;
+  /** The verbatim row text the model says each figure came from, for checkGrounding. */
+  field_quotes: Partial<Record<NumericField, string>>;
+  /** The printed row label the model says it read, for checkGrounding. */
+  field_labels: Partial<Record<NumericField, string>>;
   extraction_notes: string | null;
   low_confidence_fields: NumericField[];
   /** What the model says the page states, as a cross-check on the text-based reading. */
@@ -250,6 +254,20 @@ export function parseModelDraft(raw: string): { draft: ExtractionDraft; problems
   const unknownKeys = Object.keys(given).filter((k) => !(ALL_FIELD_KEYS as string[]).includes(k));
   if (unknownKeys.length > 0) problems.push(`Ignored fields that are not part of the statement: ${unknownKeys.join(", ")}.`);
 
+  // Per field: the verbatim row the model says it read from, and the row's printed label - both
+  // optional (an older or non-compliant reply may omit them), checked in checkGrounding below.
+  const stringMap = (raw: unknown, max: number): Partial<Record<NumericField, string>> => {
+    const out: Partial<Record<NumericField, string>> = {};
+    if (!raw || typeof raw !== "object") return out;
+    for (const key of ALL_FIELD_KEYS) {
+      const v = (raw as Record<string, unknown>)[key];
+      if (typeof v === "string" && v.trim()) out[key] = v.trim().slice(0, max);
+    }
+    return out;
+  };
+  const fieldQuotes = stringMap(parsed.field_quotes, 400);
+  const fieldLabels = stringMap(parsed.field_labels, 120);
+
   const low = Array.isArray(parsed.low_confidence_fields)
     ? (parsed.low_confidence_fields.filter((k): k is NumericField => typeof k === "string" && (ALL_FIELD_KEYS as string[]).includes(k)))
     : [];
@@ -261,6 +279,8 @@ export function parseModelDraft(raw: string): { draft: ExtractionDraft; problems
       period_end_date: endDate && isRealDate(endDate) ? endDate : null,
       basis: basis && (BASES as readonly string[]).includes(basis) ? (basis as Basis) : null,
       fields,
+      field_quotes: fieldQuotes,
+      field_labels: fieldLabels,
       extraction_notes: str(parsed.extraction_notes, 2000),
       low_confidence_fields: low,
       model_unit: typeof parsed.unit === "string" ? normaliseUnit(parsed.unit) : null,
@@ -295,6 +315,60 @@ export function ungroundedFields(fields: ExtractionDraft["fields"], text: string
   return (Object.keys(fields) as NumericField[]).filter((k) => !valueAppearsInText(fields[k] as number, present));
 }
 
+// ---------------------------------------------------------------------------------------------
+// Per-field grounding: is THIS figure's own cited row real, not just "this number is somewhere
+// on the page"? Ported from the companion Python prototype's ingestion/verify.py: the model is
+// asked to quote the exact row a figure came from (buildExtractionUserPrompt, below), and here
+// that quote is checked against the page text, independently of the model. ungroundedFields
+// above only tests "does the value appear anywhere on the page" - a figure quoted from the wrong
+// row can still pass that test. This test cannot: the quote itself must be on the page, and the
+// figure's value and the row's label must both be inside that quote.
+// ---------------------------------------------------------------------------------------------
+
+export type GroundingFlag = "no_quote" | "quote_not_on_page" | "value_not_in_quote" | "label_not_in_quote";
+
+const normaliseForMatch = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+
+/** One field's grounding flags; empty means grounded. `text` is everything the model was given
+ * (so "on the page" here means "in the text read" - the route passes the full prompt text). */
+export function checkGroundingOfField(value: number, quote: string | null | undefined, label: string | null | undefined, text: string): GroundingFlag[] {
+  if (!quote) return ["no_quote"];
+  const flags: GroundingFlag[] = [];
+  if (!normaliseForMatch(text).includes(normaliseForMatch(quote))) flags.push("quote_not_on_page");
+  if (!valueAppearsInText(value, quote)) flags.push("value_not_in_quote");
+  if (label && !normaliseForMatch(quote).includes(normaliseForMatch(label))) flags.push("label_not_in_quote");
+  return flags;
+}
+
+/** Every field's grounding flags, keyed by field; a field with no flags is grounded. */
+export function checkGrounding(
+  fields: ExtractionDraft["fields"],
+  quotes: ExtractionDraft["field_quotes"],
+  labels: ExtractionDraft["field_labels"],
+  text: string
+): Partial<Record<NumericField, GroundingFlag[]>> {
+  const out: Partial<Record<NumericField, GroundingFlag[]>> = {};
+  for (const key of Object.keys(fields) as NumericField[]) {
+    const flags = checkGroundingOfField(fields[key] as number, quotes[key], labels[key], text);
+    if (flags.length > 0) out[key] = flags;
+  }
+  return out;
+}
+
+const GROUNDING_REASON: Record<GroundingFlag, string> = {
+  no_quote: "no supporting line was returned for it",
+  quote_not_on_page: "the line it cites could not be found in the text read",
+  value_not_in_quote: "the figure does not appear in the line it cites",
+  label_not_in_quote: "the row label does not appear in the line it cites",
+};
+
+/** One readable sentence per flagged field, worst reason first - for extraction_notes. */
+export function groundingNotes(fieldLabel: (key: NumericField) => string, grounding: Partial<Record<NumericField, GroundingFlag[]>>): string[] {
+  return (Object.entries(grounding) as [NumericField, GroundingFlag[]][]).map(
+    ([key, flags]) => `${fieldLabel(key)}: ${GROUNDING_REASON[flags[0]]}.`
+  );
+}
+
 /** Run the save-time accounting checks over a draft so inconsistencies show up before the person
  * reviews it, with the fields involved. Period fields use placeholders; only the figures matter. */
 export function checkDraft(fields: ExtractionDraft["fields"]): Issue[] {
@@ -320,7 +394,8 @@ export const EXTRACTION_SYSTEM_PROMPT =
   "5. The text may hold both standalone and consolidated statements. Use the basis stated in the request when it is present; otherwise use the statements you find and say which basis they are in. Never mix figures from the two. If you are unsure which you are reading, say so in extraction_notes.\n" +
   "6. total_debt is current plus non-current borrowings only if both are printed; if you would have to add them yourself, return null and explain in extraction_notes. The same applies to every total: do not add figures yourself.\n" +
   "7. period_label is short, like \"FY25\" or \"Q3 FY26\"; period_end_date is \"YYYY-MM-DD\" or null if unclear.\n" +
-  "8. Respond with ONLY a JSON object - no preamble, no markdown fences.";
+  "8. For every field you report a non-null value for, also copy the exact row of text you read it from into field_quotes (same field name as key), and copy the row's own label as printed (e.g. \"Total income\", \"Profit for the period\") into field_labels. Quote verbatim - do not paraphrase or retype the number. Omit a field from both if you did not read it from a specific row.\n" +
+  "9. Respond with ONLY a JSON object - no preamble, no markdown fences.";
 
 export function buildExtractionUserPrompt(opts: {
   fieldList: string[];
@@ -332,9 +407,11 @@ export function buildExtractionUserPrompt(opts: {
     (opts.preferredBasis ? `The company is compared on a ${opts.preferredBasis} basis: use the ${opts.preferredBasis} statements.\n\n` : "") +
     `Also return period_type ("FY"|"Q1"|"Q2"|"Q3"|"Q4"), period_label, period_end_date, ` +
     `basis ("standalone"|"consolidated"), unit, extraction_notes (the column used, ambiguities, anything not found), ` +
-    `and low_confidence_fields (array of field names you are unsure about).\n\n` +
+    `low_confidence_fields (array of field names you are unsure about), field_quotes (the exact row of text each ` +
+    `field's value came from, keyed by field name), and field_labels (that row's own printed label, keyed by field name).\n\n` +
     `JSON shape:\n{"period_type": ..., "period_label": ..., "period_end_date": ..., "basis": ..., "unit": ..., ` +
-    `"fields": {"<field_name>": number|null, ...}, "extraction_notes": "...", "low_confidence_fields": ["..."]}\n\n` +
+    `"fields": {"<field_name>": number|null, ...}, "extraction_notes": "...", "low_confidence_fields": ["..."], ` +
+    `"field_quotes": {"<field_name>": "<exact row text>", ...}, "field_labels": {"<field_name>": "<printed label>", ...}}\n\n` +
     `--- FILING TEXT ---\n${opts.text}`
   );
 }

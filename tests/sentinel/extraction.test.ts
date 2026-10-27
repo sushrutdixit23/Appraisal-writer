@@ -4,6 +4,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   checkDraft,
+  checkGrounding,
+  checkGroundingOfField,
+  groundingNotes,
   parseBlobUrl,
   parseModelDraft,
   resolveUnit,
@@ -111,6 +114,67 @@ test("figures the page does not print are reported, so a derived or invented one
   assert.deepEqual(missing.sort(), ["ebitda", "total_debt"]);
 });
 
+// --- per-field grounding (the quote itself, not just "the value is somewhere on the page") ----
+
+test("a field is grounded when its quote is on the page, carries the value, and carries the label", () => {
+  const text = "Statement of Profit and Loss\nTotal income    1,050.00   900.00\nTax expense    30.00   22.00";
+  const flags = checkGroundingOfField(1050, "Total income    1,050.00   900.00", "Total income", text);
+  assert.deepEqual(flags, []);
+});
+
+test("no quote at all is flagged, distinctly from a quote that fails one of the three checks", () => {
+  const text = "Total income    1,050.00   900.00";
+  assert.deepEqual(checkGroundingOfField(1050, null, "Total income", text), ["no_quote"]);
+  assert.deepEqual(checkGroundingOfField(1050, undefined, "Total income", text), ["no_quote"]);
+});
+
+test("a quote not actually present in the text read is flagged, even if it looks plausible", () => {
+  const text = "Total income    1,050.00   900.00";
+  const flags = checkGroundingOfField(1050, "Total income    1,050.00   900.00 crore", "Total income", text);
+  assert.deepEqual(flags, ["quote_not_on_page"]);
+});
+
+test("a quote on the page that does not contain the figure's own value is flagged", () => {
+  const text = "Total income    1,050.00   900.00\nTax expense    30.00   22.00";
+  const flags = checkGroundingOfField(1050, "Tax expense    30.00   22.00", "Tax expense", text);
+  assert.deepEqual(flags, ["value_not_in_quote"]);
+});
+
+test("a quote that carries the value but not the row's own label is flagged", () => {
+  const text = "Total income    1,050.00   900.00";
+  const flags = checkGroundingOfField(1050, "Total income    1,050.00   900.00", "Other income", text);
+  assert.deepEqual(flags, ["label_not_in_quote"]);
+});
+
+test("matching ignores whitespace differences and case", () => {
+  const text = "Total   income\n1,050.00";
+  const flags = checkGroundingOfField(1050, "Total income 1,050.00", "TOTAL INCOME", text);
+  assert.deepEqual(flags, []);
+});
+
+test("checkGrounding runs every field and only reports the ones with flags", () => {
+  const text = "Total income    1,050.00   900.00\nTax expense    30.00   22.00";
+  const grounding = checkGrounding(
+    { total_income: 1050, tax_expense: 30, profit_after_tax: 90 },
+    { total_income: "Total income    1,050.00   900.00", tax_expense: "Tax expense    30.00   22.00" },
+    { total_income: "Total income", tax_expense: "Tax expense" },
+    text
+  );
+  assert.deepEqual(Object.keys(grounding), ["profit_after_tax"]);
+  assert.deepEqual(grounding.profit_after_tax, ["no_quote"]);
+});
+
+test("groundingNotes writes one sentence per flagged field, naming the field's own label and the worst reason", () => {
+  const notes = groundingNotes((key) => (key === "profit_after_tax" ? "Profit after tax" : key), {
+    profit_after_tax: ["no_quote"],
+    total_income: ["quote_not_on_page", "value_not_in_quote"],
+  });
+  assert.deepEqual(notes.sort(), [
+    "Profit after tax: no supporting line was returned for it.",
+    "total_income: the line it cites could not be found in the text read.",
+  ]);
+});
+
 // --- the model's reply -------------------------------------------------------------------------
 
 const reply = (over: Record<string, unknown> = {}) =>
@@ -128,6 +192,17 @@ test("a well-formed reply is parsed", () => {
   assert.equal(draft.model_unit, "INR_CRORE");
   assert.equal(draft.fields.revenue_from_operations, 1000);
   assert.deepEqual(draft.low_confidence_fields, ["profit_after_tax"]);
+});
+
+test("field_quotes and field_labels are read per field, and a reply that omits them leaves both empty", () => {
+  const withQuotes = parseModelDraft(
+    reply({ field_quotes: { revenue_from_operations: "Revenue from operations    1,000.00" }, field_labels: { revenue_from_operations: "Revenue from operations" } })
+  ).draft;
+  assert.equal(withQuotes.field_quotes.revenue_from_operations, "Revenue from operations    1,000.00");
+  assert.equal(withQuotes.field_labels.revenue_from_operations, "Revenue from operations");
+  const without = parseModelDraft(reply()).draft;
+  assert.deepEqual(without.field_quotes, {});
+  assert.deepEqual(without.field_labels, {});
 });
 
 test("a reply wrapped in a code fence or prose is still read", () => {

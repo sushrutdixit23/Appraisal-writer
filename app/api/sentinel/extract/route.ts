@@ -25,11 +25,13 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { PDFParse } from "pdf-parse";
-import { ALL_FIELD_KEYS } from "../../../sentinel/lib/fields";
+import { ALL_FIELD_KEYS, ALL_FIELDS } from "../../../sentinel/lib/fields";
 import {
   EXTRACTION_SYSTEM_PROMPT,
   buildExtractionUserPrompt,
   checkDraft,
+  checkGrounding,
+  groundingNotes,
   parseModelDraft,
   resolveUnit,
   selectStatementPages,
@@ -131,6 +133,13 @@ export async function POST(req: Request) {
   for (const issue of issues) {
     for (const key of issue.fields) low.add(key);
   }
+
+  // Per-field grounding: does the row the model cited for a figure actually say so? Independent
+  // of ungroundedFields above, which only checks that the value appears somewhere on the page.
+  const fieldLabel = (key: string) => ALL_FIELDS.find((f) => f.key === key)?.label ?? key;
+  const grounding = checkGrounding(draft.fields, draft.field_quotes, draft.field_labels, promptText);
+  for (const key of Object.keys(grounding) as (keyof typeof grounding)[]) low.add(key);
+  notes.push(...groundingNotes(fieldLabel, grounding));
 
   const unit = resolveUnit(selection?.unit ?? null, draft.model_unit);
   if (unit.note) notes.push(unit.note);

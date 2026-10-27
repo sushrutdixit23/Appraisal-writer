@@ -33,11 +33,51 @@ const goodFields = {
   fixed_assets: 1100, total_liabilities: 900, current_liabilities: 450, trade_payables: 180, total_equity: 1100,
   cash_from_operations: 140, cash_from_investing: -210, cash_from_financing: 60, capex: 190,
 };
+// The exact row each of goodFields was read from, and that row's own printed label - what a model
+// complying with rule 8 of the system prompt would return alongside the value. total_debt and
+// ebitda (never printed, so never quotable) are deliberately left out of both maps.
+const goodQuotes: Record<string, string> = {
+  revenue_from_operations: "Revenue from operations                  1,000.00                     900.00",
+  other_income: "Other income                             50.00                        45.00",
+  total_income: "Total income                             1,050.00                     945.00",
+  total_expenses: "Total expenses                           900.00                       860.00",
+  finance_costs: "Finance costs                            20.00                        22.00",
+  depreciation_amortisation: "Depreciation and amortisation expense    60.00                        58.00",
+  exceptional_items: "Exceptional items                        30.00                        0.00",
+  profit_before_tax: "Profit before tax                        120.00                       85.00",
+  tax_expense: "Tax expense                              30.00                        22.00",
+  profit_after_tax: "Profit for the year                      90.00                        63.00",
+  total_assets: "Total assets                             2,000.00                     1,850.00",
+  current_assets: "Total current assets                     800.00                       760.00",
+  trade_receivables: "Trade receivables                        150.00                       140.00",
+  inventory: "Inventories                              250.00                       230.00",
+  cash_and_equivalents: "Cash and cash equivalents                90.00                        80.00",
+  fixed_assets: "Property, plant and equipment            1,100.00                     1,020.00",
+  total_liabilities: "Total liabilities                        900.00                       880.00",
+  current_liabilities: "Total current liabilities                450.00                       410.00",
+  trade_payables: "Trade payables                           180.00                       170.00",
+  total_equity: "Total equity                             1,100.00                     980.00",
+  cash_from_operations: "Net cash generated from operating activities     140.00      120.00",
+  cash_from_investing: "Net cash used in investing activities            (210.00)    (150.00)",
+  cash_from_financing: "Net cash from financing activities               60.00       25.00",
+  capex: "Purchase of property, plant and equipment        (190.00)    (170.00)",
+};
+const goodLabels: Record<string, string> = {
+  revenue_from_operations: "Revenue from operations", other_income: "Other income", total_income: "Total income",
+  total_expenses: "Total expenses", finance_costs: "Finance costs", depreciation_amortisation: "Depreciation and amortisation expense",
+  exceptional_items: "Exceptional items", profit_before_tax: "Profit before tax", tax_expense: "Tax expense",
+  profit_after_tax: "Profit for the year", total_assets: "Total assets", current_assets: "Total current assets",
+  trade_receivables: "Trade receivables", inventory: "Inventories", cash_and_equivalents: "Cash and cash equivalents",
+  fixed_assets: "Property, plant and equipment", total_liabilities: "Total liabilities", current_liabilities: "Total current liabilities",
+  trade_payables: "Trade payables", total_equity: "Total equity", cash_from_operations: "Net cash generated from operating activities",
+  cash_from_investing: "Net cash used in investing activities", cash_from_financing: "Net cash from financing activities", capex: "Purchase of property, plant and equipment",
+};
 const modelReply = (over: Record<string, unknown> = {}, fields: Record<string, unknown> = {}) =>
   JSON.stringify({
     period_type: "FY", period_label: "FY26", period_end_date: "2026-03-31", basis: "consolidated", unit: "crore",
-    fields: { ...goodFields, total_debt: 400, ebitda: 175, ...fields }, extraction_notes: "Used the year ended 31 March 2026 column.",
-    low_confidence_fields: [], ...over,
+    fields: { ...goodFields, total_debt: 400, ebitda: 175, ...fields },
+    extraction_notes: "Used the year ended 31 March 2026 column.",
+    low_confidence_fields: [], field_quotes: goodQuotes, field_labels: goodLabels, ...over,
   });
 
 async function call(file: Buffer | null, opts: { token?: string | null; basis?: string; type?: string; name?: string } = {}) {
@@ -143,6 +183,28 @@ test("the model's own doubts are kept, and a reply of the wrong shape cannot inj
   assert.equal("id" in r.json.fields, false);
   assert.equal("capex" in r.json.fields, false);
   assert.match(r.json.extraction_notes, /not part of the statement/);
+});
+
+test("a figure quoted from the wrong row is caught even though its value is printed elsewhere on the page - ungroundedFields alone would miss it", async () => {
+  // total_income's value (1,050.00) is real and on the page, but the cited quote is tax expense's
+  // row - a figure correctly valued yet attributed to the wrong line, which a page-wide "is this
+  // number anywhere" check cannot tell from the real thing.
+  backend.anthropicReply = () => ({
+    text: modelReply({ field_quotes: { ...goodQuotes, total_income: goodQuotes.tax_expense } }),
+  });
+  const r = await call(annualReport, { basis: "consolidated" });
+  assert.ok(r.json.low_confidence_fields.includes("total_income"), r.json.low_confidence_fields.join());
+  assert.ok(!r.json.low_confidence_fields.includes("revenue_from_operations"));
+  assert.match(r.json.extraction_notes, /Total income: the figure does not appear in the line it cites/);
+});
+
+test("a field with no cited quote at all is marked for review, even though its value is on the page", async () => {
+  const quotes = { ...goodQuotes };
+  delete quotes.other_income;
+  backend.anthropicReply = () => ({ text: modelReply({ field_quotes: quotes }) });
+  const r = await call(annualReport, { basis: "consolidated" });
+  assert.ok(r.json.low_confidence_fields.includes("other_income"));
+  assert.match(r.json.extraction_notes, /Other income: no supporting line was returned for it/);
 });
 
 test("figures from the wrong basis are called out in the notes", async () => {

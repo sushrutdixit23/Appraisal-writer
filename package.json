@@ -7,7 +7,8 @@
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "next start",
     "lint": "eslint",
-    "test:sentinel": "node scripts/test-sentinel.mjs"
+    "test:sentinel": "node scripts/test-sentinel.mjs",
+    "score:extraction": "node scripts/score-extraction.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
