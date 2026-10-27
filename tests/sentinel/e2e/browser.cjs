@@ -658,6 +658,8 @@ async function ready(page, url, waitFor) {
     assert.equal(await field(a, "Profit after tax").inputValue(), "120");
     assert.equal(await a.locator("#de-plabel").inputValue(), "FY27");
     assert.equal(await a.locator("#de-pend").inputValue(), "2027-03-31");
+    // The source line is behind an (i) toggle now, not always on screen - see StatementFields.tsx.
+    await a.locator('[data-testid="info-toggle-revenue_from_operations"]').click();
     assert.match(await a.locator('[data-source-for="revenue_from_operations"]').innerText(), /row \d+ \| Revenue from operations/);
     assert.match(await a.locator('[data-testid="autofill-summary"]').innerText(), /converted to .*Crore/i);
   }, a);
@@ -672,6 +674,7 @@ async function ready(page, url, waitFor) {
     assert.equal(await field(a, "Cash from investing").inputValue(), "-210");
     assert.equal(await a.locator("#de-plabel").inputValue(), "FY26");
     assert.equal(await a.locator("#de-pbasis").inputValue(), "consolidated");
+    await a.locator('[data-testid="info-toggle-revenue_from_operations"]').click();
     assert.match(await a.locator('[data-source-for="revenue_from_operations"]').innerText(), /p\.\d+ \| Revenue from operations/);
   }, a);
 

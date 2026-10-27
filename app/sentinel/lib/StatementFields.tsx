@@ -6,7 +6,7 @@
 // is called out instead of being silently dropped, and anything the extraction or the checks doubt is
 // marked on the field itself.
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { FIELD_SECTIONS, parseNumberInput, type FieldDef, type NumericField } from "./fields";
 import { SERIF, T } from "./theme";
 import type { Issue } from "./validate";
@@ -38,17 +38,29 @@ export function Field({
   htmlFor,
   children,
   span2,
+  labelExtra,
 }: {
   label: string;
   htmlFor?: string;
   children: React.ReactNode;
   span2?: boolean;
+  /** Rendered beside the label, e.g. an (i) toggle for a formula or source note. */
+  labelExtra?: React.ReactNode;
 }) {
   return (
-    <div style={{ gridColumn: span2 ? "span 2" : undefined }}>
-      <label htmlFor={htmlFor} style={labelStyle}>
-        {label}
-      </label>
+    // min-width: 0 so a long, unbreakable line further down this cell (a source citation, a formula) cannot
+    // force this column's grid track wider than its share of the row - the classic CSS Grid "blowout", seen
+    // here as every box in one column stretching to fit the longest note in the whole form.
+    <div style={{ gridColumn: span2 ? "span 2" : undefined, minWidth: 0 }}>
+      {/* The toggle sits beside the <label>, not inside it - a nested interactive element would be read as
+          part of the label's own text (breaking "getByLabel"-style lookups, which match on that text) and
+          would fire twice on a click in some browsers (once for itself, once for the label's own target). */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+        <label htmlFor={htmlFor} style={labelStyle}>
+          {label}
+        </label>
+        {labelExtra}
+      </div>
       {children}
     </div>
   );
@@ -68,8 +80,30 @@ type Props = {
   disabled?: boolean;
 };
 
+const infoBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1rem",
+  height: "1rem",
+  lineHeight: 1,
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  fontStyle: "italic",
+  borderRadius: "50%",
+  border: `1px solid ${T.inkSoft}`,
+  color: T.inkSoft,
+  background: "transparent",
+  cursor: "pointer",
+  padding: 0,
+  textTransform: "none",
+  letterSpacing: "normal",
+  flexShrink: 0,
+};
+
 export function StatementFields({ values, onChange, verify = [], issues = [], sources = {}, unitLabel, disabled }: Props) {
   const uid = useId();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const issueFields = new Map<string, Issue[]>();
   for (const issue of issues) for (const f of issue.fields) issueFields.set(f, [...(issueFields.get(f) ?? []), issue]);
 
@@ -82,12 +116,32 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
     // Oxblood is a real problem (an unreadable figure or a failed check); ochre is this app's own
     // "pending / watch / caution" colour, so a field worth a second look reads as a flag, not an error.
     const border = typedButInvalid || flagged ? T.oxblood : doubted || issueFields.has(f.key) ? T.ochre : T.rule;
+    const note = sources[f.key] && raw !== "" ? sources[f.key] : null;
+    const hasInfo = Boolean(f.hint || note);
+    const open = expanded.has(f.key);
+    const panelId = `${id}-info`;
     return (
       <Field
         key={f.key}
         htmlFor={id}
         label={f.label + (f.required ? " *" : "") + (doubted ? " (verify)" : "")}
         span2={span2}
+        labelExtra={
+          hasInfo ? (
+            <button
+              type="button"
+              data-testid={`info-toggle-${f.key}`}
+              aria-expanded={open}
+              aria-controls={panelId}
+              aria-label={`${open ? "Hide" : "Show"} where this figure came from`}
+              title="Where this figure came from"
+              onClick={() => setExpanded((prev) => { const next = new Set(prev); if (next.has(f.key)) next.delete(f.key); else next.add(f.key); return next; })}
+              style={infoBtnStyle}
+            >
+              i
+            </button>
+          ) : undefined
+        }
       >
         <input
           id={id}
@@ -100,30 +154,25 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
           onChange={(e) => onChange(f.key, e.target.value)}
           placeholder="0.00"
           aria-invalid={typedButInvalid || flagged ? true : undefined}
-          aria-describedby={f.hint || typedButInvalid ? `${id}-hint` : undefined}
+          aria-describedby={[typedButInvalid ? `${id}-error` : null, open ? panelId : null].filter(Boolean).join(" ") || undefined}
         />
-        {/* A fixed-height footer, not just the hint-or-source paragraphs themselves, so a field with a
-            two-line note (a static hint plus a source line) doesn't sit taller than its neighbour in the
-            same row and throw the row rhythm off down the rest of the form. */}
-        <div style={{ minHeight: "2.1rem" }}>
-          {(f.hint || typedButInvalid) && (
-            <p
-              id={`${id}-hint`}
-              style={{ fontSize: "0.7rem", color: typedButInvalid ? T.oxblood : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
-            >
-              {typedButInvalid ? "That is not a number." : f.hint}
-            </p>
-          )}
-          {sources[f.key] && raw !== "" && (
-            <p
-              data-source-for={f.key}
-              title={sources[f.key]}
-              style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.2rem 0 0 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-            >
-              {sources[f.key]}
-            </p>
-          )}
-        </div>
+        {/* A problem with what was typed is never hidden behind the (i) toggle - only the optional
+            formula/source context is, so this row stays one line unless the person asks for more. */}
+        {typedButInvalid && (
+          <p id={`${id}-error`} style={{ fontSize: "0.7rem", color: T.oxblood, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}>
+            That is not a number.
+          </p>
+        )}
+        {hasInfo && open && (
+          <div id={panelId} style={{ margin: "0.25rem 0 0 0" }}>
+            {f.hint && <p style={{ fontSize: "0.7rem", color: T.inkSoft, margin: 0, lineHeight: 1.4 }}>{f.hint}</p>}
+            {note && (
+              <p data-source-for={f.key} style={{ fontSize: "0.68rem", color: T.inkSoft, margin: f.hint ? "0.2rem 0 0 0" : 0, lineHeight: 1.35, wordBreak: "break-word" }}>
+                {note}
+              </p>
+            )}
+          </div>
+        )}
       </Field>
     );
   }
