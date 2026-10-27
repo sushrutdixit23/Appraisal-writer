@@ -34,6 +34,8 @@ export type MisPackData = {
   kpis: MisPackKpi[];
   health: MisPackHealth | null;
   periodLabels: string[];
+  /** "₹ crore", "₹ lakh"...: the unit of every amount in the statement table. */
+  statementUnit: string;
   statementRows: MisPackStatementRow[];
   investigations: MisPackInvestigation[];
 };
@@ -309,7 +311,7 @@ export function MisPackDocument({ data }: { data: MisPackData }) {
           </>
         )}
 
-        <Text style={styles.sectionTitle}>Income Statement</Text>
+        <Text style={styles.sectionTitle}>Income Statement ({data.statementUnit})</Text>
         <StatementTable periodLabels={data.periodLabels} rows={data.statementRows} />
 
         {data.investigations.length > 0 && (

@@ -13,7 +13,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { buildPeerTable, findPriorYear } from "../lib/engine";
 import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
-import { unitLabel } from "../lib/units";
+import { useDisplayUnit, type DisplayUnit } from "../lib/displayUnit";
+import { displayFormat, type DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
@@ -50,13 +51,13 @@ const selectStyle: React.CSSProperties = {
   color: T.ink,
 };
 
-function fmtValue(value: number | null, commonSize: boolean, revenue: number | null): string {
+function fmtValue(value: number | null, commonSize: boolean, revenue: number | null, shown: (v: number) => number = (v) => v): string {
   if (value == null) return "\u2014";
   if (commonSize) {
     if (revenue == null || revenue === 0) return "\u2014";
     return `${((value / revenue) * 100).toFixed(1)}%`;
   }
-  return value.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return shown(value).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 function yoyPct(current: number | null, prior: number | null): string {
@@ -65,22 +66,24 @@ function yoyPct(current: number | null, prior: number | null): string {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
 }
 
-function formatVsPeer(b: Benchmark | null | undefined, isRatio: boolean): string {
+function formatVsPeer(b: Benchmark | null | undefined, isRatio: boolean, du: DisplayFormat): string {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return "\u2014";
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
   const gap = isRatio
     ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
-    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
+    : `${sign}${du.fromCrore(b.gapToClosestPeer).toLocaleString("en-IN", { maximumFractionDigits: 0 })} ${du.crossShort}`.trim();
   return `${gap} vs ${b.closestPeer.company_name}`;
 }
 
-function downloadCsv(workspace: Workspace, periods: FinancialStatement[]) {
+function downloadCsv(workspace: Workspace, periods: FinancialStatement[], unit: DisplayUnit) {
+  const du = displayFormat(unit);
   const lines: string[] = [];
-  lines.push([`"Line Item (${unitLabel(workspace.currency_unit)})"`, ...periods.map((p) => `"${p.period_label} (${p.basis})"`)].join(","));
+  lines.push([`"Line Item (${du.ownLabel(workspace.currency_unit)})"`, ...periods.map((p) => `"${p.period_label} (${p.basis})"`)].join(","));
   for (const row of ROWS) {
     const cells = periods.map((p) => {
       const v = p[row.key] as number | null;
-      return v == null ? "" : String(v);
+      // Converted, with the binary noise removed, so a lakh figure does not export as 123456.00000000001.
+      return v == null ? "" : String(Number(du.fromCompany(v, workspace.currency_unit).toPrecision(12)));
     });
     lines.push([`"${row.label}"`, ...cells].join(","));
   }
@@ -106,6 +109,7 @@ export default function FinancialStatementsPage() {
   const [subjectId, setSubjectId] = useSelectedWorkspace(workspaces.map((w) => w.id));
   const [commonSize, setCommonSize] = useState(false);
   const [downloadingXlsx, setDownloadingXlsx] = useState(false);
+  const du = useDisplayUnit();
 
   useEffect(() => {
     (async () => {
@@ -156,7 +160,7 @@ export default function FinancialStatementsPage() {
       const res = await fetch("/api/sentinel/export/xlsx", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ workspace_id: workspace.id }),
+        body: JSON.stringify({ workspace_id: workspace.id, unit: du.unit }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -234,7 +238,7 @@ export default function FinancialStatementsPage() {
           margin: "0.45rem 0 1.5rem 0",
         }}
       >
-        Income Statement — {unitLabel(workspace.currency_unit)}, all figures as reported
+        Income Statement — {du.ownLabel(workspace.currency_unit)}{du.unit === "as_reported" ? ", all figures as reported" : ", converted for display"}
       </p>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
@@ -253,7 +257,7 @@ export default function FinancialStatementsPage() {
         </div>
         <div style={{ display: "flex", gap: "0.6rem" }}>
           <button
-            onClick={() => downloadCsv(workspace, periods)}
+            onClick={() => downloadCsv(workspace, periods, du.unit)}
             style={{
               fontFamily: "inherit",
               fontSize: "0.85rem",
@@ -337,7 +341,7 @@ export default function FinancialStatementsPage() {
                   </td>
                   {periods.map((p) => (
                     <td key={p.id} style={{ ...cellStyle, fontWeight: row.bold ? 600 : 400 }}>
-                      {fmtValue(p[row.key] as number | null, commonSize, p.revenue_from_operations)}
+                      {fmtValue(p[row.key] as number | null, commonSize, p.revenue_from_operations, (v) => du.fromCompany(v, workspace.currency_unit))}
                     </td>
                   ))}
                   {showYoy && (
@@ -347,7 +351,7 @@ export default function FinancialStatementsPage() {
                   )}
                   {showPeerCol && (
                     <td style={{ ...cellStyle, color: T.inkSoft, fontSize: "0.78rem" }}>
-                      {formatVsPeer(rowBenchmarks[row.key], false)}
+                      {formatVsPeer(rowBenchmarks[row.key], false, du)}
                     </td>
                   )}
                 </tr>
@@ -364,7 +368,7 @@ export default function FinancialStatementsPage() {
                 {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
                 {showPeerCol && (
                   <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
-                    {formatVsPeer(ebitdaMarginBenchmark, true)}
+                    {formatVsPeer(ebitdaMarginBenchmark, true, du)}
                   </td>
                 )}
               </tr>
@@ -380,7 +384,7 @@ export default function FinancialStatementsPage() {
                 {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
                 {showPeerCol && (
                   <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
-                    {formatVsPeer(patMarginBenchmark, true)}
+                    {formatVsPeer(patMarginBenchmark, true, du)}
                   </td>
                 )}
               </tr>

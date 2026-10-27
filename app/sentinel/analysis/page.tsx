@@ -39,6 +39,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
 import { croreFactor } from "../lib/units";
+import { useDisplayUnit } from "../lib/displayUnit";
+import type { DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { MultiTrendLineChart } from "../lib/charts";
 import { buildPeerTable, computeRatios, findPriorYear } from "../lib/engine";
@@ -84,7 +86,7 @@ const selectStyle: React.CSSProperties = {
   color: T.ink,
 };
 
-function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
+function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d", du: DisplayFormat): string | null {
   if (!b || b.industryAverage == null || !b.industryLeader) return null;
   const fmt = (v: number) =>
     unit === "pp"
@@ -93,7 +95,7 @@ function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"):
       ? `${v.toFixed(2)}x`
       : unit === "d"
       ? `${v.toFixed(0)}d`
-      : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+      : du.fromCrore(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return `Industry average ${fmt(b.industryAverage)}, led by ${b.industryLeader.company_name} at ${fmt(
     b.industryLeader.value
   )}`;
@@ -208,6 +210,7 @@ function Schedule({
 
 export default function DeepAnalysisPage() {
   const router = useRouter();
+  const du = useDisplayUnit();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -260,7 +263,12 @@ export default function DeepAnalysisPage() {
 
   const peerRows = buildPeerTable(sectorWorkspaces, statements, primaryId, "FY");
   const benchmark = getBenchmark(peerRows, primaryId, metric.peerKey, metric.direction);
-  const industryLine = formatIndustryLine(benchmark, metric.unit);
+  const industryLine = [
+    formatIndustryLine(benchmark, metric.unit, du),
+    metric.unit === "cr" ? `Amounts in ${du.crossLabel}, whatever unit each company reports in` : null,
+  ]
+    .filter(Boolean)
+    .join(". ") || null;
 
   const perCompany = sectorWorkspaces.map((w) => ({
     workspace: w,
@@ -270,7 +278,7 @@ export default function DeepAnalysisPage() {
   const xLabels = timeline.map((t) => t.label);
   const series = perCompany.map(({ workspace, points }) => ({
     label: workspace.company_name,
-    values: alignToTimeline(points, timeline),
+    values: alignToTimeline(points, timeline).map((v) => (v != null && metric.unit === "cr" ? du.fromCrore(v) : v)),
     highlight: workspace.id === primaryId,
   }));
   const hasAnyData = series.some((s) => s.values.some((v) => v != null));

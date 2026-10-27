@@ -7,6 +7,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { accessLevel, isUuid, readableWorkspaceFilter } from "./access";
+import { displayFormat, parseDisplayUnit, type DisplayFormat } from "./displayUnitCore";
 import { buildPeerTable, findPriorYear } from "./engine";
 import type { FinancialStatement, Investigation, PeerRow, Workspace } from "./types";
 
@@ -126,6 +127,8 @@ export type ExportContext = {
   selfRow: PeerRow | null;
   /** The CALLER'S investigations on this company - never other users' drafts. */
   investigations: Investigation[];
+  /** How amounts are shown in the file: the caller's Display choice (`unit` in the request), "as reported" if absent. */
+  display: DisplayFormat;
 };
 
 /** Everything the PDF, PowerPoint and Excel exports start from: who is calling, that they may read
@@ -139,7 +142,7 @@ export async function loadExportContext(
   const who = await authenticate(req, a.admin);
   if (isFailure(who)) return who;
 
-  let body: { workspace_id?: unknown; period_label?: unknown };
+  let body: { workspace_id?: unknown; period_label?: unknown; unit?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -192,5 +195,8 @@ export async function loadExportContext(
     investigations = (data ?? []) as Investigation[];
   }
 
-  return { userId: who.userId, workspace, sectorWorkspaces, statements, ownFY, latestStmt, priorStmt, peerRows, selfRow, investigations };
+  return {
+    userId: who.userId, workspace, sectorWorkspaces, statements, ownFY, latestStmt, priorStmt, peerRows, selfRow, investigations,
+    display: displayFormat(parseDisplayUnit(body.unit)),
+  };
 }

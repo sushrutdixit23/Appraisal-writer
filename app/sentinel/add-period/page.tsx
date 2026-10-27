@@ -13,12 +13,12 @@ export const dynamic = "force-dynamic";
 // Deleting a company removes its dependent rows child-first and stops at the first failure with a message
 // naming the step - it does not carry on and leave the company half deleted.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { sortWorkspaces } from "../lib/access";
 import { BASES, PERIOD_TYPES, statementToFormValues } from "../lib/fields";
-import { ExtractUpload, type AppliedDraft } from "../lib/ExtractUpload";
+import { AutofillUpload, type AutofillApplied } from "../lib/AutofillUpload";
 import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
 import { SERIF, T } from "../lib/theme";
 import { unitLabel } from "../lib/units";
@@ -73,6 +73,7 @@ export default function AddPeriodPage() {
   const [sourceFile, setSourceFile] = useState("manual entry");
   const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
+  const [sources, setSources] = useState<Record<string, string>>({});
   const [issues, setIssues] = useState<Issue[]>([]);
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
 
@@ -84,13 +85,6 @@ export default function AddPeriodPage() {
 
   const [reviewCycles, setReviewCycles] = useState<ReviewCycle[]>([]);
   const [selectedReviewCycleId, setSelectedReviewCycleId] = useState<string>("");
-
-  const [editingCompanyName, setEditingCompanyName] = useState(false);
-  const [companyNameDraft, setCompanyNameDraft] = useState("");
-  const [savingCompanyName, setSavingCompanyName] = useState(false);
-  const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState(false);
-  const [deleteWorkspaceConfirmText, setDeleteWorkspaceConfirmText] = useState("");
-  const [deletingWorkspace, setDeletingWorkspace] = useState(false);
 
   const selectedWs = workspaces.find((w) => w.id === workspaceId);
 
@@ -109,14 +103,25 @@ export default function AddPeriodPage() {
     })();
   }, [router]);
 
-  const reloadStatements = useCallback(async (id: string) => {
+  // A link from a project's Overview can name the period to open (?statement=<id>); used once, on arrival.
+  const wantedStatement = useRef<string | null>(null);
+  useEffect(() => {
+    wantedStatement.current = new URLSearchParams(window.location.search).get("statement");
+  }, []);
+
+  const reloadStatements = useCallback(async (id: string): Promise<FinancialStatement[]> => {
     const { data, error } = await supabase
       .from("sentinel_statements")
       .select("*")
       .eq("workspace_id", id)
       .order("period_end_date", { ascending: false });
-    if (error) setErrors([error.message]);
-    else setStatements((data ?? []) as FinancialStatement[]);
+    if (error) {
+      setErrors([error.message]);
+      return [];
+    }
+    const list = (data ?? []) as FinancialStatement[];
+    setStatements(list);
+    return list;
   }, []);
 
   // Load this company's periods and review cycles whenever the selected company changes.
@@ -129,7 +134,10 @@ export default function AddPeriodPage() {
     setSelectedStatementId("new");
     setDone(false);
     (async () => {
-      await reloadStatements(workspaceId);
+      const list = await reloadStatements(workspaceId);
+      const wanted = wantedStatement.current;
+      wantedStatement.current = null;
+      if (wanted && list.some((x) => x.id === wanted)) setSelectedStatementId(wanted);
       const { data } = await supabase
         .from("sentinel_review_cycles")
         .select("*")
@@ -145,6 +153,7 @@ export default function AddPeriodPage() {
     setIssues([]);
     setSaveWarnings([]);
     setVerify([]);
+    setSources({});
     if (selectedStatementId === "new") {
       setPeriodType("FY");
       setPeriodLabel("");
@@ -169,16 +178,30 @@ export default function AddPeriodPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatementId, statements, selectedWs?.id]);
 
-  function applyDraft({ result, values: extracted, unitNote }: AppliedDraft) {
-    if (result.period_type) setPeriodType(result.period_type);
-    if (result.period_label) setPeriodLabel(result.period_label);
-    if (result.period_end_date) setPeriodEndDate(result.period_end_date);
-    if (result.basis) setBasis(result.basis);
-    setValues((prev) => ({ ...prev, ...extracted }));
-    setExtractionNotes([result.extraction_notes, unitNote].filter(Boolean).join(" ") || null);
-    setVerify(result.low_confidence_fields ?? []);
-    setSourceFile(result.source_file ?? "uploaded filing");
+  function applyAutofill({ period, applied, result }: AutofillApplied) {
+    if (period.period_type) setPeriodType(period.period_type);
+    if (period.period_label) setPeriodLabel(period.period_label);
+    if (period.period_end_date) setPeriodEndDate(period.period_end_date);
+    if (period.basis) setBasis(period.basis);
+    setValues(applied.values);
+    setVerify(applied.verify);
+    setSources(applied.sources);
+    setSourceFile(result.source_file);
+    setExtractionNotes(
+      [`Filled from ${result.source_file} by rules (no AI).`, applied.unitNote, ...result.notes, ...period.notes].filter(Boolean).join(" ") || null
+    );
     setIssues([]);
+  }
+
+  function applyAiFill({ values: filled, sources: more, notes }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) {
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(filled)) if ((next[k] ?? "").trim() === "") next[k] = v;
+      return next;
+    });
+    setVerify((prev) => [...new Set([...prev, ...Object.keys(filled)])]);
+    setSources((prev) => ({ ...prev, ...more }));
+    if (notes) setExtractionNotes((prev) => [prev, `AI reading: ${notes}`].filter(Boolean).join(" "));
   }
 
   async function saveStatement() {
@@ -247,60 +270,6 @@ export default function AddPeriodPage() {
     await reloadStatements(workspaceId);
     setSelectedStatementId("new");
     setConfirmDeleteStatement(false);
-  }
-
-  async function saveCompanyName() {
-    if (!companyNameDraft.trim()) {
-      setErrors(["Company name can't be empty."]);
-      return;
-    }
-    setSavingCompanyName(true);
-    const { error } = await supabase.from("sentinel_workspaces").update({ company_name: companyNameDraft.trim() }).eq("id", workspaceId);
-    setSavingCompanyName(false);
-    if (error) {
-      setErrors([error.message]);
-      return;
-    }
-    setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, company_name: companyNameDraft.trim() } : w)));
-    setEditingCompanyName(false);
-  }
-
-  async function deleteWorkspace() {
-    if (!selectedWs) return;
-    if (deleteWorkspaceConfirmText.trim() !== selectedWs.company_name) {
-      setErrors(["Type the company name exactly to confirm deletion."]);
-      return;
-    }
-    setDeletingWorkspace(true);
-    setErrors([]);
-    // Children before parents, stopping at the first failure so a half-deleted company is never left
-    // behind without the page saying which step stopped.
-    const steps: [string, string][] = [
-      ["recommendations", "sentinel_recommendations"],
-      ["investigations", "sentinel_investigations"],
-      ["periods", "sentinel_statements"],
-      ["review cycles", "sentinel_review_cycles"],
-    ];
-    for (const [name, table] of steps) {
-      const { error } = await supabase.from(table).delete().eq("workspace_id", selectedWs.id);
-      if (error) {
-        setDeletingWorkspace(false);
-        setErrors([`Could not delete the company's ${name}: ${error.message}. Nothing after this step was deleted; try again, or contact support if it keeps failing.`]);
-        await reloadStatements(selectedWs.id);
-        return;
-      }
-    }
-    const { error } = await supabase.from("sentinel_workspaces").delete().eq("id", selectedWs.id);
-    setDeletingWorkspace(false);
-    if (error) {
-      setErrors([`The company's data was deleted but the company itself could not be: ${error.message}`]);
-      return;
-    }
-    const remaining = workspaces.filter((w) => w.id !== selectedWs.id);
-    setWorkspaces(remaining);
-    if (remaining.length > 0) chooseWorkspace(remaining[0].id);
-    setConfirmDeleteWorkspace(false);
-    setDeleteWorkspaceConfirmText("");
   }
 
   if (loadingWorkspaces) return <p style={{ color: T.inkSoft }}>Loading Sentinel…</p>;
@@ -390,59 +359,10 @@ export default function AddPeriodPage() {
             )}
 
             {workspaceId && (
-              <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.9rem", alignItems: "center", flexWrap: "wrap" }}>
-                {editingCompanyName ? (
-                  <>
-                    <input aria-label="Company name" style={{ ...inputStyle, width: 220 }} value={companyNameDraft} onChange={(e) => setCompanyNameDraft(e.target.value)} maxLength={120} />
-                    <button style={{ ...linkBtn, color: T.ink }} onClick={saveCompanyName} disabled={savingCompanyName}>
-                      {savingCompanyName ? "Saving…" : "Save name"}
-                    </button>
-                    <button style={{ ...linkBtn, color: T.inkSoft }} onClick={() => setEditingCompanyName(false)}>Cancel</button>
-                  </>
-                ) : (
-                  <button
-                    style={{ ...linkBtn, color: T.inkSoft }}
-                    onClick={() => {
-                      setCompanyNameDraft(selectedWs?.company_name ?? "");
-                      setEditingCompanyName(true);
-                    }}
-                  >
-                    Rename company
-                  </button>
-                )}
-                {!confirmDeleteWorkspace && (
-                  <button style={{ ...linkBtn, color: T.accent }} onClick={() => setConfirmDeleteWorkspace(true)}>Delete company…</button>
-                )}
-              </div>
-            )}
-
-            {confirmDeleteWorkspace && (
-              <div style={{ marginTop: "0.8rem", padding: "0.9rem 1rem", border: `1px solid ${T.accent}`, background: T.accentSoft }}>
-                <p style={{ fontSize: "0.82rem", margin: "0 0 0.6rem 0", lineHeight: 1.5 }}>
-                  This permanently deletes <strong>{selectedWs?.company_name}</strong> and every period, review cycle, investigation and recommendation under it. Type the company name to confirm.
-                </p>
-                <input
-                  aria-label="Type the company name to confirm"
-                  style={{ ...inputStyle, marginBottom: "0.6rem" }}
-                  value={deleteWorkspaceConfirmText}
-                  onChange={(e) => setDeleteWorkspaceConfirmText(e.target.value)}
-                  placeholder={selectedWs?.company_name}
-                />
-                <div style={{ display: "flex", gap: "0.6rem" }}>
-                  <button style={btnPrimary} onClick={deleteWorkspace} disabled={deletingWorkspace}>
-                    {deletingWorkspace ? "Deleting…" : "Permanently delete"}
-                  </button>
-                  <button
-                    style={btnGhost}
-                    onClick={() => {
-                      setConfirmDeleteWorkspace(false);
-                      setDeleteWorkspaceConfirmText("");
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+              <p style={{ fontSize: "0.75rem", color: T.inkSoft, margin: "0.4rem 0 0 0" }}>
+                To rename, change the unit or delete this project, open its{" "}
+                <a href={`/sentinel/projects/${workspaceId}/settings`} style={{ color: T.accent }}>Settings</a>.
+              </p>
             )}
           </div>
 
@@ -475,12 +395,16 @@ export default function AddPeriodPage() {
             )}
           </div>
 
-          <ExtractUpload
+          <AutofillUpload
             workspaceUnit={selectedWs?.currency_unit}
             basis={selectedWs?.comparison_basis ?? "consolidated"}
-            onDraft={applyDraft}
+            fyStartMonth={selectedWs?.fiscal_year_start_month}
+            getValues={() => values}
+            onApply={applyAutofill}
+            onAiFill={applyAiFill}
             onError={(m) => setErrors(m ? [m] : [])}
             onUnauthenticated={() => router.push("/login")}
+            multiHint={<a href={`/sentinel/projects/${workspaceId}/import`} style={{ color: T.accent }}>Import all periods instead</a>}
           />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
@@ -513,6 +437,7 @@ export default function AddPeriodPage() {
             onChange={(key, v) => setValues((prev) => ({ ...prev, [key]: v }))}
             verify={verify}
             issues={issues}
+            sources={sources}
             unitLabel={unitLabel(selectedWs?.currency_unit)}
             disabled={saving}
           />

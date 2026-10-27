@@ -1,21 +1,24 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel — Data Entry (server-validated path). Unlike New Project and Manage Periods, which write to the
-// database from the browser, this page posts to /api/sentinel/statement, so the save runs the server's own
-// ownership and accounting checks. It uses the same fields as the other two entry paths (fields.ts) and
-// the same form component, and picks the company from a list of the ones you own instead of asking for a
-// pasted workspace id. Not linked from the sidebar - New Project and Manage Periods are the main routes.
+// Sentinel — Add period (route stays /sentinel/data-entry; server-validated path). Unlike Manage Periods, which
+// writes to the database from the browser, this page posts to /api/sentinel/statement, so the save runs the
+// server's own ownership and accounting checks. It uses the same fields and the same form component as Manage
+// Periods. It is in each project's side nav as "Add period" and opens on the project you are in; creating a
+// whole new company here is still possible, but New Project is the front door for that.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { sortWorkspaces } from "../lib/access";
 import { SECTOR_CONFIGS } from "../lib/config";
 import { BASES, PERIOD_TYPES } from "../lib/fields";
+import { AutofillUpload, type AutofillApplied } from "../lib/AutofillUpload";
 import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
 import { SERIF, T } from "../lib/theme";
 import { UNIT_OPTIONS, unitLabel } from "../lib/units";
+import { setSelectedWorkspace, useSharedSelection } from "../lib/useSelectedWorkspace";
 import { prepareFromForm, type Issue } from "../lib/validate";
 import type { Basis, Workspace } from "../lib/types";
 
@@ -53,6 +56,8 @@ export default function DataEntryPage() {
   const [sourceFile, setSourceFile] = useState("");
 
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [verify, setVerify] = useState<string[]>([]);
+  const [sources, setSources] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [messages, setMessages] = useState<string[]>([]);
 
@@ -71,8 +76,42 @@ export default function DataEntryPage() {
     })();
   }, [router]);
 
+  // Open on "add a period to the project you are in" (the shared selection), once the list of your own projects is
+  // known; after that the person's own choice is never overridden.
+  const shared = useSharedSelection();
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || workspaces.length === 0) return;
+    opened.current = true;
+    setExistingId((workspaces.find((w) => w.id === shared) ?? workspaces[0]).id);
+    setMode("existing");
+  }, [workspaces, shared]);
+
   const existing = workspaces.find((w) => w.id === existingId);
   const unit = mode === "new" ? currencyUnit : existing?.currency_unit;
+
+  function applyAutofill({ period, applied, result }: AutofillApplied) {
+    if (period.period_type) setPeriodType(period.period_type);
+    if (period.period_label) setPeriodLabel(period.period_label);
+    if (period.period_end_date) setPeriodEndDate(period.period_end_date);
+    if (period.basis) setBasis(period.basis);
+    setValues(applied.values);
+    setVerify(applied.verify);
+    setSources(applied.sources);
+    setSourceFile(result.source_file);
+    setIssues([]);
+    setMessages([]);
+  }
+
+  function applyAiFill({ values: filled, sources: more }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) {
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(filled)) if ((next[k] ?? "").trim() === "") next[k] = v;
+      return next;
+    });
+    setVerify((prev) => [...new Set([...prev, ...Object.keys(filled)])]);
+    setSources((prev) => ({ ...prev, ...more }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,9 +181,10 @@ export default function DataEntryPage() {
 
   return (
     <div style={{ maxWidth: 640 }}>
-      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>Data Entry</h1>
+      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>Add period</h1>
       <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: "0.4rem 0 1.2rem 0" }}>
-        Saves through the server, which checks ownership and the accounting before anything is written. Create a new company, or add a period to one you own.
+        Type a period&apos;s figures, or fill the form from a file and correct it. Saves through the server, which checks ownership and the accounting before anything is written. To add several periods from files at once, use{" "}
+        {existingId ? <Link href={`/sentinel/projects/${existingId}/import`} style={{ color: T.accent }}>Import files</Link> : "Import files"}.
       </p>
 
       <div role="radiogroup" aria-label="What to add" style={{ marginBottom: "1rem", display: "flex", gap: "1.2rem" }}>
@@ -190,7 +230,7 @@ export default function DataEntryPage() {
         ) : (
           <div style={{ marginBottom: "1.2rem" }}>
             <Field label="Company" htmlFor="de-existing">
-              <select id="de-existing" style={inputStyle} value={existingId} onChange={(e) => setExistingId(e.target.value)}>
+              <select id="de-existing" style={inputStyle} value={existingId} onChange={(e) => { setExistingId(e.target.value); setSelectedWorkspace(e.target.value); }}>
                 {workspaces.map((w) => (
                   <option key={w.id} value={w.id}>{w.company_name}</option>
                 ))}
@@ -203,6 +243,17 @@ export default function DataEntryPage() {
             )}
           </div>
         )}
+
+        <AutofillUpload
+          workspaceUnit={unit}
+          basis={mode === "new" ? comparisonBasis : existing?.comparison_basis ?? "consolidated"}
+          fyStartMonth={existing?.fiscal_year_start_month}
+          getValues={() => values}
+          onApply={applyAutofill}
+          onAiFill={applyAiFill}
+          onError={(m) => { setStatus(m ? "error" : "idle"); setMessages(m ? [m] : []); }}
+          onUnauthenticated={() => router.push("/login")}
+        />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
           <Field label="Period type" htmlFor="de-ptype">
@@ -231,6 +282,8 @@ export default function DataEntryPage() {
           values={values}
           onChange={(key, v) => setValues((prev) => ({ ...prev, [key]: v }))}
           issues={issues}
+          verify={verify}
+          sources={sources}
           unitLabel={unitLabel(unit)}
           disabled={status === "submitting"}
         />
@@ -248,6 +301,11 @@ export default function DataEntryPage() {
             {messages.map((m, i) => (
               <p key={i} style={{ margin: "0.2rem 0" }}>{m}</p>
             ))}
+            {status === "done" && mode === "existing" && existingId && (
+              <p style={{ margin: "0.5rem 0 0 0" }}>
+                <Link href={`/sentinel/projects/${existingId}`} style={{ color: T.accent }}>Open the project</Link>
+              </p>
+            )}
           </div>
         )}
       </form>

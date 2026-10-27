@@ -39,6 +39,7 @@ export type StatementExportPeerNote = {
 
 export type StatementExportData = {
   companyName: string;
+  /** The unit of every amount, as a label ("₹ lakh"); printed in the header. */
   currencyUnit: string;
   periods: StatementExportPeriod[];
   peerNotes: StatementExportPeerNote[];
@@ -89,7 +90,7 @@ export async function buildStatementWorkbook(data: StatementExportData): Promise
   const peerCol = showYoy ? yoyCol + 1 : yoyCol;
 
   const header = sheet.getRow(1);
-  header.getCell(1).value = "Line Item";
+  header.getCell(1).value = data.currencyUnit ? "Line Item (" + data.currencyUnit + ")" : "Line Item";
   data.periods.forEach((p, i) => {
     header.getCell(firstPeriodCol + i).value = p.label + " (" + p.basis + ")";
   });

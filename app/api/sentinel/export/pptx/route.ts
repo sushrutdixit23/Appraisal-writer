@@ -17,6 +17,7 @@ import {
   type BoardDeckKpi,
   type BoardDeckFinding,
 } from "../../../../sentinel/lib/pptx/board-deck";
+import type { DisplayFormat } from "../../../../sentinel/lib/displayUnitCore";
 import type { FinancialStatement, Investigation, Workspace } from "../../../../sentinel/lib/types";
 
 export const runtime = "nodejs";
@@ -29,7 +30,8 @@ const ratioX = (v: number | null) => (v == null ? "-" : v.toFixed(2) + "x");
 
 function gapNote(
   b: ReturnType<typeof getBenchmark>,
-  unit: "pp" | "cr" | "x" | "d"
+  unit: "pp" | "cr" | "x" | "d",
+  du: DisplayFormat
 ): string | null {
   if (!b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
@@ -40,7 +42,7 @@ function gapNote(
       ? b.gapToClosestPeer.toFixed(2) + "x"
       : unit === "d"
       ? b.gapToClosestPeer.toFixed(0) + "d"
-      : b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 }) + " cr";
+      : (du.fromCrore(b.gapToClosestPeer).toLocaleString("en-IN", { maximumFractionDigits: 0 }) + " " + du.crossShort).trim();
   return "vs " + b.closestPeer.company_name + ": " + sign + magnitude;
 }
 
@@ -127,7 +129,7 @@ function extractVerdict(narrative: string): { verdict: string | null; body: stri
 export async function POST(req: Request) {
   const ctx = await loadExportContext(req, { investigations: true });
   if (isFailure(ctx)) return ctx.error;
-  const { workspace, latestStmt, priorStmt, peerRows, selfRow } = ctx;
+  const { workspace, latestStmt, priorStmt, peerRows, selfRow, display: du } = ctx;
   const workspace_id = workspace.id;
 
   const kpis: BoardDeckKpi[] = KPI_DEFS.map((d) => {
@@ -136,10 +138,11 @@ export async function POST(req: Request) {
       d.metric === "revenue_cr" || d.metric === "pat_cr" || d.metric === "pbt_cr"
         ? (selfRow?.[d.metric as "revenue_cr" | "pat_cr" | "pbt_cr"] ?? null)
         : (selfRow?.ratios[d.metric] ?? null);
+    const isAmount = d.unit === "cr";
     return {
-      label: d.label,
-      value: d.format(rawValue),
-      note: gapNote(benchmark, d.unit),
+      label: isAmount ? d.label + ", " + du.crossLabel : d.label,
+      value: d.format(isAmount && rawValue != null ? du.fromCrore(rawValue) : rawValue),
+      note: gapNote(benchmark, d.unit, du),
     };
   });
 

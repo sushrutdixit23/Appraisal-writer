@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { findPriorYear } from "../../../../sentinel/lib/engine";
 import { isFailure, loadExportContext, safeFilename } from "../../../../sentinel/lib/server";
 import { getBenchmark } from "../../../../sentinel/lib/benchmark";
+import type { DisplayFormat } from "../../../../sentinel/lib/displayUnitCore";
 import {
   buildStatementWorkbook,
   type StatementExportData,
@@ -19,38 +20,34 @@ export const runtime = "nodejs";
 
 function formatVsPeer(
   b: ReturnType<typeof getBenchmark>,
-  isRatio: boolean
+  isRatio: boolean,
+  du: DisplayFormat
 ): string | null {
   if (!b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
   const gap = isRatio
     ? sign + (b.gapToClosestPeer * 100).toFixed(1) + "pp"
-    : sign + b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+    : (sign + du.fromCrore(b.gapToClosestPeer).toLocaleString("en-IN", { maximumFractionDigits: 0 }) + " " + du.crossShort).trim();
   return gap + " vs " + b.closestPeer.company_name;
 }
 
 export async function POST(req: Request) {
   const ctx = await loadExportContext(req);
   if (isFailure(ctx)) return ctx.error;
-  const { workspace, statements, ownFY: ownFYStatements, peerRows } = ctx;
+  const { workspace, statements, ownFY: ownFYStatements, peerRows, display: du } = ctx;
   const workspace_id = workspace.id;
 
   const periods: StatementExportPeriod[] = ownFYStatements.map((s) => ({
     label: s.period_label,
     basis: s.basis,
-    values: {
-      revenue_from_operations: s.revenue_from_operations,
-      other_income: s.other_income,
-      total_income: s.total_income,
-      total_expenses: s.total_expenses,
-      ebitda: s.ebitda,
-      depreciation_amortisation: s.depreciation_amortisation,
-      finance_costs: s.finance_costs,
-      exceptional_items: s.exceptional_items,
-      profit_before_tax: s.profit_before_tax,
-      tax_expense: s.tax_expense,
-      profit_after_tax: s.profit_after_tax,
-    },
+    values: Object.fromEntries(
+      (
+        [
+          "revenue_from_operations", "other_income", "total_income", "total_expenses", "ebitda", "depreciation_amortisation",
+          "finance_costs", "exceptional_items", "profit_before_tax", "tax_expense", "profit_after_tax",
+        ] as const
+      ).map((k) => [k, s[k] == null ? null : Number(du.fromCompany(s[k] as number, workspace.currency_unit).toPrecision(12))])
+    ) as Record<string, number | null>,
   }));
 
   const peerNotes: StatementExportPeerNote[] = [];
@@ -64,7 +61,7 @@ export async function POST(req: Request) {
   if (peerRows.length > 1) {
     for (const d of peerDefs) {
       const benchmark = getBenchmark(peerRows, workspace_id, d.metric);
-      const note = formatVsPeer(benchmark, d.isRatio);
+      const note = formatVsPeer(benchmark, d.isRatio, du);
       if (note) peerNotes.push({ rowKey: d.rowKey, note });
     }
   }
@@ -79,7 +76,7 @@ export async function POST(req: Request) {
 
   const exportData: StatementExportData = {
     companyName: workspace.company_name,
-    currencyUnit: workspace.currency_unit,
+    currencyUnit: du.ownLabel(workspace.currency_unit),
     periods,
     peerNotes,
     yoyComparable,

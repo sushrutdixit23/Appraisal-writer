@@ -36,7 +36,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
 import { ordinal } from "../lib/format";
-import { unitLabel } from "../lib/units";
+import { useDisplayUnit } from "../lib/displayUnit";
+import type { DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
 import { buildPeerTable, buildTimeSeries, findPriorYear } from "../lib/engine";
@@ -51,7 +52,7 @@ const num = (v: number | null) =>
 const days = (v: number | null) => (v == null ? "-" : `${v.toFixed(0)}d`);
 const ratioX = (v: number | null) => (v == null ? "-" : `${v.toFixed(2)}x`);
 
-function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
+function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d", du: DisplayFormat): string | null {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
   const magnitude =
@@ -61,11 +62,11 @@ function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d")
       ? `${b.gapToClosestPeer.toFixed(2)}x`
       : unit === "d"
       ? `${b.gapToClosestPeer.toFixed(0)}d`
-      : `${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
+      : `${du.fromCrore(b.gapToClosestPeer).toLocaleString("en-IN", { maximumFractionDigits: 0 })} ${du.crossShort}`.trim();
   return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
 }
 
-function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"): string | null {
+function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d", du: DisplayFormat): string | null {
   if (!b || b.industryAverage == null || !b.industryLeader) return null;
   const fmt = (v: number) =>
     unit === "pp"
@@ -74,17 +75,17 @@ function formatIndustryLine(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d"):
       ? `${v.toFixed(2)}x`
       : unit === "d"
       ? `${v.toFixed(0)}d`
-      : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+      : du.fromCrore(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return `Industry average ${fmt(b.industryAverage)}, led by ${b.industryLeader.company_name} at ${fmt(
     b.industryLeader.value
   )}`;
 }
 
-function formatByUnit(v: number, unit: "pp" | "cr" | "x" | "d"): string {
+function formatByUnit(v: number, unit: "pp" | "cr" | "x" | "d", du: DisplayFormat): string {
   if (unit === "pp") return `${(v * 100).toFixed(1)}%`;
   if (unit === "x") return `${v.toFixed(2)}x`;
   if (unit === "d") return `${v.toFixed(0)}d`;
-  return v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return du.fromCrore(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 // Computed directly from peerRows (not approximated from percentile) so
@@ -288,6 +289,7 @@ function RankStat({ label, value }: { label: string; value: string }) {
 export default function KpiDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const du = useDisplayUnit();
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
@@ -353,7 +355,7 @@ export default function KpiDashboardPage() {
       const res = await fetch("/api/sentinel/export/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ workspace_id: selected.id }),
+        body: JSON.stringify({ workspace_id: selected.id, unit: du.unit }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -383,7 +385,7 @@ export default function KpiDashboardPage() {
       const res = await fetch("/api/sentinel/export/pptx", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ workspace_id: selected.id }),
+        body: JSON.stringify({ workspace_id: selected.id, unit: du.unit }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -413,7 +415,9 @@ export default function KpiDashboardPage() {
     PEER_RANKING_METRICS.find((m) => m.metric === rankingMetric) ?? PEER_RANKING_METRICS[0];
   const rankingBenchmark = getBenchmark(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
   const rank = computeRank(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
-  const rankingBarData = buildBarData(peerRows, rankingDef.metric);
+  const rankingBarData = buildBarData(peerRows, rankingDef.metric).map((d) =>
+    rankingDef.unit === "cr" ? { ...d, value: du.fromCrore(d.value) } : d
+  );
 
   const revenueBenchmark = getBenchmark(peerRows, selected.id, "revenue_cr");
   const ebitdaBenchmark = getBenchmark(peerRows, selected.id, "ebitda_margin");
@@ -443,8 +447,10 @@ export default function KpiDashboardPage() {
     : null;
   const quickSummary = healthScore ? buildQuickSummary(healthScore) : null;
 
-  const revenueTrend = buildTimeSeries(selected, statements, "revenue_from_operations");
-  const patTrend = buildTimeSeries(selected, statements, "profit_after_tax");
+  const shown = (series: { label: string; value: number }[]) =>
+    series.map((d) => ({ ...d, value: du.fromCompany(d.value, selected.currency_unit) }));
+  const revenueTrend = shown(buildTimeSeries(selected, statements, "revenue_from_operations"));
+  const patTrend = shown(buildTimeSeries(selected, statements, "profit_after_tax"));
 
   const debt = latestOwnStatement?.total_debt ?? null;
   const equity = latestOwnStatement?.total_equity ?? null;
@@ -530,75 +536,75 @@ export default function KpiDashboardPage() {
           }}
         >
           <StatFigure
-            label="Revenue (latest FY, \u20b9 crore)"
-            value={selfRow ? num(selfRow.revenue_cr) : "-"}
-            note={formatBenchmarkNote(revenueBenchmark, "cr")}
+            label={`Revenue (latest FY, ${du.crossLabel})`}
+            value={selfRow ? num(du.fromCrore(selfRow.revenue_cr)) : "-"}
+            note={formatBenchmarkNote(revenueBenchmark, "cr", du)}
             formula="As reported: Revenue from Operations"
           />
           <StatFigure
             label="EBITDA margin"
             value={pct(selfRow?.ratios.ebitda_margin ?? null)}
-            note={formatBenchmarkNote(ebitdaBenchmark, "pp")}
+            note={formatBenchmarkNote(ebitdaBenchmark, "pp", du)}
             formula="EBITDA / Revenue from Operations"
           />
           <StatFigure
             label="PAT margin"
             value={pct(selfRow?.ratios.pat_margin ?? null)}
-            note={formatBenchmarkNote(patBenchmark, "pp")}
+            note={formatBenchmarkNote(patBenchmark, "pp", du)}
             formula="Profit After Tax / Revenue from Operations"
           />
           <StatFigure
             label="Revenue YoY"
             value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
-            note={formatBenchmarkNote(yoyBenchmark, "pp")}
+            note={formatBenchmarkNote(yoyBenchmark, "pp", du)}
             formula="(Current Revenue - Prior Revenue) / Prior Revenue"
           />
           <StatFigure
-            label="PAT (latest FY, \u20b9 crore)"
-            value={selfRow ? num(selfRow.pat_cr) : "-"}
-            note={formatBenchmarkNote(patAbsBenchmark, "cr")}
+            label={`PAT (latest FY, ${du.crossLabel})`}
+            value={selfRow ? num(du.fromCrore(selfRow.pat_cr)) : "-"}
+            note={formatBenchmarkNote(patAbsBenchmark, "cr", du)}
             formula="As reported: Profit After Tax"
           />
           <StatFigure
             label="PAT YoY"
             value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
-            note={formatBenchmarkNote(patYoyBenchmark, "pp")}
+            note={formatBenchmarkNote(patYoyBenchmark, "pp", du)}
             formula="(Current PAT - Prior PAT) / |Prior PAT| - measured against the size of the prior figure, so a loss that narrows reads as growth"
           />
           <StatFigure
             label="Current ratio"
             value={ratioX(selfRow?.ratios.current_ratio ?? null)}
-            note={formatBenchmarkNote(currentRatioBenchmark, "x")}
+            note={formatBenchmarkNote(currentRatioBenchmark, "x", du)}
             formula="Current Assets / Current Liabilities"
           />
           <StatFigure
             label="Debt-to-equity"
             value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
-            note={formatBenchmarkNote(debtEquityBenchmark, "x")}
+            note={formatBenchmarkNote(debtEquityBenchmark, "x", du)}
             formula="Total Debt / Total Equity"
           />
           <StatFigure
             label="Inventory days"
             value={days(selfRow?.ratios.inventory_days ?? null)}
-            note={formatBenchmarkNote(inventoryDaysBenchmark, "d")}
+            note={formatBenchmarkNote(inventoryDaysBenchmark, "d", du)}
             formula="(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
           />
           <StatFigure
             label="Receivable days"
             value={days(selfRow?.ratios.receivable_days ?? null)}
-            note={formatBenchmarkNote(receivableDaysBenchmark, "d")}
+            note={formatBenchmarkNote(receivableDaysBenchmark, "d", du)}
             formula="(Trade Receivables / Revenue from Operations) x 365"
           />
           <StatFigure
             label="Payable days"
             value={days(selfRow?.ratios.payable_days ?? null)}
-            note={formatBenchmarkNote(payableDaysBenchmark, "d")}
+            note={formatBenchmarkNote(payableDaysBenchmark, "d", du)}
             formula="(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
           />
           <StatFigure
             label="Cash conversion cycle"
             value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
-            note={formatBenchmarkNote(cccBenchmark, "d")}
+            note={formatBenchmarkNote(cccBenchmark, "d", du)}
             formula="Inventory Days + Receivable Days - Payable Days"
           />
         </div>
@@ -606,7 +612,7 @@ export default function KpiDashboardPage() {
 
       <Schedule
         title="Peer standing"
-        subtitle={formatIndustryLine(rankingBenchmark, rankingDef.unit)}
+        subtitle={formatIndustryLine(rankingBenchmark, rankingDef.unit, du)}
         right={
           <select value={rankingMetric} onChange={(e) => setRankingMetric(e.target.value)} style={selectStyle}>
             {PEER_RANKING_METRICS.map((m) => (
@@ -636,7 +642,7 @@ export default function KpiDashboardPage() {
           />
           <RankStat
             label="Gap to closest peer"
-            value={formatBenchmarkNote(rankingBenchmark, rankingDef.unit) ?? "-"}
+            value={formatBenchmarkNote(rankingBenchmark, rankingDef.unit, du) ?? "-"}
           />
           <RankStat
             label="Industry leader"
@@ -644,7 +650,8 @@ export default function KpiDashboardPage() {
               rankingBenchmark.industryLeader
                 ? `${rankingBenchmark.industryLeader.company_name} (${formatByUnit(
                     rankingBenchmark.industryLeader.value,
-                    rankingDef.unit
+                    rankingDef.unit,
+                    du
                   )})`
                 : "-"
             }
@@ -653,7 +660,7 @@ export default function KpiDashboardPage() {
             label="Industry average"
             value={
               rankingBenchmark.industryAverage != null
-                ? formatByUnit(rankingBenchmark.industryAverage, rankingDef.unit)
+                ? formatByUnit(rankingBenchmark.industryAverage, rankingDef.unit, du)
                 : "-"
             }
           />
@@ -668,11 +675,11 @@ export default function KpiDashboardPage() {
       <Schedule title="Trend">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
           <div>
-            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue ({unitLabel(selected.currency_unit)})</p>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue ({du.ownLabel(selected.currency_unit)})</p>
             <TrendLineChart data={revenueTrend} isRatio={false} />
           </div>
           <div>
-            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax ({unitLabel(selected.currency_unit)})</p>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax ({du.ownLabel(selected.currency_unit)})</p>
             <TrendLineChart data={patTrend} isRatio={false} />
           </div>
         </div>
@@ -690,8 +697,8 @@ export default function KpiDashboardPage() {
               <span>Equity {equityPct.toFixed(0)}%</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-              <RankStat label={`Total debt (${unitLabel(selected.currency_unit)})`} value={num(debt)} />
-              <RankStat label={`Total equity (${unitLabel(selected.currency_unit)})`} value={num(equity)} />
+              <RankStat label={`Total debt (${du.ownLabel(selected.currency_unit)})`} value={num(debt == null ? null : du.fromCompany(debt, selected.currency_unit))} />
+              <RankStat label={`Total equity (${du.ownLabel(selected.currency_unit)})`} value={num(equity == null ? null : du.fromCompany(equity, selected.currency_unit))} />
               <RankStat
                 label="Debt-to-equity"
                 value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}

@@ -25,13 +25,11 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { PDFParse } from "pdf-parse";
-import { del } from "@vercel/blob";
-import { ALL_FIELD_KEYS, BASES } from "../../../sentinel/lib/fields";
+import { ALL_FIELD_KEYS } from "../../../sentinel/lib/fields";
 import {
   EXTRACTION_SYSTEM_PROMPT,
   buildExtractionUserPrompt,
   checkDraft,
-  parseBlobUrl,
   parseModelDraft,
   resolveUnit,
   selectStatementPages,
@@ -39,60 +37,15 @@ import {
   type PdfPage,
 } from "../../../sentinel/lib/extraction";
 import { authenticate, getAdmin, isFailure } from "../../../sentinel/lib/server";
-import type { Basis } from "../../../sentinel/lib/types";
+import { readUpload } from "../../../sentinel/lib/upload";
 
 export const runtime = "nodejs";
 
 const MODEL = "claude-sonnet-5";
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const MAX_PROMPT_CHARS = 150_000;
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
 const looksLikePdf = (b: Buffer) => b.subarray(0, 5).toString("latin1") === "%PDF-";
-
-type Upload = { buffer: Buffer; filename: string; basis: Basis | null };
-
-async function readUpload(req: Request): Promise<Upload | { error: NextResponse }> {
-  const asBasis = (v: unknown): Basis | null =>
-    typeof v === "string" && (BASES as readonly string[]).includes(v) ? (v as Basis) : null;
-  const contentType = req.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    let body: { blob_url?: unknown; filename?: unknown; basis?: unknown };
-    try {
-      body = await req.json();
-    } catch {
-      return { error: fail("The request body is not valid JSON.", 400) };
-    }
-    if (!body.blob_url) return { error: fail("Missing blob_url.", 400) };
-    const url = parseBlobUrl(body.blob_url);
-    if (!url) return { error: fail("That file location is not one this app issued.", 400) };
-
-    const res = await fetch(url.href);
-    if (!res.ok) return { error: fail("Could not fetch the uploaded file from storage.", 502) };
-    const declared = Number(res.headers.get("content-length") ?? 0);
-    if (declared > MAX_FILE_BYTES) return { error: fail("That file is larger than the 100MB limit.", 413) };
-    const buffer = Buffer.from(await res.arrayBuffer());
-    // Once the bytes are in hand the stored copy has no further use. Best effort: a failed delete
-    // must not fail the extraction.
-    await del(url.href).catch((e) => console.error("Sentinel: could not delete uploaded blob:", e));
-    if (buffer.length > MAX_FILE_BYTES) return { error: fail("That file is larger than the 100MB limit.", 413) };
-    const filename = typeof body.filename === "string" && body.filename.trim() ? body.filename.trim().slice(0, 200) : "uploaded.pdf";
-    return { buffer, filename, basis: asBasis(body.basis) };
-  }
-
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return { error: fail("Could not read the upload.", 400) };
-  }
-  const file = form.get("file");
-  if (!(file instanceof File)) return { error: fail("No file uploaded.", 400) };
-  if (file.type !== "application/pdf") return { error: fail("Only PDF files are supported right now.", 400) };
-  if (file.size > MAX_FILE_BYTES) return { error: fail("That file is larger than the 100MB limit.", 413) };
-  return { buffer: Buffer.from(await file.arrayBuffer()), filename: file.name.slice(0, 200), basis: asBasis(form.get("basis")) };
-}
 
 export async function POST(req: Request) {
   const a = getAdmin();
@@ -103,6 +56,7 @@ export async function POST(req: Request) {
   const upload = await readUpload(req);
   if ("error" in upload) return upload.error;
   const { buffer, filename, basis: preferredBasis } = upload;
+  if (upload.mimeType !== "application/pdf" && !looksLikePdf(buffer)) return fail("Only PDF files are supported right now.", 400);
   if (!looksLikePdf(buffer)) return fail("That file is not a PDF.", 400);
 
   let pages: PdfPage[];

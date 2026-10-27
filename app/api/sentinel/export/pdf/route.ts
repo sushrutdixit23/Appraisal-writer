@@ -16,6 +16,7 @@ import { isFailure, loadExportContext, safeFilename } from "../../../../sentinel
 import { getBenchmark } from "../../../../sentinel/lib/benchmark";
 import { computeHealthScore } from "../../../../sentinel/lib/health";
 import { getSectorConfig } from "../../../../sentinel/lib/config";
+import type { DisplayFormat } from "../../../../sentinel/lib/displayUnitCore";
 import {
   MisPackDocument,
   type MisPackData,
@@ -30,6 +31,9 @@ export const runtime = "nodejs";
 // Same 12 metrics and formatting convention as the KPI Dashboard's
 // page.tsx, deliberately duplicated here rather than imported (those
 // formatters are page-local) - keep both in sync if either changes.
+// The PDF's built-in font has no rupee glyph (it prints as a superscript 1), so units are spelled "Rs" here.
+const plain = (label: string) => label.replace(/\u20b9/g, "Rs");
+
 const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
 const num = (v: number | null) =>
   v == null ? "—" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -38,7 +42,8 @@ const ratioX = (v: number | null) => (v == null ? "—" : `${v.toFixed(2)}x`);
 
 function gapNote(
   b: ReturnType<typeof getBenchmark>,
-  unit: "pp" | "cr" | "x" | "d"
+  unit: "pp" | "cr" | "x" | "d",
+  du: DisplayFormat
 ): string | null {
   if (!b.closestPeer || b.gapToClosestPeer == null) return null;
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
@@ -49,7 +54,7 @@ function gapNote(
       ? `${b.gapToClosestPeer.toFixed(2)}x`
       : unit === "d"
       ? `${b.gapToClosestPeer.toFixed(0)}d`
-      : `${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
+      : `${du.fromCrore(b.gapToClosestPeer).toLocaleString("en-IN", { maximumFractionDigits: 0 })} ${du.crossShort}`.trim();
   return `vs ${b.closestPeer.company_name}: ${sign}${magnitude}`;
 }
 
@@ -134,7 +139,7 @@ const STATEMENT_ROWS: { label: string; key: keyof FinancialStatement; bold?: boo
 export async function POST(req: Request) {
   const ctx = await loadExportContext(req, { investigations: true });
   if (isFailure(ctx)) return ctx.error;
-  const { workspace, ownFY: ownFYStatements, latestStmt, priorStmt, peerRows, selfRow } = ctx;
+  const { workspace, ownFY: ownFYStatements, latestStmt, priorStmt, peerRows, selfRow, display: du } = ctx;
   const workspace_id = workspace.id;
 
   const kpis: MisPackKpi[] = KPI_DEFS.map((d) => {
@@ -143,10 +148,12 @@ export async function POST(req: Request) {
       d.metric === "revenue_cr" || d.metric === "pat_cr" || d.metric === "pbt_cr"
         ? (selfRow?.[d.metric as "revenue_cr" | "pat_cr" | "pbt_cr"] ?? null)
         : (selfRow?.ratios[d.metric] ?? null);
+    // Peer-table amounts are held in crore; the pack shows them in the chosen unit and names it in the label.
+    const isAmount = d.unit === "cr";
     return {
-      label: d.label,
-      value: d.format(rawValue),
-      note: gapNote(benchmark, d.unit),
+      label: isAmount ? `${d.label}, ${plain(du.crossLabel)}` : d.label,
+      value: d.format(isAmount && rawValue != null ? du.fromCrore(rawValue) : rawValue),
+      note: gapNote(benchmark, d.unit, du),
     };
   });
 
@@ -164,7 +171,7 @@ export async function POST(req: Request) {
       const v = s[row.key] as number | null;
       return v == null
         ? null
-        : v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        : du.fromCompany(v, workspace.currency_unit).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     }),
   }));
 
@@ -212,6 +219,7 @@ export async function POST(req: Request) {
     kpis,
     health: healthForPdf,
     periodLabels: recentStatements.map((s) => s.period_label),
+    statementUnit: plain(du.ownLabel(workspace.currency_unit)),
     statementRows,
     investigations,
   };

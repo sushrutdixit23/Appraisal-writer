@@ -61,12 +61,14 @@ type Props = {
   verify?: string[];
   /** Findings from validateStatement, shown against the fields they concern. */
   issues?: Issue[];
+  /** Where each filled figure came from (the line of the file), shown under the field. */
+  sources?: Record<string, string>;
   /** Unit label for the section headings, e.g. "₹ crore". */
   unitLabel: string;
   disabled?: boolean;
 };
 
-export function StatementFields({ values, onChange, verify = [], issues = [], unitLabel, disabled }: Props) {
+export function StatementFields({ values, onChange, verify = [], issues = [], sources = {}, unitLabel, disabled }: Props) {
   const uid = useId();
   const issueFields = new Map<string, Issue[]>();
   for (const issue of issues) for (const f of issue.fields) issueFields.set(f, [...(issueFields.get(f) ?? []), issue]);
@@ -103,6 +105,15 @@ export function StatementFields({ values, onChange, verify = [], issues = [], un
             style={{ fontSize: "0.7rem", color: typedButInvalid ? "#B3261E" : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
           >
             {typedButInvalid ? "That is not a number." : f.hint}
+          </p>
+        )}
+        {sources[f.key] && raw !== "" && (
+          <p
+            data-source-for={f.key}
+            title={sources[f.key]}
+            style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.2rem 0 0 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            {sources[f.key]}
           </p>
         )}
       </Field>

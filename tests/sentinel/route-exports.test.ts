@@ -135,3 +135,73 @@ test("exports only ever load the CALLER'S investigations, never another user's d
   const other = await loadExportContext(req({ workspace_id: wsRef }, "tok-b"), { investigations: true });
   assert.deepEqual((other as any).investigations.map((i: any) => i.ai_narrative), ["B's private draft"]);
 });
+
+// ---- the Display unit reaches the files -----------------------------------------------------------------------
+import JSZip from "jszip";
+import { PDFParse } from "pdf-parse";
+
+async function sheetIn(unit: string | undefined, workspace_id = wsA) {
+  const res = await xlsx(req({ workspace_id, ...(unit ? { unit } : {}) }));
+  assert.equal(res.status, 200);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(await res.arrayBuffer()) as any);
+  return wb.getWorksheet("Income Statement")!;
+}
+
+test("excel: the unit is named in the header and amounts are converted to the chosen display unit", async () => {
+  const asReported = await sheetIn(undefined);
+  assert.equal(asReported.getRow(1).getCell(1).value, "Line Item (₹ Crore)");
+  assert.equal(asReported.getRow(2).getCell(3).value, 1200);
+
+  const lakh = await sheetIn("INR_LAKH");
+  assert.equal(lakh.getRow(1).getCell(1).value, "Line Item (₹ Lakh)");
+  assert.equal(lakh.getRow(2).getCell(2).value, 100000); // FY25: 1,000 crore = 1,00,000 lakh
+  assert.equal(lakh.getRow(2).getCell(3).value, 120000);
+  // The peer gap is a cross-company amount: 1,200 - 1,100 = 100 crore = 10,000 lakh, and it says lakh.
+  assert.match(JSON.stringify(lakh.getSheetValues()), /\+10,000 lakh vs Reference Tyres/);
+});
+
+test("excel: a company that reports in lakh shows in crore when asked, and as reported otherwise", async () => {
+  backend.rowsOf("sentinel_workspaces").find((w) => w.id === wsA)!.currency_unit = "INR_LAKH";
+  const own = await sheetIn(undefined);
+  assert.equal(own.getRow(1).getCell(1).value, "Line Item (₹ Lakh)");
+  assert.equal(own.getRow(2).getCell(3).value, 1200);
+  const crore = await sheetIn("INR_CRORE");
+  assert.equal(crore.getRow(1).getCell(1).value, "Line Item (₹ Crore)");
+  assert.equal(crore.getRow(2).getCell(3).value, 12); // 1,200 lakh = 12 crore
+});
+
+test("an unrecognised unit in the request is read as 'as reported', not an error", async () => {
+  const ctx = await loadExportContext(req({ workspace_id: wsA, unit: "furlongs" }));
+  assert.ok(!isFailure(ctx));
+  assert.equal((ctx as any).display.unit, "as_reported");
+});
+
+test("pdf: amounts carry their unit, and follow the Display choice", async () => {
+  async function textOf(unit?: string) {
+    const res = await pdf(req({ workspace_id: wsA, ...(unit ? { unit } : {}) }));
+    assert.equal(res.status, 200);
+    const parser = new PDFParse({ data: Buffer.from(await res.arrayBuffer()) });
+    const { text } = await parser.getText();
+    await parser.destroy();
+    return text.replace(/\s+/g, " ");
+  }
+  const crore = await textOf();
+  assert.match(crore, /Income Statement \(Rs Crore\)/); // the PDF font has no rupee glyph, so the unit reads Rs
+  assert.match(crore, /Revenue \(latest FY\), Rs crore/i); // KPI labels are set in capitals
+  const lakh = await textOf("INR_LAKH");
+  assert.match(lakh, /Income Statement \(Rs Lakh\)/);
+  assert.match(lakh, /Revenue \(latest FY\), Rs Lakh/i);
+  assert.ok(!/\u00b9/.test(lakh), "a rupee sign printed as a superscript 1");
+  assert.match(lakh, /1,20,000\.0/); // FY26 revenue 1,200 crore as lakh, Indian grouping
+});
+
+test("pptx: the KPI slide names the unit and converts the amounts", async () => {
+  const res = await pptx(req({ workspace_id: wsA, unit: "INR_LAKH" }));
+  assert.equal(res.status, 200);
+  const zip = await JSZip.loadAsync(Buffer.from(await res.arrayBuffer()));
+  const slides = await Promise.all(Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).map((f) => zip.files[f].async("string")));
+  const all = slides.join("");
+  assert.match(all, /Revenue \(latest FY\), ₹ Lakh/);
+  assert.match(all, /1,20,000/);
+});
