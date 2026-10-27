@@ -107,10 +107,17 @@ export type PeerRow = {
   period_label: string;
   basis: Basis;
   basis_caveat: string | null;
+  // Absolute figures are in CRORE whatever unit the company reports in
+  // (buildPeerTable converts), so rows from different companies compare.
   revenue_cr: number;
   pat_cr: number;
   pbt_cr: number;
   exceptional_items_cr: number;
+  // The prior-year figures behind the YoY ratios, in crore. null when
+  // there is no like-for-like prior year on file.
+  prior_revenue_cr: number | null;
+  prior_pat_cr: number | null;
+  total_equity_cr: number | null;
   has_prior_year: boolean;
   ratios: Record<string, number | null>;
 };

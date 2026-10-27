@@ -34,6 +34,10 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
+import { ordinal } from "../lib/format";
+import { unitLabel } from "../lib/units";
+import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
 import { buildPeerTable, buildTimeSeries, findPriorYear } from "../lib/engine";
 import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
@@ -287,7 +291,8 @@ export default function KpiDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [userId, setUserId] = useState("");
+  const [selectedId, setSelectedId] = useSelectedWorkspace(workspaces.map((w) => w.id));
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
   const [rankingMetric, setRankingMetric] = useState(PEER_RANKING_METRICS[0].metric);
@@ -305,9 +310,9 @@ export default function KpiDashboardPage() {
         setLoading(false);
         return;
       }
-      const ws = (wsData ?? []) as Workspace[];
+      const ws = sortWorkspaces((wsData ?? []) as Workspace[], sessionData.session.user.id);
+      setUserId(sessionData.session.user.id);
       setWorkspaces(ws);
-      if (ws.length > 0) setSelectedId(ws[0].id);
 
       const { data: stmtData, error: stmtError } = await supabase
         .from("sentinel_statements")
@@ -426,10 +431,15 @@ export default function KpiDashboardPage() {
   const ownFYStatements = statements
     .filter((s) => s.workspace_id === selected.id && s.period_type === "FY")
     .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
-  const latestOwnStatement = ownFYStatements[ownFYStatements.length - 1] ?? null;
+  // The statement the peer table used (latest year, on the company's own basis), so the health score,
+  // the key figures and the peer ranking all describe the same period.
+  const latestOwnStatement =
+    ownFYStatements.find((s) => selfRow && s.period_label === selfRow.period_label && s.basis === selfRow.basis) ??
+    ownFYStatements[ownFYStatements.length - 1] ??
+    null;
   const priorOwnStatement = latestOwnStatement ? findPriorYear(latestOwnStatement, statements) : null;
   const healthScore = latestOwnStatement
-    ? computeHealthScore(latestOwnStatement, priorOwnStatement, selected.sector)
+    ? computeHealthScore(latestOwnStatement, priorOwnStatement, selected.sector, selected.currency_unit)
     : null;
   const quickSummary = healthScore ? buildQuickSummary(healthScore) : null;
 
@@ -453,10 +463,10 @@ export default function KpiDashboardPage() {
           marginBottom: "1.6rem",
         }}
       >
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={selectStyle}>
+        <select aria-label="Company" value={selected.id} onChange={(e) => setSelectedId(e.target.value)} style={selectStyle}>
           {workspaces.map((w) => (
             <option key={w.id} value={w.id}>
-              {w.company_name}
+              {workspaceOptionLabel(w, userId)}
             </option>
           ))}
         </select>
@@ -520,7 +530,7 @@ export default function KpiDashboardPage() {
           }}
         >
           <StatFigure
-            label="Revenue (latest FY)"
+            label="Revenue (latest FY, \u20b9 crore)"
             value={selfRow ? num(selfRow.revenue_cr) : "-"}
             note={formatBenchmarkNote(revenueBenchmark, "cr")}
             formula="As reported: Revenue from Operations"
@@ -544,7 +554,7 @@ export default function KpiDashboardPage() {
             formula="(Current Revenue - Prior Revenue) / Prior Revenue"
           />
           <StatFigure
-            label="PAT (latest FY)"
+            label="PAT (latest FY, \u20b9 crore)"
             value={selfRow ? num(selfRow.pat_cr) : "-"}
             note={formatBenchmarkNote(patAbsBenchmark, "cr")}
             formula="As reported: Profit After Tax"
@@ -553,7 +563,7 @@ export default function KpiDashboardPage() {
             label="PAT YoY"
             value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
             note={formatBenchmarkNote(patYoyBenchmark, "pp")}
-            formula="(Current PAT - Prior PAT) / Prior PAT"
+            formula="(Current PAT - Prior PAT) / |Prior PAT| - measured against the size of the prior figure, so a loss that narrows reads as growth"
           />
           <StatFigure
             label="Current ratio"
@@ -618,7 +628,7 @@ export default function KpiDashboardPage() {
           <RankStat label="Rank" value={rank ? `${rank.rank} of ${rank.total}` : "-"} />
           <RankStat
             label="Percentile"
-            value={rankingBenchmark.percentile != null ? `${Math.round(rankingBenchmark.percentile)}th` : "-"}
+            value={rankingBenchmark.percentile != null ? ordinal(rankingBenchmark.percentile) : "-"}
           />
           <RankStat
             label="Closest peer"
@@ -658,11 +668,11 @@ export default function KpiDashboardPage() {
       <Schedule title="Trend">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
           <div>
-            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue</p>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue ({unitLabel(selected.currency_unit)})</p>
             <TrendLineChart data={revenueTrend} isRatio={false} />
           </div>
           <div>
-            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax</p>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax ({unitLabel(selected.currency_unit)})</p>
             <TrendLineChart data={patTrend} isRatio={false} />
           </div>
         </div>
@@ -680,8 +690,8 @@ export default function KpiDashboardPage() {
               <span>Equity {equityPct.toFixed(0)}%</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-              <RankStat label="Total debt" value={num(debt)} />
-              <RankStat label="Total equity" value={num(equity)} />
+              <RankStat label={`Total debt (${unitLabel(selected.currency_unit)})`} value={num(debt)} />
+              <RankStat label={`Total equity (${unitLabel(selected.currency_unit)})`} value={num(equity)} />
               <RankStat
                 label="Debt-to-equity"
                 value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}

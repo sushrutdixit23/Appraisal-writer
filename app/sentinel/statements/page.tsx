@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { buildPeerTable } from "../lib/engine";
+import { buildPeerTable, findPriorYear } from "../lib/engine";
+import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
+import { unitLabel } from "../lib/units";
+import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
@@ -67,13 +70,13 @@ function formatVsPeer(b: Benchmark | null | undefined, isRatio: boolean): string
   const sign = b.gapToClosestPeer >= 0 ? "+" : "";
   const gap = isRatio
     ? `${sign}${(b.gapToClosestPeer * 100).toFixed(1)}pp`
-    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+    : `${sign}${b.gapToClosestPeer.toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr`;
   return `${gap} vs ${b.closestPeer.company_name}`;
 }
 
 function downloadCsv(workspace: Workspace, periods: FinancialStatement[]) {
   const lines: string[] = [];
-  lines.push(["Line Item", ...periods.map((p) => p.period_label)].join(","));
+  lines.push([`"Line Item (${unitLabel(workspace.currency_unit)})"`, ...periods.map((p) => `"${p.period_label} (${p.basis})"`)].join(","));
   for (const row of ROWS) {
     const cells = periods.map((p) => {
       const v = p[row.key] as number | null;
@@ -99,7 +102,8 @@ export default function FinancialStatementsPage() {
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [userId, setUserId] = useState("");
+  const [subjectId, setSubjectId] = useSelectedWorkspace(workspaces.map((w) => w.id));
   const [commonSize, setCommonSize] = useState(false);
   const [downloadingXlsx, setDownloadingXlsx] = useState(false);
 
@@ -116,9 +120,9 @@ export default function FinancialStatementsPage() {
         setLoading(false);
         return;
       }
-      const ws = (wsData ?? []) as Workspace[];
+      const ws = sortWorkspaces((wsData ?? []) as Workspace[], sessionData.session.user.id);
+      setUserId(sessionData.session.user.id);
       setWorkspaces(ws);
-      if (ws.length > 0) setSubjectId(ws[0].id);
 
       const { data: stmtData, error: stmtError } = await supabase
         .from("sentinel_statements")
@@ -185,6 +189,11 @@ export default function FinancialStatementsPage() {
   // same scoping YoY% already uses (last two periods only, regardless
   // of how many years the table shows) - "vs Peers" sits alongside
   // YoY% as a single extra column rather than one per period.
+  // Year-on-year compares the latest period with the SAME basis one year earlier - not with whatever
+  // column happens to sit next to it, which could be a missing year or the other basis.
+  const latestPeriod = periods[periods.length - 1] ?? null;
+  const priorPeriod = latestPeriod ? findPriorYear(latestPeriod, statements) : null;
+  const showYoy = !commonSize && latestPeriod != null && priorPeriod != null;
   const sectorWorkspaces = workspaces.filter((w) => w.sector === workspace.sector);
   const peerRows = buildPeerTable(sectorWorkspaces, statements, subjectId, "FY");
   const showPeerCol = !commonSize && peerRows.length > 1;
@@ -225,15 +234,15 @@ export default function FinancialStatementsPage() {
           margin: "0.45rem 0 1.5rem 0",
         }}
       >
-        Income Statement — {workspace.currency_unit.replace("_", " ")}, all figures as reported
+        Income Statement — {unitLabel(workspace.currency_unit)}, all figures as reported
       </p>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={selectStyle}>
+          <select aria-label="Company" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={selectStyle}>
             {workspaces.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.company_name}
+                {workspaceOptionLabel(w, userId)}
               </option>
             ))}
           </select>
@@ -301,9 +310,9 @@ export default function FinancialStatementsPage() {
                     </div>
                   </th>
                 ))}
-                {periods.length >= 2 && !commonSize && (
+                {showYoy && (
                   <th style={{ ...cellStyle, fontWeight: 600, color: T.accent, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                    YoY %
+                    YoY % ({latestPeriod!.period_label} vs {priorPeriod!.period_label})
                   </th>
                 )}
                 {showPeerCol && (
@@ -331,12 +340,9 @@ export default function FinancialStatementsPage() {
                       {fmtValue(p[row.key] as number | null, commonSize, p.revenue_from_operations)}
                     </td>
                   ))}
-                  {periods.length >= 2 && !commonSize && (
+                  {showYoy && (
                     <td style={{ ...cellStyle, color: T.inkSoft }}>
-                      {yoyPct(
-                        periods[periods.length - 1][row.key] as number | null,
-                        periods[periods.length - 2][row.key] as number | null
-                      )}
+                      {yoyPct(latestPeriod![row.key] as number | null, priorPeriod![row.key] as number | null)}
                     </td>
                   )}
                   {showPeerCol && (
@@ -355,7 +361,7 @@ export default function FinancialStatementsPage() {
                     {ebitdaMargins[i] != null ? `${(ebitdaMargins[i]! * 100).toFixed(1)}%` : "\u2014"}
                   </td>
                 ))}
-                {periods.length >= 2 && !commonSize && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
+                {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
                 {showPeerCol && (
                   <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
                     {formatVsPeer(ebitdaMarginBenchmark, true)}
@@ -371,7 +377,7 @@ export default function FinancialStatementsPage() {
                     {patMargins[i] != null ? `${(patMargins[i]! * 100).toFixed(1)}%` : "\u2014"}
                   </td>
                 ))}
-                {periods.length >= 2 && !commonSize && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
+                {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
                 {showPeerCol && (
                   <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
                     {formatVsPeer(patMarginBenchmark, true)}

@@ -42,6 +42,9 @@ export type StatementExportData = {
   currencyUnit: string;
   periods: StatementExportPeriod[];
   peerNotes: StatementExportPeerNote[];
+  /** False when the last two columns are not consecutive years on the same basis; the YoY
+   * column is then omitted. Defaults to true. */
+  yoyComparable?: boolean;
 };
 
 const INK_SOFT = "FF5C5850";
@@ -81,16 +84,18 @@ export async function buildStatementWorkbook(data: StatementExportData): Promise
 
   const firstPeriodCol = 2;
   const lastPeriodCol = firstPeriodCol + data.periods.length - 1;
+  const showYoy = data.periods.length >= 2 && data.yoyComparable !== false;
   const yoyCol = lastPeriodCol + 1;
-  const peerCol = yoyCol + 1;
+  const peerCol = showYoy ? yoyCol + 1 : yoyCol;
 
   const header = sheet.getRow(1);
   header.getCell(1).value = "Line Item";
   data.periods.forEach((p, i) => {
     header.getCell(firstPeriodCol + i).value = p.label + " (" + p.basis + ")";
   });
-  if (data.periods.length >= 2) {
-    header.getCell(yoyCol).value = "YoY % (latest)";
+  if (showYoy) {
+    header.getCell(yoyCol).value =
+      "YoY % (" + data.periods[data.periods.length - 1].label + " vs " + data.periods[data.periods.length - 2].label + ")";
   }
   header.getCell(peerCol).value = "vs Peers (latest FY)";
   header.eachCell((cell) => {
@@ -115,7 +120,7 @@ export async function buildStatementWorkbook(data: StatementExportData): Promise
       if (row.bold) cell.font = { bold: true };
     });
 
-    if (data.periods.length >= 2) {
+    if (showYoy) {
       const latestColLetter = colLetter(lastPeriodCol);
       const priorColLetter = colLetter(lastPeriodCol - 1);
       const cell = excelRow.getCell(yoyCol);

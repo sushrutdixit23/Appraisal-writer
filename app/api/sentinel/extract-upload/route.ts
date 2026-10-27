@@ -6,28 +6,28 @@
 // call passes through) rather than a request header, since the
 // @vercel/blob client helper controls this request itself.
 //
-// Falls back across both service-role key env var names in use across
-// the codebase (extract/route.ts uses SUPABASE_SERVICE_ROLE_KEY;
-// statement/narrative routes use SUPABASE_SERVICE_KEY) rather than
-// assuming one - a "400 Invalid session" on every upload, even with a
-// genuinely valid token, is the exact symptom of this admin client
-// being built with an undefined key (e.g. the var set in .env.local
-// for local dev but never added to Vercel's Production environment).
+// The token is only issued for a PDF, under the sentinel-extract/ folder,
+// with a random suffix so the stored URL cannot be guessed. The extract
+// route refuses any blob URL outside that folder and deletes the file as
+// soon as it has read it.
+//
+// Accepts either service-key env var name (extract/statement/narrative
+// historically used different ones): a "400 Invalid session" on every
+// upload, even with a genuinely valid token, is the symptom of this admin
+// client being built with an undefined key.
 
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  SUPABASE_SERVICE_KEY!
-);
+import { BLOB_PATH_PREFIX } from "../../../sentinel/lib/extraction";
+import { getAdmin, isFailure } from "../../../sentinel/lib/server";
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
+  let body: HandleUploadBody;
+  try {
+    body = (await request.json()) as HandleUploadBody;
+  } catch {
+    return NextResponse.json({ error: "The request body is not valid JSON." }, { status: 400 });
+  }
 
   try {
     const jsonResponse = await handleUpload({
@@ -43,21 +43,25 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!accessToken) {
           throw new Error("Not authenticated.");
         }
-        if (!SUPABASE_SERVICE_KEY) {
-          // Distinguishes a server misconfiguration from a real auth
-          // failure, so this doesn't read as "your session is bad"
-          // when the actual problem is a missing env var.
+        if (!pathname.startsWith(BLOB_PATH_PREFIX) || pathname.includes("..")) {
+          throw new Error("Uploads must go to the sentinel-extract folder.");
+        }
+        const a = getAdmin();
+        if (isFailure(a)) {
+          // Distinguishes a server misconfiguration from a real auth failure, so this does not read
+          // as "your session is bad" when the actual problem is a missing env var.
           throw new Error(
             "Server misconfiguration: neither SUPABASE_SERVICE_ROLE_KEY nor SUPABASE_SERVICE_KEY is set."
           );
         }
-        const { data: userData, error } = await supabaseAdmin.auth.getUser(accessToken);
+        const { data: userData, error } = await a.admin.auth.getUser(accessToken);
         if (error || !userData.user) {
           throw new Error(`Invalid session: ${error?.message ?? "no user returned for this token"}`);
         }
         return {
           allowedContentTypes: ["application/pdf"],
           maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
+          addRandomSuffix: true,
           tokenPayload: JSON.stringify({ userId: userData.user.id }),
         };
       },

@@ -22,3 +22,16 @@ export function parseVerdict(text: string | null): { verdict: string | null; bod
   // as body text. Never breaks on old data.
   return { verdict: null, body: text };
 }
+
+/** 1st, 2nd, 3rd, 4th ... 11th, 12th, 13th, 21st. */
+export function ordinal(n: number): string {
+  const v = Math.round(n);
+  const mod100 = Math.abs(v) % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
+  switch (Math.abs(v) % 10) {
+    case 1: return `${v}st`;
+    case 2: return `${v}nd`;
+    case 3: return `${v}rd`;
+    default: return `${v}th`;
+  }
+}

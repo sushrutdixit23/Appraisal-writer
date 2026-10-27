@@ -1,309 +1,143 @@
-// Sentinel — manual data entry endpoint. Built to unblock end-to-end
-// testing with a real single-company workspace (Britannia) without
-// depending on the existing New Project / Add Period forms, which
-// don't yet collect Balance Sheet fields. Handles two cases in one
-// call: (1) workspace_id given -> add/update a statement on an
-// existing workspace; (2) no workspace_id, company_name+sector given
-// -> create a new self-service workspace first (same owner_id pattern
-// New Project already uses), then write the statement. Upserts by
-// looking up an existing (workspace_id, period_type, period_label) row
-// rather than relying on a guessed unique-constraint name for
-// .upsert()/onConflict.
+// Sentinel - statement save endpoint (the Data Entry page's API, and the
+// one place server-side that writes statements). Handles two cases in one
+// call: (1) workspace_id given -> add or update a statement on a company
+// the caller OWNS; (2) no workspace_id, company_name + sector given ->
+// create a new company owned by the caller, then write its first
+// statement.
+//
+// This route uses the service-role key, which bypasses row-level security,
+// so it enforces the rules itself: the caller must own the company they
+// write to (a public reference company is read-only), only known statement
+// columns are written, and the statement is validated before anything is
+// created - a refused statement never leaves an empty company behind.
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 import { getSectorConfig } from "../../../sentinel/lib/config";
+import { BASES } from "../../../sentinel/lib/fields";
+import { authenticate, getAdmin, isFailure, loadWorkspaceFor } from "../../../sentinel/lib/server";
+import { normaliseUnit } from "../../../sentinel/lib/units";
+import { coerceStatement, validateStatement, type OtherStatement } from "../../../sentinel/lib/validate";
 import type { Workspace } from "../../../sentinel/lib/types";
 
-// Phase 0 \u2014 Data Quality Layer. Runs after the workspace is resolved
-// (so prior-period context is available) and before any write. Hard
-// errors block the save entirely (422, nothing written); warnings are
-// returned alongside a successful save so the UI can surface them
-// without blocking data entry. Scoped to what this form actually
-// collects today - cash flow ties and segment reconciliation are left
-// out because those fields aren't captured yet, not because they don't
-// matter.
-interface ValidationResult {
-  errors: string[];
-  warnings: string[];
-}
+const fail = (error: string, status: number, details?: string[]) =>
+  NextResponse.json(details ? { error, details } : { error }, { status });
 
-function validateStatement(statement: any, priorStatements: any[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+export async function POST(req: Request) {
+  const a = getAdmin();
+  if (isFailure(a)) return a.error;
+  const { admin } = a;
+  const who = await authenticate(req, admin);
+  if (isFailure(who)) return who.error;
+  const userId = who.userId;
 
-  // Balance sheet must balance, within a 1% tolerance for real-world
-  // rounding in filed statements.
-  const { total_assets, total_liabilities, total_equity } = statement;
-  if (total_assets != null && total_liabilities != null && total_equity != null) {
-    const impliedTotal = total_liabilities + total_equity;
-    const diff = Math.abs(total_assets - impliedTotal);
-    const tolerance = Math.max(Math.abs(total_assets) * 0.01, 1);
-    if (diff > tolerance) {
-      errors.push(
-        `Balance sheet does not balance: Total Assets (${total_assets}) vs Total ` +
-        `Liabilities + Total Equity (${impliedTotal.toFixed(2)}) \u2014 difference of ${diff.toFixed(2)}.`
-      );
-    }
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return fail("The request body is not valid JSON.", 400);
+  }
+  if (!body || typeof body !== "object") return fail("Missing statement payload.", 400);
+
+  const { row, errors: shapeErrors } = coerceStatement(body.statement);
+  if (!row) {
+    return fail(shapeErrors.length === 1 ? shapeErrors[0] : `${shapeErrors.length} problems with the statement`, 400, shapeErrors);
   }
 
-  // Fields that should never be negative for a going concern.
-  const nonNegativeFields: [string, string][] = [
-    ["current_assets", "Current assets"],
-    ["current_liabilities", "Current liabilities"],
-    ["inventory", "Inventory"],
-    ["trade_receivables", "Trade receivables"],
-    ["trade_payables", "Trade payables"],
-    ["total_debt", "Total debt"],
-    ["total_equity", "Total equity"],
-    ["total_assets", "Total assets"],
-    ["total_liabilities", "Total liabilities"],
-    ["fixed_assets", "Fixed assets"],
-    ["cash_and_equivalents", "Cash & equivalents"],
-    ["revenue_from_operations", "Revenue from operations"],
-  ];
-  for (const [field, label] of nonNegativeFields) {
-    const value = statement[field];
-    if (value != null && value < 0) {
-      errors.push(`${label} cannot be negative (got ${value}).`);
-    }
-  }
-
-  // A subtotal cannot exceed its own total.
-  if (statement.current_assets != null && statement.total_assets != null &&
-      statement.current_assets > statement.total_assets) {
-    errors.push(
-      `Current assets (${statement.current_assets}) cannot exceed total assets (${statement.total_assets}).`
-    );
-  }
-  if (statement.current_liabilities != null && statement.total_liabilities != null &&
-      statement.current_liabilities > statement.total_liabilities) {
-    errors.push(
-      `Current liabilities (${statement.current_liabilities}) cannot exceed total liabilities (${statement.total_liabilities}).`
-    );
-  }
-
-  // Total income should be revenue plus other income, so it should
-  // never come in below revenue from operations alone.
-  if (statement.total_income != null && statement.revenue_from_operations != null &&
-      statement.total_income < statement.revenue_from_operations - 0.01) {
-    warnings.push(
-      `Total income (${statement.total_income}) is less than revenue from operations ` +
-      `(${statement.revenue_from_operations}) \u2014 total income should normally include ` +
-      `revenue plus other income. Double-check these two figures.`
-    );
-  }
-
-  // Unit-mismatch heuristic: a >20x jump or drop in revenue vs. the
-  // most recent period on file for this workspace is far more often a
-  // lakhs/crores mix-up than a real business swing worth investigating.
-  if (priorStatements.length > 0 && statement.revenue_from_operations != null) {
-    const sorted = [...priorStatements].sort((a, b) =>
-      (b.period_end_date ?? "").localeCompare(a.period_end_date ?? "")
-    );
-    const mostRecent = sorted[0];
-    if (mostRecent?.revenue_from_operations != null && mostRecent.revenue_from_operations > 0) {
-      const ratio = statement.revenue_from_operations / mostRecent.revenue_from_operations;
-      if (ratio > 20 || ratio < 0.05) {
-        const direction = ratio > 1 ? `${ratio.toFixed(1)}x higher` : `${(1 / ratio).toFixed(1)}x lower`;
-        warnings.push(
-          `Revenue from operations (${statement.revenue_from_operations}) is ${direction} than ` +
-          `the most recent period on file (${mostRecent.period_label}: ${mostRecent.revenue_from_operations}). ` +
-          `This is more often a units mismatch (e.g. lakhs vs. crores) than a real swing \u2014 double-check before saving.`
-        );
-      }
-    }
-  }
-
-  // Same period end date filed twice under different labels.
-  if (statement.period_end_date) {
-    const dupe = priorStatements.find(
-      (s) => s.period_end_date === statement.period_end_date && s.period_label !== statement.period_label
-    );
-    if (dupe) {
-      warnings.push(
-        `A statement already exists for this workspace with the same period end date ` +
-        `(${statement.period_end_date}) but a different label ("${dupe.period_label}" vs ` +
-        `"${statement.period_label}"). Check this isn't a duplicate entry.`
-      );
-    }
-  }
-
-  return { errors, warnings };
-}
-
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!token) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  );
-
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData.user) {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-  }
-  const userId = userData.user.id;
-
-  const body = await req.json();
-  const {
-    workspace_id,
-    company_name,
-    sector,
-    industry,
-    comparison_basis,
-    fiscal_year_start_month,
-    currency,
-    currency_unit,
-    statement,
-  } = body;
-
-  if (!statement || typeof statement !== "object") {
-    return NextResponse.json({ error: "Missing statement payload" }, { status: 400 });
-  }
-
-  const required = [
-    "period_type",
-    "period_label",
-    "period_end_date",
-    "basis",
-    "revenue_from_operations",
-    "profit_before_tax",
-    "profit_after_tax",
-  ];
-  for (const field of required) {
-    if (statement[field] === undefined || statement[field] === null) {
-      return NextResponse.json(
-        { error: `Missing required statement field: ${field}` },
-        { status: 400 }
-      );
-    }
-  }
-
-  let workspace: Workspace;
-
-  if (workspace_id) {
-    const { data: wsData, error: wsError } = await supabase
-      .from("sentinel_workspaces")
-      .select("*")
-      .eq("id", workspace_id)
-      .single();
-    if (wsError || !wsData) {
-      return NextResponse.json(
-        { error: "Workspace not found or not accessible" },
-        { status: 404 }
-      );
-    }
-    workspace = wsData as Workspace;
+  // Resolve the company: an existing one the caller owns, or a new one described by the request.
+  let workspace: Workspace | null = null;
+  let newCompany: Record<string, unknown> | null = null;
+  if (body.workspace_id) {
+    const loaded = await loadWorkspaceFor(admin, userId, body.workspace_id, "write");
+    if (isFailure(loaded)) return loaded.error;
+    workspace = loaded.workspace;
   } else {
-    if (!company_name || !sector) {
-      return NextResponse.json(
-        { error: "Provide workspace_id, or company_name + sector to create a new workspace" },
-        { status: 400 }
-      );
-    }
+    const name = typeof body.company_name === "string" ? body.company_name.trim() : "";
+    const sector = typeof body.sector === "string" ? body.sector : "";
+    if (!name || !sector) return fail("Provide workspace_id, or company_name + sector to create a new workspace.", 400);
+    if (name.length > 120) return fail("company_name is too long (maximum 120 characters).", 400);
     try {
-      getSectorConfig(sector); // throws if sector isn't configured
+      getSectorConfig(sector); // throws if the sector is not configured
     } catch (e) {
-      return NextResponse.json(
-        { error: e instanceof Error ? e.message : "Invalid sector" },
-        { status: 400 }
+      return fail(e instanceof Error ? e.message : "Invalid sector.", 400);
+    }
+    const basis = body.comparison_basis ?? "consolidated";
+    if (!(BASES as readonly unknown[]).includes(basis)) return fail('comparison_basis must be "standalone" or "consolidated".', 400);
+    const fyStart = body.fiscal_year_start_month ?? 4;
+    if (!Number.isInteger(fyStart) || (fyStart as number) < 1 || (fyStart as number) > 12) {
+      return fail("fiscal_year_start_month must be a month number from 1 to 12.", 400);
+    }
+    const unit = body.currency_unit == null ? "INR_CRORE" : normaliseUnit(String(body.currency_unit));
+    if (!unit) return fail("currency_unit is not a recognised reporting unit (crore, lakh, million, thousand, billion or plain rupees).", 400);
+    const industry = typeof body.industry === "string" ? body.industry.trim().slice(0, 80) : "";
+    newCompany = {
+      owner_id: userId,
+      company_name: name,
+      sector,
+      industry: industry || null,
+      is_public_reference: false,
+      fiscal_year_start_month: fyStart,
+      currency: "INR",
+      currency_unit: unit,
+      comparison_basis: basis,
+    };
+  }
+
+  // What is already on file for this company (nothing, for a company about to be created).
+  let existingId: string | null = null;
+  let others: OtherStatement[] = [];
+  if (workspace) {
+    const { data, error } = await admin
+      .from("sentinel_statements")
+      .select("id, period_type, period_label, period_end_date, basis, revenue_from_operations")
+      .eq("workspace_id", workspace.id);
+    if (error) return fail(error.message, 500);
+    const all = data ?? [];
+    // The database's unique key is (company, label, basis), so that is what identifies "the same
+    // statement". A different period type under the same label would be a different statement.
+    const same = all.find((s) => s.period_label === row.period_label && s.basis === row.basis);
+    if (same && same.period_type !== row.period_type) {
+      return fail(
+        `A ${row.basis} statement labelled "${row.period_label}" already exists as ${same.period_type}. ` +
+          `Use a different label, or edit that statement.`,
+        409
       );
     }
-
-    const { data: newWs, error: createError } = await supabase
-      .from("sentinel_workspaces")
-      .insert({
-        owner_id: userId,
-        company_name,
-        sector,
-        industry: industry ?? null,
-        is_public_reference: false,
-        fiscal_year_start_month: fiscal_year_start_month ?? 4,
-        currency: currency ?? "INR",
-        currency_unit: currency_unit ?? "cr",
-        comparison_basis: comparison_basis ?? "consolidated",
-      })
-      .select()
-      .single();
-    if (createError || !newWs) {
-      return NextResponse.json(
-        { error: createError?.message ?? "Workspace creation failed" },
-        { status: 500 }
-      );
-    }
-    workspace = newWs as Workspace;
+    existingId = same?.id ?? null;
+    others = all.filter((s) => s.id !== existingId);
   }
 
-  const { data: existing, error: existingError } = await supabase
-    .from("sentinel_statements")
-    .select("id")
-    .eq("workspace_id", workspace.id)
-    .eq("period_type", statement.period_type)
-    .eq("period_label", statement.period_label)
-    .maybeSingle();
-  if (existingError) {
-    return NextResponse.json({ error: existingError.message }, { status: 500 });
-  }
-
-  // Data Quality Layer: pull every other statement already on file for
-  // this workspace (excluding the one we're about to update, if any) to
-  // give the unit-mismatch and duplicate-date checks real context.
-  const { data: allStatements, error: allStmtError } = await supabase
-    .from("sentinel_statements")
-    .select("id, period_label, period_end_date, revenue_from_operations")
-    .eq("workspace_id", workspace.id);
-  if (allStmtError) {
-    return NextResponse.json({ error: allStmtError.message }, { status: 500 });
-  }
-  const priorStatements = (allStatements ?? []).filter((s) => s.id !== existing?.id);
-
-  const { errors, warnings } = validateStatement(statement, priorStatements);
+  const { errors, warnings } = validateStatement(row, others);
   if (errors.length > 0) {
-    return NextResponse.json(
-      {
-        error: errors.length === 1 ? errors[0] : `${errors.length} data quality issues found`,
-        details: errors,
-      },
-      { status: 422 }
+    return fail(errors.length === 1 ? errors[0] : `${errors.length} data quality issues found`, 422, errors);
+  }
+
+  // Everything is valid: create the company now, if there is one to create.
+  let createdWorkspaceId: string | null = null;
+  if (!workspace) {
+    const { data, error } = await admin.from("sentinel_workspaces").insert(newCompany!).select().single();
+    if (error || !data) return fail(error?.message ?? "Workspace creation failed.", 500);
+    workspace = data as Workspace;
+    createdWorkspaceId = workspace.id;
+  }
+
+  const record = { ...row, workspace_id: workspace.id };
+  if (existingId) {
+    const { error } = await admin.from("sentinel_statements").update(record).eq("id", existingId);
+    if (error) return fail(error.message, 500);
+    return NextResponse.json({ status: "updated", workspace_id: workspace.id, statement_id: existingId, warnings });
+  }
+
+  const { data: inserted, error: insertError } = await admin.from("sentinel_statements").insert(record).select("id").single();
+  if (insertError || !inserted) {
+    // Do not leave an empty company behind because its first statement could not be saved.
+    if (createdWorkspaceId) await admin.from("sentinel_workspaces").delete().eq("id", createdWorkspaceId);
+    const duplicate = insertError?.code === "23505";
+    return fail(
+      duplicate
+        ? `A ${row.basis} statement labelled "${row.period_label}" already exists for this company.`
+        : insertError?.message ?? "Could not save the statement.",
+      duplicate ? 409 : 500
     );
   }
-
-  const row = { ...statement, workspace_id: workspace.id };
-
-  if (existing) {
-    const { error: updateError } = await supabase
-      .from("sentinel_statements")
-      .update(row)
-      .eq("id", existing.id);
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-    return NextResponse.json({
-      status: "updated",
-      workspace_id: workspace.id,
-      statement_id: existing.id,
-      warnings,
-    });
-  }
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("sentinel_statements")
-    .insert(row)
-    .select("id")
-    .single();
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
-  }
-  return NextResponse.json({
-    status: "created",
-    workspace_id: workspace.id,
-    statement_id: inserted.id,
-    warnings,
-  });
+  return NextResponse.json({ status: "created", workspace_id: workspace.id, statement_id: inserted.id, warnings });
 }

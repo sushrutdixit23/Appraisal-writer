@@ -1,371 +1,254 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-// Sentinel — manual data entry page. Talks to /api/sentinel/statement.
-// Gets the auth token from the browser's own Supabase session instead
-// of asking anyone to hunt for it in DevTools. Handles two modes in one
-// form: create a brand-new company (workspace + first period), or add a
-// period to a company that already exists (paste its workspace_id,
-// shown back to you after the first submit). Cash Flow fields are
-// deliberately left out of this form for now — same as the rest of
-// Sentinel, they're not collected anywhere yet.
-//
-// NOTE: assumes NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-// are already set (the rest of the site uses client-side Supabase auth,
-// so these should already exist in your env). If your project uses
-// different env var names for the anon key, swap them in below.
+// Sentinel — Data Entry (server-validated path). Unlike New Project and Manage Periods, which write to the
+// database from the browser, this page posts to /api/sentinel/statement, so the save runs the server's own
+// ownership and accounting checks. It uses the same fields as the other two entry paths (fields.ts) and
+// the same form component, and picks the company from a list of the ones you own instead of asking for a
+// pasted workspace id. Not linked from the sidebar - New Project and Manage Periods are the main routes.
 
-import { useState, type FormEvent } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-const SECTORS = [
-  { value: "tyre", label: "Tyre Manufacturing" },
-  { value: "fmcg", label: "FMCG / Consumer Staples" },
-  { value: "general", label: "General / Other" },
-];
-
-const PERIOD_TYPES = ["Q1", "Q2", "Q3", "Q4", "FY"];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
+import { sortWorkspaces } from "../lib/access";
+import { SECTOR_CONFIGS } from "../lib/config";
+import { BASES, PERIOD_TYPES } from "../lib/fields";
+import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
+import { SERIF, T } from "../lib/theme";
+import { UNIT_OPTIONS, unitLabel } from "../lib/units";
+import { prepareFromForm, type Issue } from "../lib/validate";
+import type { Basis, Workspace } from "../lib/types";
 
 type Mode = "new" | "existing";
 
-const NUM_FIELD = { width: "100%", padding: 8, fontSize: 14 };
-const LABEL = { fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4, marginTop: 12 };
-const SECTION = { marginTop: 24, paddingTop: 16, borderTop: "1px solid #ddd" };
-
-function numOrNull(s: string): number | null {
-  const t = s.trim();
-  if (t === "") return null;
-  const n = Number(t);
-  return Number.isNaN(n) ? null : n;
-}
+const btnPrimary: React.CSSProperties = {
+  fontFamily: "inherit",
+  fontSize: "0.88rem",
+  fontWeight: 500,
+  padding: "0.6rem 1.4rem",
+  border: `1px solid ${T.ink}`,
+  borderRadius: 3,
+  background: T.ink,
+  color: T.background,
+  cursor: "pointer",
+};
 
 export default function DataEntryPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("new");
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 
   const [companyName, setCompanyName] = useState("");
-  const [sector, setSector] = useState("fmcg");
+  const [sector, setSector] = useState("general");
   const [industry, setIndustry] = useState("");
-  const [comparisonBasis, setComparisonBasis] = useState<"standalone" | "consolidated">("consolidated");
+  const [currencyUnit, setCurrencyUnit] = useState("INR_CRORE");
+  const [comparisonBasis, setComparisonBasis] = useState<Basis>("consolidated");
+  const [existingId, setExistingId] = useState("");
 
-  const [existingWorkspaceId, setExistingWorkspaceId] = useState("");
-
-  const [periodType, setPeriodType] = useState("FY");
+  const [periodType, setPeriodType] = useState<string>("FY");
   const [periodLabel, setPeriodLabel] = useState("");
   const [periodEndDate, setPeriodEndDate] = useState("");
-  const [basis, setBasis] = useState<"standalone" | "consolidated">("consolidated");
-  const [revenue, setRevenue] = useState("");
-  const [pbt, setPbt] = useState("");
-  const [pat, setPat] = useState("");
-
-  const [otherIncome, setOtherIncome] = useState("");
-  const [totalIncome, setTotalIncome] = useState("");
-  const [totalExpenses, setTotalExpenses] = useState("");
-  const [ebitda, setEbitda] = useState("");
-  const [depreciation, setDepreciation] = useState("");
-  const [financeCosts, setFinanceCosts] = useState("");
-  const [exceptionalItems, setExceptionalItems] = useState("");
-  const [taxExpense, setTaxExpense] = useState("");
-
-  const [totalAssets, setTotalAssets] = useState("");
-  const [currentAssets, setCurrentAssets] = useState("");
-  const [cash, setCash] = useState("");
-  const [tradeReceivables, setTradeReceivables] = useState("");
-  const [inventory, setInventory] = useState("");
-  const [fixedAssets, setFixedAssets] = useState("");
-  const [totalLiabilities, setTotalLiabilities] = useState("");
-  const [currentLiabilities, setCurrentLiabilities] = useState("");
-  const [tradePayables, setTradePayables] = useState("");
-  const [totalDebt, setTotalDebt] = useState("");
-  const [totalEquity, setTotalEquity] = useState("");
-
+  const [basis, setBasis] = useState<Basis>("consolidated");
+  const [values, setValues] = useState<Record<string, string>>({});
   const [sourceFile, setSourceFile] = useState("");
 
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
-  const [message, setMessage] = useState("");
-  const [lastWorkspaceId, setLastWorkspaceId] = useState("");
+  const [messages, setMessages] = useState<string[]>([]);
 
-  async function handleSubmit(e: FormEvent) {
+  useEffect(() => {
+    (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        router.push("/login");
+        return;
+      }
+      const userId = sessionData.session.user.id;
+      const { data } = await supabase.from("sentinel_workspaces").select("*").eq("owner_id", userId);
+      const own = sortWorkspaces((data ?? []) as Workspace[], userId);
+      setWorkspaces(own);
+      if (own.length > 0) setExistingId(own[0].id);
+    })();
+  }, [router]);
+
+  const existing = workspaces.find((w) => w.id === existingId);
+  const unit = mode === "new" ? currencyUnit : existing?.currency_unit;
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("submitting");
-    setMessage("");
-
+    setMessages([]);
     if (mode === "new" && !companyName.trim()) {
       setStatus("error");
-      setMessage("Company name is required for a new company.");
+      setMessages(["Company name is required for a new company."]);
       return;
     }
-    if (mode === "existing" && !existingWorkspaceId.trim()) {
+    if (mode === "existing" && !existing) {
       setStatus("error");
-      setMessage("Paste the workspace_id from the first submission.");
+      setMessages(["Choose one of your companies, or switch to New company."]);
       return;
     }
-    if (!periodLabel.trim() || !periodEndDate || revenue.trim() === "" || pbt.trim() === "" || pat.trim() === "") {
+    // Same checks the server runs; the server runs them again regardless of what happens here.
+    const prepared = prepareFromForm(
+      { periodType, periodLabel: periodLabel.trim(), periodEndDate, basis, values, sourceFile: sourceFile.trim() || "manual-entry", extractionNotes: null },
+      []
+    );
+    setIssues([...prepared.issues]);
+    const statement = prepared.row;
+    if (!statement) {
       setStatus("error");
-      setMessage("Period label, period end date, revenue, PBT, and PAT are all required.");
+      setMessages(prepared.errors);
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    setStatus("submitting");
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setStatus("error");
-      setMessage("Not logged in — please log into Sentinel in this browser first, then retry.");
+      setMessages(["Not logged in — please log in to Sentinel in this browser first, then retry."]);
       return;
     }
-
-    const statement = {
-      period_type: periodType,
-      period_label: periodLabel.trim(),
-      period_end_date: periodEndDate,
-      basis,
-      revenue_from_operations: Number(revenue),
-      other_income: numOrNull(otherIncome),
-      total_income: numOrNull(totalIncome),
-      total_expenses: numOrNull(totalExpenses),
-      ebitda: numOrNull(ebitda),
-      depreciation_amortisation: numOrNull(depreciation),
-      finance_costs: numOrNull(financeCosts),
-      exceptional_items: numOrNull(exceptionalItems),
-      profit_before_tax: Number(pbt),
-      tax_expense: numOrNull(taxExpense),
-      profit_after_tax: Number(pat),
-      total_assets: numOrNull(totalAssets),
-      current_assets: numOrNull(currentAssets),
-      cash_and_equivalents: numOrNull(cash),
-      trade_receivables: numOrNull(tradeReceivables),
-      inventory: numOrNull(inventory),
-      fixed_assets: numOrNull(fixedAssets),
-      total_liabilities: numOrNull(totalLiabilities),
-      current_liabilities: numOrNull(currentLiabilities),
-      trade_payables: numOrNull(tradePayables),
-      total_debt: numOrNull(totalDebt),
-      total_equity: numOrNull(totalEquity),
-      cash_from_operations: null,
-      cash_from_investing: null,
-      cash_from_financing: null,
-      capex: null,
-      source_file: sourceFile.trim() || "manual-entry",
-      source_page: null,
-      extraction_notes: null,
-    };
-
     const payload =
       mode === "new"
-        ? {
-            company_name: companyName.trim(),
-            sector,
-            industry: industry.trim() || null,
-            comparison_basis: comparisonBasis,
-            statement,
-          }
-        : {
-            workspace_id: existingWorkspaceId.trim(),
-            statement,
-          };
-
+        ? { company_name: companyName.trim(), sector, industry: industry.trim() || null, comparison_basis: comparisonBasis, currency_unit: currencyUnit, statement }
+        : { workspace_id: existingId, statement };
     try {
       const res = await fetch("/api/sentinel/statement", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) {
         setStatus("error");
-        setMessage(json.error ?? "Something went wrong.");
+        setMessages(json.details?.length ? json.details : [json.error ?? "Something went wrong."]);
         return;
       }
       setStatus("done");
-      setLastWorkspaceId(json.workspace_id);
-      setMessage(
-        `Saved (${json.status}). Workspace ID: ${json.workspace_id} — copy this to add another period to the same company.`
-      );
+      setMessages([`Saved (${json.status}).`, ...(json.warnings ?? [])]);
+      if (mode === "new") {
+        // The new company now exists: switch to adding periods to it.
+        const { data } = await supabase.from("sentinel_workspaces").select("*").eq("id", json.workspace_id).maybeSingle();
+        if (data) {
+          setWorkspaces((prev) => [...prev, data as Workspace]);
+          setExistingId(json.workspace_id);
+          setMode("existing");
+        }
+      }
     } catch (err) {
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Request failed.");
+      setMessages([err instanceof Error ? err.message : "Request failed."]);
     }
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700 }}>Sentinel — Add Financial Data</h1>
-      <p style={{ fontSize: 14, color: "#555" }}>
-        Manual entry for testing. Create a new company, or add another period to one you already
-        created here.
+    <div style={{ maxWidth: 640 }}>
+      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>Data Entry</h1>
+      <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: "0.4rem 0 1.2rem 0" }}>
+        Saves through the server, which checks ownership and the accounting before anything is written. Create a new company, or add a period to one you own.
       </p>
 
-      <div style={{ marginTop: 16 }}>
-        <label style={{ marginRight: 16 }}>
-          <input type="radio" checked={mode === "new"} onChange={() => setMode("new")} />{" "}
-          New company
+      <div role="radiogroup" aria-label="What to add" style={{ marginBottom: "1rem", display: "flex", gap: "1.2rem" }}>
+        <label>
+          <input type="radio" name="mode" checked={mode === "new"} onChange={() => setMode("new")} /> New company
         </label>
         <label>
-          <input type="radio" checked={mode === "existing"} onChange={() => setMode("existing")} />{" "}
-          Add period to existing company
+          <input type="radio" name="mode" checked={mode === "existing"} onChange={() => setMode("existing")} disabled={workspaces.length === 0} /> Add period to a company
         </label>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.6rem 1.8rem" }}>
         {mode === "new" ? (
-          <div style={SECTION}>
-            <h2 style={{ fontSize: 16, fontWeight: 600 }}>Company</h2>
-            <label style={LABEL}>Company name *</label>
-            <input style={NUM_FIELD} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Britannia Industries" />
-
-            <label style={LABEL}>Sector *</label>
-            <select style={NUM_FIELD} value={sector} onChange={(e) => setSector(e.target.value)}>
-              {SECTORS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-
-            <label style={LABEL}>Industry (optional)</label>
-            <input style={NUM_FIELD} value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Food & Beverage" />
-
-            <label style={LABEL}>Comparison basis *</label>
-            <select
-              style={NUM_FIELD}
-              value={comparisonBasis}
-              onChange={(e) => setComparisonBasis(e.target.value as "standalone" | "consolidated")}
-            >
-              <option value="consolidated">Consolidated</option>
-              <option value="standalone">Standalone</option>
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
+            <Field label="Company name *" htmlFor="de-name" span2>
+              <input id="de-name" style={inputStyle} value={companyName} onChange={(e) => setCompanyName(e.target.value)} maxLength={120} />
+            </Field>
+            <Field label="Sector" htmlFor="de-sector">
+              <select id="de-sector" style={inputStyle} value={sector} onChange={(e) => setSector(e.target.value)}>
+                {Object.entries(SECTOR_CONFIGS).map(([k, c]) => (
+                  <option key={k} value={k}>{c.display_name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Industry (optional)" htmlFor="de-industry">
+              <input id="de-industry" style={inputStyle} value={industry} onChange={(e) => setIndustry(e.target.value)} maxLength={80} />
+            </Field>
+            <Field label="Reporting unit" htmlFor="de-unit">
+              <select id="de-unit" style={inputStyle} value={currencyUnit} onChange={(e) => setCurrencyUnit(e.target.value)}>
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u.value} value={u.value}>{u.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Compared on" htmlFor="de-cbasis">
+              <select id="de-cbasis" style={inputStyle} value={comparisonBasis} onChange={(e) => { setComparisonBasis(e.target.value as Basis); setBasis(e.target.value as Basis); }}>
+                {BASES.map((b) => (
+                  <option key={b} value={b}>{b === "standalone" ? "Standalone" : "Consolidated"}</option>
+                ))}
+              </select>
+            </Field>
           </div>
         ) : (
-          <div style={SECTION}>
-            <h2 style={{ fontSize: 16, fontWeight: 600 }}>Existing company</h2>
-            <label style={LABEL}>Workspace ID *</label>
-            <input
-              style={NUM_FIELD}
-              value={existingWorkspaceId}
-              onChange={(e) => setExistingWorkspaceId(e.target.value)}
-              placeholder="paste the workspace_id returned after your first submission"
-            />
+          <div style={{ marginBottom: "1.2rem" }}>
+            <Field label="Company" htmlFor="de-existing">
+              <select id="de-existing" style={inputStyle} value={existingId} onChange={(e) => setExistingId(e.target.value)}>
+                {workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>{w.company_name}</option>
+                ))}
+              </select>
+            </Field>
+            {existing && (
+              <p style={{ fontSize: "0.75rem", color: T.inkSoft, margin: "0.4rem 0 0 0" }}>
+                Entered in {unitLabel(existing.currency_unit)}; compared on a {existing.comparison_basis} basis.
+              </p>
+            )}
           </div>
         )}
 
-        <div style={SECTION}>
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>Period</h2>
-          <label style={LABEL}>Period type *</label>
-          <select style={NUM_FIELD} value={periodType} onChange={(e) => setPeriodType(e.target.value)}>
-            {PERIOD_TYPES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-
-          <label style={LABEL}>Period label * (e.g. FY25)</label>
-          <input style={NUM_FIELD} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} />
-
-          <label style={LABEL}>Period end date * (YYYY-MM-DD)</label>
-          <input type="date" style={NUM_FIELD} value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
-
-          <label style={LABEL}>Basis (this statement) *</label>
-          <select style={NUM_FIELD} value={basis} onChange={(e) => setBasis(e.target.value as "standalone" | "consolidated")}>
-            <option value="consolidated">Consolidated</option>
-            <option value="standalone">Standalone</option>
-          </select>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
+          <Field label="Period type" htmlFor="de-ptype">
+            <select id="de-ptype" style={inputStyle} value={periodType} onChange={(e) => setPeriodType(e.target.value)}>
+              {PERIOD_TYPES.map((p) => (
+                <option key={p} value={p}>{p === "FY" ? "Full Year" : p}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Period label * (e.g. FY25)" htmlFor="de-plabel">
+            <input id="de-plabel" style={inputStyle} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} maxLength={40} />
+          </Field>
+          <Field label="Period end date *" htmlFor="de-pend">
+            <input id="de-pend" type="date" style={inputStyle} value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
+          </Field>
+          <Field label="Basis of these figures" htmlFor="de-pbasis">
+            <select id="de-pbasis" style={inputStyle} value={basis} onChange={(e) => setBasis(e.target.value as Basis)}>
+              {BASES.map((b) => (
+                <option key={b} value={b}>{b === "standalone" ? "Standalone" : "Consolidated"}</option>
+              ))}
+            </select>
+          </Field>
         </div>
 
-        <div style={SECTION}>
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>Income Statement (₹ crore)</h2>
-          <label style={LABEL}>Revenue from operations *</label>
-          <input style={NUM_FIELD} value={revenue} onChange={(e) => setRevenue(e.target.value)} />
-          <label style={LABEL}>Profit before tax *</label>
-          <input style={NUM_FIELD} value={pbt} onChange={(e) => setPbt(e.target.value)} />
-          <label style={LABEL}>Profit after tax *</label>
-          <input style={NUM_FIELD} value={pat} onChange={(e) => setPat(e.target.value)} />
-
-          <details style={{ marginTop: 16 }}>
-            <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-              More Income Statement fields (optional)
-            </summary>
-            <label style={LABEL}>Other income</label>
-            <input style={NUM_FIELD} value={otherIncome} onChange={(e) => setOtherIncome(e.target.value)} />
-            <label style={LABEL}>Total income</label>
-            <input style={NUM_FIELD} value={totalIncome} onChange={(e) => setTotalIncome(e.target.value)} />
-            <label style={LABEL}>Total expenses</label>
-            <input style={NUM_FIELD} value={totalExpenses} onChange={(e) => setTotalExpenses(e.target.value)} />
-            <label style={LABEL}>EBITDA</label>
-            <input style={NUM_FIELD} value={ebitda} onChange={(e) => setEbitda(e.target.value)} />
-            <label style={LABEL}>Depreciation & amortisation</label>
-            <input style={NUM_FIELD} value={depreciation} onChange={(e) => setDepreciation(e.target.value)} />
-            <label style={LABEL}>Finance costs</label>
-            <input style={NUM_FIELD} value={financeCosts} onChange={(e) => setFinanceCosts(e.target.value)} />
-            <label style={LABEL}>Exceptional items</label>
-            <input style={NUM_FIELD} value={exceptionalItems} onChange={(e) => setExceptionalItems(e.target.value)} />
-            <label style={LABEL}>Tax expense</label>
-            <input style={NUM_FIELD} value={taxExpense} onChange={(e) => setTaxExpense(e.target.value)} />
-          </details>
-        </div>
-
-        <div style={SECTION}>
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>Balance Sheet (₹ crore, optional but recommended)</h2>
-          <label style={LABEL}>Total assets</label>
-          <input style={NUM_FIELD} value={totalAssets} onChange={(e) => setTotalAssets(e.target.value)} />
-          <label style={LABEL}>Current assets</label>
-          <input style={NUM_FIELD} value={currentAssets} onChange={(e) => setCurrentAssets(e.target.value)} />
-          <label style={LABEL}>Cash & equivalents</label>
-          <input style={NUM_FIELD} value={cash} onChange={(e) => setCash(e.target.value)} />
-          <label style={LABEL}>Trade receivables</label>
-          <input style={NUM_FIELD} value={tradeReceivables} onChange={(e) => setTradeReceivables(e.target.value)} />
-          <label style={LABEL}>Inventory</label>
-          <input style={NUM_FIELD} value={inventory} onChange={(e) => setInventory(e.target.value)} />
-          <label style={LABEL}>Fixed assets</label>
-          <input style={NUM_FIELD} value={fixedAssets} onChange={(e) => setFixedAssets(e.target.value)} />
-          <label style={LABEL}>Total liabilities</label>
-          <input style={NUM_FIELD} value={totalLiabilities} onChange={(e) => setTotalLiabilities(e.target.value)} />
-          <label style={LABEL}>Current liabilities</label>
-          <input style={NUM_FIELD} value={currentLiabilities} onChange={(e) => setCurrentLiabilities(e.target.value)} />
-          <label style={LABEL}>Trade payables</label>
-          <input style={NUM_FIELD} value={tradePayables} onChange={(e) => setTradePayables(e.target.value)} />
-          <label style={LABEL}>Total debt</label>
-          <input style={NUM_FIELD} value={totalDebt} onChange={(e) => setTotalDebt(e.target.value)} />
-          <label style={LABEL}>Total equity</label>
-          <input style={NUM_FIELD} value={totalEquity} onChange={(e) => setTotalEquity(e.target.value)} />
-        </div>
-
-        <div style={SECTION}>
-          <label style={LABEL}>Source (optional, e.g. "britannia-fy25-annual-report")</label>
-          <input style={NUM_FIELD} value={sourceFile} onChange={(e) => setSourceFile(e.target.value)} />
-        </div>
-
-        <button
-          type="submit"
+        <StatementFields
+          values={values}
+          onChange={(key, v) => setValues((prev) => ({ ...prev, [key]: v }))}
+          issues={issues}
+          unitLabel={unitLabel(unit)}
           disabled={status === "submitting"}
-          style={{
-            marginTop: 24,
-            padding: "10px 20px",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: status === "submitting" ? "default" : "pointer",
-          }}
-        >
+        />
+
+        <Field label="Source (optional, e.g. britannia-fy25-annual-report)" htmlFor="de-source">
+          <input id="de-source" style={inputStyle} value={sourceFile} onChange={(e) => setSourceFile(e.target.value)} maxLength={200} />
+        </Field>
+
+        <button type="submit" disabled={status === "submitting"} style={{ ...btnPrimary, marginTop: "1.4rem" }}>
           {status === "submitting" ? "Saving..." : "Save period"}
         </button>
 
-        {message && (
-          <p style={{ marginTop: 16, color: status === "error" ? "#b00" : "#080", fontSize: 14 }}>
-            {message}
-          </p>
-        )}
-        {lastWorkspaceId && status === "done" && mode === "new" && (
-          <p style={{ fontSize: 13, color: "#555" }}>
-            Switch to "Add period to existing company" and paste this workspace_id to add the next
-            year.
-          </p>
+        {messages.length > 0 && (
+          <div role={status === "error" ? "alert" : "status"} style={{ marginTop: "1rem", fontSize: "0.85rem", color: status === "error" ? "#B3261E" : "#2F5233" }}>
+            {messages.map((m, i) => (
+              <p key={i} style={{ margin: "0.2rem 0" }}>{m}</p>
+            ))}
+          </div>
         )}
       </form>
     </div>

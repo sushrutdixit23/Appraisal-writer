@@ -7,11 +7,16 @@
 // JK Tyre's workspace and JK Tyre is the subject; Apollo becomes a peer.
 
 import { getSectorConfig } from "./config";
+import { croreFactor } from "./units";
 import type { FinancialStatement, PeerRow, Workspace } from "./types";
 
-/** Same workspace, same period type, period ending exactly one year
- * earlier (year - 1, same month). Deliberately strict — a quarterly
- * statement never silently pairs against a full-year one. */
+/** Same workspace, same period type, same basis, period ending exactly one
+ * year earlier (year - 1, same month). Deliberately strict - a quarterly
+ * statement never silently pairs against a full-year one, and a
+ * consolidated year is never compared with a standalone one: the two bases
+ * differ by subsidiaries' results, so the growth rate between them would be
+ * an artefact of the basis, not of the business. When both bases exist for
+ * last year the matching one wins whatever order the rows arrive in. */
 export function findPriorYear(
   stmt: FinancialStatement,
   all: FinancialStatement[]
@@ -22,6 +27,7 @@ export function findPriorYear(
     if (
       other.workspace_id === stmt.workspace_id &&
       other.period_type === stmt.period_type &&
+      other.basis === stmt.basis &&
       oy === y - 1 &&
       om === m
     ) {
@@ -72,10 +78,19 @@ export function buildPeerTable(
   const candidates = statements.filter(
     (s) => s.period_type === periodType && wsById.has(s.workspace_id)
   );
+  // Latest period per company. If two statements end on the same date (the
+  // standalone and the consolidated filing for one year), the company's own
+  // comparison basis wins, so the pick never depends on row order.
   const latestByWorkspace = new Map<string, FinancialStatement>();
   for (const s of candidates) {
     const current = latestByWorkspace.get(s.workspace_id);
     if (!current || s.period_end_date > current.period_end_date) {
+      latestByWorkspace.set(s.workspace_id, s);
+    } else if (
+      s.period_end_date === current.period_end_date &&
+      s.basis !== current.basis &&
+      s.basis === wsById.get(s.workspace_id)!.comparison_basis
+    ) {
       latestByWorkspace.set(s.workspace_id, s);
     }
   }
@@ -85,6 +100,9 @@ export function buildPeerTable(
     const ws = wsById.get(stmt.workspace_id)!;
     const prior = findPriorYear(stmt, statements);
     const ratios = computeRatios(stmt, prior, ws.sector);
+    // Everything absolute is converted to crore here, once, so a company
+    // entered in lakh or million lines up with one entered in crore.
+    const f = croreFactor(ws.currency_unit);
 
     let basisCaveat: string | null = null;
     if (stmt.basis !== ws.comparison_basis) {
@@ -98,10 +116,13 @@ export function buildPeerTable(
       period_label: stmt.period_label,
       basis: stmt.basis,
       basis_caveat: basisCaveat,
-      revenue_cr: stmt.revenue_from_operations,
-      pat_cr: stmt.profit_after_tax,
-      pbt_cr: stmt.profit_before_tax,
-      exceptional_items_cr: stmt.exceptional_items ?? 0,
+      revenue_cr: stmt.revenue_from_operations * f,
+      pat_cr: stmt.profit_after_tax * f,
+      pbt_cr: stmt.profit_before_tax * f,
+      exceptional_items_cr: (stmt.exceptional_items ?? 0) * f,
+      prior_revenue_cr: prior ? prior.revenue_from_operations * f : null,
+      prior_pat_cr: prior ? prior.profit_after_tax * f : null,
+      total_equity_cr: stmt.total_equity == null ? null : stmt.total_equity * f,
       has_prior_year: prior != null,
       ratios,
     });

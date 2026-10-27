@@ -21,12 +21,29 @@ function safeDiv(num: number | null, den: number | null): number | null {
   return num / den;
 }
 
-// Days-outstanding ratio (inventory/receivable/payable days): num / den *
-// 365. Same null-safety as safeDiv, just with the *365 folded in so
-// every call site doesn't have to remember it.
-function safeDays(num: number | null, den: number | null): number | null {
+/** Days in the period the flows (revenue, expenses) cover. A balance-sheet
+ * balance divided by a quarter of flows has to be scaled to a quarter, not
+ * a year, or every days ratio on a quarterly statement comes out four times
+ * too large. */
+export function periodDays(stmt: Pick<FinancialStatement, "period_type">): number {
+  return stmt.period_type === "FY" ? 365 : 365 / 4;
+}
+
+// Days-outstanding ratio (inventory/receivable/payable days): balance /
+// flow * days in the period. Same null-safety as safeDiv, with the day
+// count folded in so no call site has to remember it.
+function safeDays(num: number | null, den: number | null, days: number): number | null {
   const ratio = safeDiv(num, den);
-  return ratio == null ? null : ratio * 365;
+  return ratio == null ? null : ratio * days;
+}
+
+/** Growth against the size of the prior figure, so the sign always means
+ * what it says: a loss that narrows from -100 to -50 is +50%, a loss that
+ * widens to -200 is -100%. Dividing by the signed prior figure (the old
+ * formula) reversed both. A zero prior year has no growth rate. */
+function growth(current: number, prior: number): number | null {
+  if (prior === 0) return null;
+  return (current - prior) / Math.abs(prior);
 }
 
 export type SectorConfig = {
@@ -57,22 +74,24 @@ const DERIVED_RATIOS: RatioDef[] = [
   {
     id: "yoy_revenue_growth",
     compute: (s, p) =>
-      p == null
-        ? null
-        : safeDiv(
-            s.revenue_from_operations - p.revenue_from_operations,
-            p.revenue_from_operations
-          ),
+      p == null ? null : growth(s.revenue_from_operations, p.revenue_from_operations),
   },
   {
     id: "yoy_pat_growth",
-    compute: (s, p) =>
-      p == null ? null : safeDiv(s.profit_after_tax - p.profit_after_tax, p.profit_after_tax),
+    compute: (s, p) => (p == null ? null : growth(s.profit_after_tax, p.profit_after_tax)),
   },
   {
+    // Size of the exceptional item against pre-exceptional PBT. Entered as
+    // an expense/loss when positive and a gain when negative, so a large
+    // exceptional GAIN is measured too (it flatters PAT just as a loss
+    // depresses it). Pre-exceptional PBT of zero has no ratio.
     id: "exceptional_item_pct_of_pbt",
-    compute: (s) =>
-      safeDiv(s.exceptional_items, s.profit_before_tax + (s.exceptional_items ?? 0)),
+    compute: (s) => {
+      if (s.exceptional_items == null) return null;
+      const preExceptional = s.profit_before_tax + s.exceptional_items;
+      if (preExceptional === 0) return null;
+      return Math.abs(s.exceptional_items) / Math.abs(preExceptional);
+    },
   },
   // Balance Sheet ratios — resolve to null (not zero) until a company's
   // statement actually carries current_assets/current_liabilities/etc.
@@ -84,22 +103,27 @@ const DERIVED_RATIOS: RatioDef[] = [
     compute: (s) => safeDiv(s.current_assets, s.current_liabilities),
   },
   {
+    // Not meaningful once equity is zero or negative: dividing by it gives
+    // a negative "ratio" that reads as the safest balance sheet in the
+    // peer set. Negative equity is reported separately (anomaly.ts flags
+    // it, health.ts grades it Critical).
     id: "debt_to_equity",
-    compute: (s) => safeDiv(s.total_debt, s.total_equity),
+    compute: (s) =>
+      s.total_equity != null && s.total_equity > 0 ? safeDiv(s.total_debt, s.total_equity) : null,
   },
   {
     id: "inventory_days",
     // total_expenses used as the COGS proxy - the schema doesn't carry
     // a separate COGS line today. Noted as an approximation, not exact.
-    compute: (s) => safeDays(s.inventory, s.total_expenses),
+    compute: (s) => safeDays(s.inventory, s.total_expenses, periodDays(s)),
   },
   {
     id: "receivable_days",
-    compute: (s) => safeDays(s.trade_receivables, s.revenue_from_operations),
+    compute: (s) => safeDays(s.trade_receivables, s.revenue_from_operations, periodDays(s)),
   },
   {
     id: "payable_days",
-    compute: (s) => safeDays(s.trade_payables, s.total_expenses),
+    compute: (s) => safeDays(s.trade_payables, s.total_expenses, periodDays(s)),
   },
   {
     id: "cash_conversion_cycle",
@@ -109,9 +133,10 @@ const DERIVED_RATIOS: RatioDef[] = [
     // inputs is missing - same null-safe convention as the rest of
     // this file.
     compute: (s) => {
-      const inv = safeDays(s.inventory, s.total_expenses);
-      const rec = safeDays(s.trade_receivables, s.revenue_from_operations);
-      const pay = safeDays(s.trade_payables, s.total_expenses);
+      const days = periodDays(s);
+      const inv = safeDays(s.inventory, s.total_expenses, days);
+      const rec = safeDays(s.trade_receivables, s.revenue_from_operations, days);
+      const pay = safeDays(s.trade_payables, s.total_expenses, days);
       if (inv == null || rec == null || pay == null) return null;
       return inv + rec - pay;
     },

@@ -24,37 +24,32 @@ export function detectYoySwings(rows: PeerRow[], sector: string): AnomalyFlag[] 
       const value = row.ratios[metric];
       if (value == null || Math.abs(value) <= threshold) continue;
 
-      const current = metric === "yoy_pat_growth" ? row.pat_cr : row.revenue_cr;
-      // A percentage YoY swing is only sign-correct when the prior-year
-      // base is positive. PeerRow doesn't carry the raw prior-year value
-      // directly, but it's recoverable from the ratio itself (value =
-      // (current - prior) / prior => prior = current / (1 + value)) -
-      // no need for a new field or a change anywhere else. When prior
-      // turns out negative, the percentage's sign is a mathematical
-      // artifact (a loss-to-profit turnaround reads as a "decline"; a
-      // widening loss can even read as "growth") - confirmed live on a
-      // real company (Godrej Consumer FY24->FY25: -560.6cr -> +1896.1cr
-      // PAT computed as "-438.3%"). In that case, describe the real ₹
-      // movement instead of trusting the percentage's direction.
-      const priorDenominator = 1 + value;
-      const prior = priorDenominator !== 0 ? current / priorDenominator : null;
+      const isPat = metric === "yoy_pat_growth";
+      const current = isPat ? row.pat_cr : row.revenue_cr;
+      // The prior-year figure comes straight from the row (in crore) - not
+      // back-solved from the percentage - so the wording below describes
+      // the real rupee movement. The percentage itself is measured against
+      // the size of the prior figure (see config.ts), so its sign is always
+      // the direction of the change; on a loss-making base it still needs
+      // words, because "+338%" on a swing from a loss to a profit is not a
+      // growth rate anyone would quote.
+      const prior = isPat ? row.prior_pat_cr : row.prior_revenue_cr;
       const metricLabel = metric.replace("yoy_", "").replace(/_/g, " ");
 
       let description: string;
-      if (prior != null && prior < 0) {
-        if (current >= 0) {
-          description =
-            `${metricLabel} turned around from a loss of ${inr(Math.abs(prior))} to ${inr(current)} \u2014 ` +
-            `the raw percentage swing (${pct(Math.abs(value))}) is a mathematical artifact of the negative ` +
-            `prior-year base, not a literal decline; treat this as a genuine improvement`;
-        } else {
-          const widened = Math.abs(current) > Math.abs(prior);
-          description =
-            `${metricLabel} loss ${widened ? "widened" : "narrowed"} from ${inr(Math.abs(prior))} to ` +
-            `${inr(Math.abs(current))} \u2014 the raw percentage swing (${pct(Math.abs(value))}) is a ` +
-            `mathematical artifact of the negative prior-year base, not a literal ` +
-            `${widened ? "decline" : "improvement"} percentage`;
-        }
+      if (prior != null && prior < 0 && current >= 0) {
+        description =
+          `${metricLabel} turned around from a loss of ${inr(Math.abs(prior))} to ${inr(current)} \u2014 ` +
+          `a percentage on a negative base is not meaningful, treat this as a genuine improvement`;
+      } else if (prior != null && prior < 0) {
+        const widened = Math.abs(current) > Math.abs(prior);
+        description =
+          `${metricLabel} loss ${widened ? "widened" : "narrowed"} from ${inr(Math.abs(prior))} to ` +
+          `${inr(Math.abs(current))} (${pct(Math.abs(value))} of the prior-year loss)`;
+      } else if (prior != null && prior >= 0 && current < 0) {
+        description =
+          `${metricLabel} swung from ${inr(prior)} to a loss of ${inr(Math.abs(current))} \u2014 ` +
+          `a percentage decline past 100% is not meaningful, treat this as a move into losses`;
       } else {
         const direction = value > 0 ? "grew" : "declined";
         description =
@@ -78,29 +73,35 @@ export function detectYoySwings(rows: PeerRow[], sector: string): AnomalyFlag[] 
   return flags;
 }
 
-/** Z-score each company's ratio against the peer set's own distribution.
- * With a 5-company peer set, treat this as "worth a second look," not
- * statistical significance — that caveat is carried through to
- * computeConfidence via peerSampleSize, not just stated in prose. */
+/** How far each company's ratio sits from the OTHER companies in the peer
+ * set: (value - mean of the others) / sample standard deviation of the
+ * others. Scoring a company against a mean and deviation that already
+ * include itself caps the score at (n - 1) / sqrt(n) - 1.79 for the five
+ * companies Sentinel usually has, so a threshold of 2.0 could never be
+ * crossed and the detector was silent however extreme the outlier. Leaving
+ * the company out of its own baseline removes that ceiling. At least three
+ * others are needed for a deviation to mean anything. With so few peers
+ * this stays "worth a second look", not statistical significance - the
+ * caveat is carried through to computeConfidence via peerSampleSize and
+ * stated in each flag's description. */
 export function detectPeerRelativeOutliers(rows: PeerRow[], sector: string): AnomalyFlag[] {
   const cfg = getSectorConfig(sector);
   const zThreshold = cfg.anomaly_thresholds.peer_relative_zscore;
   const flags: AnomalyFlag[] = [];
 
   for (const metric of PEER_RELATIVE_METRICS) {
-    const values = rows
-      .map((r) => r.ratios[metric])
-      .filter((v): v is number => v != null);
-    if (values.length < 3) continue;
+    const valued = rows
+      .map((r) => ({ row: r, value: r.ratios[metric] }))
+      .filter((x): x is { row: PeerRow; value: number } => x.value != null);
 
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
-    const stdev = Math.sqrt(variance);
-    if (stdev === 0) continue;
+    for (const { row, value } of valued) {
+      const others = valued.filter((x) => x.row.workspace_id !== row.workspace_id).map((x) => x.value);
+      if (others.length < 3) continue;
+      const mean = others.reduce((a, b) => a + b, 0) / others.length;
+      const variance = others.reduce((a, b) => a + (b - mean) ** 2, 0) / (others.length - 1);
+      const stdev = Math.sqrt(variance);
+      if (stdev === 0) continue;
 
-    for (const row of rows) {
-      const value = row.ratios[metric];
-      if (value == null) continue;
       const z = (value - mean) / stdev;
       if (Math.abs(z) <= zThreshold) continue;
       const direction = z > 0 ? "above" : "below";
@@ -115,8 +116,8 @@ export function detectPeerRelativeOutliers(rows: PeerRow[], sector: string): Ano
         severity: Math.abs(z) / zThreshold,
         description:
           `${metric.replace(/_/g, " ")} of ${pct(value)} is ${Math.abs(z).toFixed(1)} std dev ` +
-          `${direction} the ${values.length}-company peer mean of ${pct(mean)} ` +
-          `(n=${values.length} \u2014 small sample, treat as a lead not a verdict)`,
+          `${direction} the mean of the other ${others.length} peers (${pct(mean)}) ` +
+          `(n=${others.length} \u2014 small sample, treat as a lead not a verdict)`,
       });
     }
   }
@@ -133,6 +134,7 @@ export function detectExceptionalItems(rows: PeerRow[], sector: string): Anomaly
     const ratio = row.ratios["exceptional_item_pct_of_pbt"];
     if (ratio == null || ratio <= threshold) continue;
     const preExceptionalPbt = row.pbt_cr + row.exceptional_items_cr;
+    const kind = row.exceptional_items_cr < 0 ? "gain" : "loss";
     flags.push({
       workspace_id: row.workspace_id,
       company_name: row.company_name,
@@ -143,7 +145,7 @@ export function detectExceptionalItems(rows: PeerRow[], sector: string): Anomaly
       threshold,
       severity: ratio / threshold,
       description:
-        `exceptional items (${inr(row.exceptional_items_cr)}) are ` +
+        `exceptional ${kind} (${inr(Math.abs(row.exceptional_items_cr))}) is ` +
         `${pct(ratio)} of pre-exceptional PBT (${inr(preExceptionalPbt)}), ` +
         `past the configured ${thresholdPct.toFixed(0)}% threshold`,
     });
@@ -189,6 +191,24 @@ export function detectLeverageRisk(rows: PeerRow[], sector: string): AnomalyFlag
   const flags: AnomalyFlag[] = [];
 
   for (const row of rows) {
+    // Zero or negative equity: debt-to-equity is not defined, but the
+    // position is the most leveraged there is - liabilities exceed assets.
+    if (row.total_equity_cr != null && row.total_equity_cr <= 0) {
+      flags.push({
+        workspace_id: row.workspace_id,
+        company_name: row.company_name,
+        period_label: row.period_label,
+        flag_type: "leverage",
+        metric: "total_equity",
+        value: row.total_equity_cr,
+        threshold: 0,
+        severity: 2,
+        description:
+          `total equity is ${row.total_equity_cr < 0 ? "negative" : "zero"} (${inr(row.total_equity_cr)}) \u2014 ` +
+          `liabilities are at or above assets, so debt-to-equity is not meaningful`,
+      });
+      continue;
+    }
     const de = row.ratios["debt_to_equity"];
     if (de == null || de <= maxDE) continue;
     flags.push({

@@ -1,0 +1,82 @@
+// Starts the in-memory Supabase + Anthropic fake with seeded data, for the browser checks.
+//   node scripts/test-sentinel.mjs        (compiles the fake into node_modules/.cache first)
+//   node tests/sentinel/e2e/serve-fake.cjs 4010
+const path = require("node:path");
+const { randomUUID } = require("node:crypto");
+const root = path.join(__dirname, "..", "..", "..");
+const { FakeBackend } = require(path.join(root, "node_modules/.cache/sentinel-tests/tests/sentinel/fake-backend.js"));
+
+const port = Number(process.argv[2] || 4010);
+const b = new FakeBackend();
+b.rls = true;
+
+const IDS = {
+  A: "00000000-0000-4000-8000-00000000000a",
+  B: "00000000-0000-4000-8000-00000000000b",
+  alpha: "10000000-0000-4000-8000-000000000001",
+  lakh: "10000000-0000-4000-8000-000000000002",
+  bravo: "10000000-0000-4000-8000-000000000003",
+  ref1: "20000000-0000-4000-8000-000000000001",
+  ref2: "20000000-0000-4000-8000-000000000002",
+  ref3: "20000000-0000-4000-8000-000000000003",
+};
+b.addUser("tok-a", IDS.A, "a@example.com");
+b.addUser("tok-b", IDS.B, "b@example.com");
+
+const base = { sector: "tyre", industry: null, fiscal_year_start_month: 4, currency: "INR", currency_unit: "INR_CRORE", comparison_basis: "consolidated" };
+b.tables.sentinel_workspaces = [
+  { id: IDS.ref3, owner_id: null, company_name: "Zenith Reference Tyres", is_public_reference: true, ...base },
+  { id: IDS.ref1, owner_id: null, company_name: "Apex Reference Tyres", is_public_reference: true, ...base },
+  { id: IDS.bravo, owner_id: IDS.B, company_name: "Bravo Secret Tyres", is_public_reference: false, ...base },
+  { id: IDS.ref2, owner_id: null, company_name: "Meridian Reference Tyres", is_public_reference: true, ...base },
+  { id: IDS.lakh, owner_id: IDS.A, company_name: "Lakh Industries", is_public_reference: false, ...base, currency_unit: "INR_LAKH" },
+  { id: IDS.alpha, owner_id: IDS.A, company_name: "Alpha Tyres", is_public_reference: false, ...base },
+];
+const fy = (ws, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
+  id: randomUUID(), workspace_id: ws, review_cycle_id: null, period_type: "FY", period_label: label, period_end_date: end, basis: "consolidated",
+  revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,
+});
+b.tables.sentinel_statements = [
+  fy(IDS.alpha, "FY26", "2026-03-31", 1300, 260, 130, 100, { total_equity: 600, total_debt: 300, current_assets: 500, current_liabilities: 400, inventory: 100, total_expenses: 1150, trade_receivables: 120 }),
+  fy(IDS.alpha, "FY25", "2025-03-31", 1000, 190, 100, 80),
+  fy(IDS.ref1, "FY26", "2026-03-31", 1250, 230, 120, 90), fy(IDS.ref1, "FY25", "2025-03-31", 1180, 215, 110, 85),
+  fy(IDS.ref2, "FY26", "2026-03-31", 2000, 360, 200, 150), fy(IDS.ref2, "FY25", "2025-03-31", 1900, 340, 190, 142),
+  fy(IDS.ref3, "FY26", "2026-03-31", 800, 140, 70, 52), fy(IDS.ref3, "FY25", "2025-03-31", 760, 133, 66, 49),
+  fy(IDS.bravo, "FY26", "2026-03-31", 4321, 800, 400, 300), fy(IDS.bravo, "FY25", "2025-03-31", 4000, 700, 350, 260),
+];
+// Rows as the database returns them: every column present, arrays defaulting to empty.
+const invDefaults = { review_cycle_id: null, statement_id: null, initial_hypothesis: "Hypothesis", named_peer: null, possible_causes: [], financial_impact: null, confidence_signals: { flag_count: 2, corroborating_flag_types: 1, max_severity: 1.5, peer_sample_size: 4 }, suggested_questions: [], suggested_actions: [], reviewer_notes: null, archived_at: null };
+b.tables.sentinel_investigations = [
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY26", status: "approved", observation: [], ...invDefaults, ai_narrative: "**Company specific**\n\nDraft", final_narrative: "**Company specific**\n\nSigned off", confidence_score: 70, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY25", status: "pending", observation: [], ...invDefaults, ai_narrative: "Draft", final_narrative: null, confidence_score: 50, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY24", status: "rejected", observation: [], ...invDefaults, ai_narrative: "Draft", final_narrative: null, confidence_score: 40, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+];
+b.tables.sentinel_review_cycles = [];
+b.tables.sentinel_recommendations = [];
+
+// What the fake model says when the browser uploads a filing (see fixtures in tests/sentinel/pdf-fixtures.ts).
+const extractionReply = () => ({
+  text: JSON.stringify({
+    period_type: "FY", period_label: "FY26", period_end_date: "2026-03-31", basis: "consolidated", unit: "crore",
+    fields: {
+      revenue_from_operations: 1000, other_income: 50, total_income: 1050, total_expenses: 900, finance_costs: 20,
+      depreciation_amortisation: 60, exceptional_items: 30, profit_before_tax: 120, tax_expense: 30, profit_after_tax: 90,
+      total_assets: 2000, current_assets: 800, trade_receivables: 150, inventory: 250, cash_and_equivalents: 90, fixed_assets: 1100,
+      total_liabilities: 900, current_liabilities: 450, trade_payables: 180, total_equity: 1100, total_debt: 400, ebitda: 175,
+      cash_from_operations: 140, cash_from_investing: -210, cash_from_financing: 60, capex: 190,
+    },
+    extraction_notes: "Used the year ended 31 March 2026 column.", low_confidence_fields: [],
+  }),
+});
+b.anthropicReply = (body) => {
+  if (String(body.system || "").includes("extract financial statement")) return extractionReply();
+  const n = body.messages.length;
+  if (n === 1) return { text: "Initial hypothesis: growth looks company specific." };
+  if (n === 3) return { text: "**Rules out sector-wide effect**\n\nAlpha outgrew its peer set." };
+  return { text: JSON.stringify({ questions: ["Was there a one-off order?"], recommendations: [{ title: "Check order book", priority: "High", business_value: "Confirms durability", owner: "Finance Head", timeline: "0-2 weeks", difficulty: "Easy" }] }) };
+};
+
+b.start(port).then((url) => {
+  console.log("FAKE_BACKEND_READY " + url);
+});
+module.exports = { IDS };

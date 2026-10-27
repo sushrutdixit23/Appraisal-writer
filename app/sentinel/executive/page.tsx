@@ -67,29 +67,36 @@ export default function ExecutiveDashboardPage() {
     if (!bySector.has(w.sector)) bySector.set(w.sector, []);
     bySector.get(w.sector)!.push(w);
   }
-  const growthByWorkspace = new Map<string, number | null>();
-  for (const [sector, sectorWs] of bySector) {
+  // PAT growth is only shown against a finding about the SAME period it was measured for.
+  const growthByWorkspace = new Map<string, { period_label: string; growth: number | null }>();
+  for (const [, sectorWs] of bySector) {
     if (sectorWs.length === 0) continue;
     const rows = buildPeerTable(sectorWs, statements, sectorWs[0].id, "FY");
     for (const row of rows) {
-      growthByWorkspace.set(row.workspace_id, row.ratios.yoy_pat_growth ?? null);
+      growthByWorkspace.set(row.workspace_id, { period_label: row.period_label, growth: row.ratios.yoy_pat_growth ?? null });
     }
   }
 
   const approved = investigations.filter((i) => i.status === "approved" || i.status === "edited");
   const withGrowth = approved.map((inv) => {
-    const growth = growthByWorkspace.get(inv.workspace_id) ?? null;
+    const entry = growthByWorkspace.get(inv.workspace_id);
+    const growth = entry && entry.period_label === inv.period_label ? entry.growth : null;
     return { inv, absGrowth: growth != null ? Math.abs(growth) : 0, growth };
   });
   withGrowth.sort((a, b) => b.absGrowth - a.absGrowth);
 
   const totalCompanies = new Set(statements.filter((s) => s.period_type === "FY").map((s) => s.workspace_id)).size;
 
+  // Counted from the findings themselves: "Reviewed" is a decision made (approved, edited or rejected),
+  // "Awaiting review" is a draft still pending. (This used to subtract findings from companies, which
+  // has no meaning - several findings can belong to one company.)
+  const reviewed = investigations.filter((i) => i.status === "approved" || i.status === "edited" || i.status === "rejected");
+  const awaiting = investigations.filter((i) => i.status === "pending");
   const stats: [string, number][] = [
-    ["Companies in peer set", totalCompanies],
-    ["Reviewed", investigations.length],
+    ["Companies with annual data", totalCompanies],
+    ["Reviewed", reviewed.length],
     ["Approved", approved.length],
-    ["Awaiting review", Math.max(0, totalCompanies - investigations.length)],
+    ["Awaiting review", awaiting.length],
   ];
 
   return (

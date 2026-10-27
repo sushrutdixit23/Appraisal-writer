@@ -37,6 +37,9 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
+import { croreFactor } from "../lib/units";
+import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { MultiTrendLineChart } from "../lib/charts";
 import { buildPeerTable, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
@@ -129,7 +132,9 @@ function buildTrendPoints(
   for (const stmt of relevant) {
     let value: number | null;
     if (RAW_TREND_FIELDS.has(metricKey)) {
-      value = (stmt as unknown as Record<string, number | null>)[metricKey] ?? null;
+      // In crore, whatever unit the company reports in, so several companies can share one axis.
+      const raw = (stmt as unknown as Record<string, number | null>)[metricKey];
+      value = raw == null ? null : raw * croreFactor(workspace.currency_unit);
     } else {
       const prior = findPriorYear(stmt, statements);
       const ratios = computeRatios(stmt, prior, workspace.sector);
@@ -207,7 +212,8 @@ export default function DeepAnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
-  const [primaryId, setPrimaryId] = useState<string | null>(null);
+  const [userId, setUserId] = useState("");
+  const [primaryId, setPrimaryId] = useSelectedWorkspace(workspaces.map((w) => w.id));
   const [metricId, setMetricId] = useState(METRICS[0].id);
   const [periodType, setPeriodType] = useState<"FY" | "quarterly">("FY");
 
@@ -224,9 +230,9 @@ export default function DeepAnalysisPage() {
         setLoading(false);
         return;
       }
-      const ws = (wsData ?? []) as Workspace[];
+      const ws = sortWorkspaces((wsData ?? []) as Workspace[], sessionData.session.user.id);
+      setUserId(sessionData.session.user.id);
       setWorkspaces(ws);
-      if (ws.length > 0) setPrimaryId(ws[0].id);
 
       const { data: stmtData, error: stmtError } = await supabase
         .from("sentinel_statements")
@@ -249,9 +255,6 @@ export default function DeepAnalysisPage() {
 
   const primaryWorkspace = workspaces.find((w) => w.id === primaryId)!;
   const sectorWorkspaces = workspaces.filter((w) => w.sector === primaryWorkspace.sector);
-  const allWorkspacesSorted = [...workspaces].sort((a, b) =>
-    a.company_name.localeCompare(b.company_name)
-  );
 
   const metric = METRICS.find((m) => m.id === metricId) ?? METRICS[0];
 
@@ -284,10 +287,10 @@ export default function DeepAnalysisPage() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <label style={{ fontSize: "0.8rem", color: T.inkSoft }}>Viewing as</label>
-          <select value={primaryId} onChange={(e) => setPrimaryId(e.target.value)} style={selectStyle}>
-            {allWorkspacesSorted.map((w) => (
+          <select aria-label="Viewing as" value={primaryId} onChange={(e) => setPrimaryId(e.target.value)} style={selectStyle}>
+            {workspaces.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.company_name}
+                {workspaceOptionLabel(w, userId)}
               </option>
             ))}
           </select>

@@ -4,9 +4,9 @@
 // last few) since a spreadsheet has no page-width constraint the way a
 // PDF or slide does.
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { buildPeerTable } from "../../../../sentinel/lib/engine";
+import { NextResponse } from "next/server";
+import { findPriorYear } from "../../../../sentinel/lib/engine";
+import { isFailure, loadExportContext, safeFilename } from "../../../../sentinel/lib/server";
 import { getBenchmark } from "../../../../sentinel/lib/benchmark";
 import {
   buildStatementWorkbook,
@@ -14,17 +14,8 @@ import {
   type StatementExportPeerNote,
   type StatementExportPeriod,
 } from "../../../../sentinel/lib/excel/statement-export";
-import type { FinancialStatement, Workspace } from "../../../../sentinel/lib/types";
 
 export const runtime = "nodejs";
-
-const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  SUPABASE_SERVICE_KEY!
-);
 
 function formatVsPeer(
   b: ReturnType<typeof getBenchmark>,
@@ -38,62 +29,11 @@ function formatVsPeer(
   return gap + " vs " + b.closestPeer.company_name;
 }
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
-  if (!token) {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-  }
-  const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !userData.user) {
-    return NextResponse.json({ error: "Invalid session." }, { status: 401 });
-  }
-
-  const { workspace_id } = await req.json();
-  if (!workspace_id) {
-    return NextResponse.json({ error: "Missing workspace_id." }, { status: 400 });
-  }
-
-  const { data: wsData, error: wsError } = await supabaseAdmin
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("id", workspace_id)
-    .single();
-  if (wsError || !wsData) {
-    return NextResponse.json({ error: "Workspace not found." }, { status: 404 });
-  }
-  const workspace = wsData as Workspace;
-
-  const { data: sectorWsData, error: sectorWsError } = await supabaseAdmin
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("sector", workspace.sector);
-  if (sectorWsError) {
-    return NextResponse.json({ error: sectorWsError.message }, { status: 500 });
-  }
-  const sectorWorkspaces = (sectorWsData ?? []) as Workspace[];
-
-  const { data: stmtData, error: stmtError } = await supabaseAdmin
-    .from("sentinel_statements")
-    .select("*")
-    .in(
-      "workspace_id",
-      sectorWorkspaces.map((w) => w.id)
-    );
-  if (stmtError) {
-    return NextResponse.json({ error: stmtError.message }, { status: 500 });
-  }
-  const statements = (stmtData ?? []) as FinancialStatement[];
-
-  const ownFYStatements = statements
-    .filter((s) => s.workspace_id === workspace_id && s.period_type === "FY")
-    .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
-  if (ownFYStatements.length === 0) {
-    return NextResponse.json(
-      { error: "No annual statements on file for this company yet." },
-      { status: 404 }
-    );
-  }
+export async function POST(req: Request) {
+  const ctx = await loadExportContext(req);
+  if (isFailure(ctx)) return ctx.error;
+  const { workspace, statements, ownFY: ownFYStatements, peerRows } = ctx;
+  const workspace_id = workspace.id;
 
   const periods: StatementExportPeriod[] = ownFYStatements.map((s) => ({
     label: s.period_label,
@@ -113,7 +53,6 @@ export async function POST(req: NextRequest) {
     },
   }));
 
-  const peerRows = buildPeerTable(sectorWorkspaces, statements, workspace_id, "FY");
   const peerNotes: StatementExportPeerNote[] = [];
   const peerDefs: { rowKey: string; metric: string; isRatio: boolean }[] = [
     { rowKey: "revenue_from_operations", metric: "revenue_cr", isRatio: false },
@@ -130,11 +69,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // The YoY column compares the last two columns, which is only a year-on-year comparison when the
+  // second-to-last column really is the prior year on the same basis. Otherwise it is left out
+  // rather than shown under a label it does not earn.
+  const latest = ownFYStatements[ownFYStatements.length - 1];
+  const prior = findPriorYear(latest, statements);
+  const yoyComparable =
+    ownFYStatements.length >= 2 && prior != null && prior.id === ownFYStatements[ownFYStatements.length - 2].id;
+
   const exportData: StatementExportData = {
     companyName: workspace.company_name,
     currencyUnit: workspace.currency_unit,
     periods,
     peerNotes,
+    yoyComparable,
   };
 
   try {
@@ -145,7 +93,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition":
           'attachment; filename="' +
-          workspace.company_name.replace(/\s+/g, "_") +
+          safeFilename(workspace.company_name) +
           '_Income_Statement.xlsx"',
       },
     });

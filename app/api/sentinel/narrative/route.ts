@@ -6,12 +6,13 @@
 // Claude — see anomaly.ts). Writes to sentinel_investigations, not the
 // old sentinel_reviews table.
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
+import { authenticate, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
+import { formatMoney } from "../../../sentinel/lib/units";
 import type {
   AnomalyFlag,
   FinancialStatement,
@@ -24,24 +25,29 @@ const MODEL = "claude-sonnet-5";
 const inr = (v: number) =>
   `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cr`;
 
+// The statement's own figures are in the company's reporting unit (lakh, million, crore...), so
+// they are labelled with that unit. Peer figures are already converted to crore by buildPeerTable.
 function companyContext(
   ws: Workspace,
   stmt: FinancialStatement,
   prior: FinancialStatement | null
 ): string {
+  const money = (v: number) => formatMoney(v, ws.currency_unit);
   const lines = [
     `${ws.company_name} (${stmt.period_label}, ${stmt.basis}):`,
-    `  Revenue: ${inr(stmt.revenue_from_operations)}`,
-    `  PAT: ${inr(stmt.profit_after_tax)}`,
-    `  PBT: ${inr(stmt.profit_before_tax)}`,
+    `  Revenue: ${money(stmt.revenue_from_operations)}`,
+    `  PAT: ${money(stmt.profit_after_tax)}`,
+    `  PBT: ${money(stmt.profit_before_tax)}`,
   ];
   if (stmt.exceptional_items) {
-    lines.push(`  Exceptional items: ${inr(stmt.exceptional_items)}`);
+    lines.push(
+      `  Exceptional items: ${money(stmt.exceptional_items)} (${stmt.exceptional_items < 0 ? "a gain" : "a loss/expense"})`
+    );
   }
   if (prior) {
     lines.push(
-      `  Prior year (${prior.period_label}): Revenue ${inr(prior.revenue_from_operations)}, ` +
-        `PAT ${inr(prior.profit_after_tax)}`
+      `  Prior year (${prior.period_label}): Revenue ${money(prior.revenue_from_operations)}, ` +
+        `PAT ${money(prior.profit_after_tax)}`
     );
   }
   return lines.join("\n");
@@ -57,6 +63,8 @@ function peerContextForMetrics(
   for (const metric of metrics) {
     if (seen.has(metric)) continue;
     seen.add(metric);
+    // A flag on a figure with no peer ratio (negative equity) has nothing to compare against.
+    if (!rows.some((r) => r.ratios[metric] != null)) continue;
     const isRatio = metric.includes("yoy") || metric.includes("margin") || metric.includes("pct");
     const lines = rows
       .filter((r) => r.ratios[metric] != null)
@@ -79,7 +87,8 @@ async function callClaude(
   messages: { role: "user" | "assistant"; content: string }[],
   maxTokens: number
 ): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const baseUrl = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "");
+  const res = await fetch(`${baseUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -169,66 +178,53 @@ async function getSuggestedFollowUps(
   }
 }
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!token) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+export async function POST(req: Request) {
+  const a = getAdmin();
+  if (isFailure(a)) return a.error;
+  const { admin: supabase } = a;
+  const who = await authenticate(req, supabase);
+  if (isFailure(who)) return who.error;
+  const userId = who.userId;
+
+  let body: { workspace_id?: unknown; period_label?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "The request body is not valid JSON." }, { status: 400 });
   }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  );
-
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData.user) {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-  }
-  const userId = userData.user.id;
-
-  const { workspace_id, period_label } = await req.json();
-  if (!workspace_id || !period_label) {
+  const { workspace_id, period_label } = body;
+  if (!workspace_id || typeof period_label !== "string" || !period_label) {
     return NextResponse.json({ error: "Missing workspace_id or period_label" }, { status: 400 });
   }
 
-  const { data: wsData, error: wsError } = await supabase
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("id", workspace_id)
-    .single();
-  if (wsError || !wsData) {
-    return NextResponse.json({ error: "Workspace not found or not accessible" }, { status: 404 });
-  }
-  const workspace = wsData as Workspace;
+  // The caller may only generate for a company they can see, and the peer set around it is limited
+  // to companies they can see too (reference companies and their own) - the same set the pages show.
+  const loaded = await loadWorkspaceFor(supabase, userId, workspace_id, "read");
+  if (isFailure(loaded)) return loaded.error;
+  const workspace = loaded.workspace;
+  const context = await loadPeerContext(supabase, userId, workspace);
+  if (isFailure(context)) return context.error;
+  const sectorWorkspaces = context.workspaces;
+  const statements = context.statements;
 
-  const { data: allWsData, error: allWsError } = await supabase
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("sector", workspace.sector);
-  const { data: stmtData, error: stmtError } = await supabase
-    .from("sentinel_statements")
-    .select("*")
-    .in(
-      "workspace_id",
-      ((allWsData ?? []) as Workspace[]).map((w) => w.id)
-    );
-  if (allWsError || stmtError) {
-    return NextResponse.json({ error: (allWsError ?? stmtError)!.message }, { status: 500 });
-  }
-  const sectorWorkspaces = (allWsData ?? []) as Workspace[];
-  const statements = (stmtData ?? []) as FinancialStatement[];
-
-  const peerRows = buildPeerTable(sectorWorkspaces, statements, workspace_id, "FY");
+  const peerRows = buildPeerTable(sectorWorkspaces, statements, workspace.id, "FY");
   const allFlags = runAllChecks(peerRows, workspace.sector);
   const flags: AnomalyFlag[] = allFlags.filter(
-    (f) => f.workspace_id === workspace_id && f.period_label === period_label
+    (f) => f.workspace_id === workspace.id && f.period_label === period_label
   );
   if (flags.length === 0) {
     return NextResponse.json({ error: "No flags for this workspace/period" }, { status: 404 });
   }
 
-  const stmt = statements.find((s) => s.workspace_id === workspace_id && s.period_label === period_label);
+  // The statement the flags were computed from: the annual one on the basis the peer table used.
+  const selfRow = peerRows.find((r) => r.workspace_id === workspace.id);
+  const stmt = statements.find(
+    (s) =>
+      s.workspace_id === workspace.id &&
+      s.period_type === "FY" &&
+      s.period_label === period_label &&
+      s.basis === selfRow?.basis
+  );
   if (!stmt) {
     return NextResponse.json({ error: "Statement not found" }, { status: 404 });
   }
@@ -260,8 +256,8 @@ export async function POST(req: NextRequest) {
     const hypothesis = await callClaude(systemPrompt, [{ role: "user", content: turn1User }], 500);
 
     const metrics = flags.map((f) => f.metric);
-    const peerContext = peerContextForMetrics(peerRows, metrics, workspace_id);
-    const closestPeer = findClosestPeer(peerRows, workspace_id);
+    const peerContext = peerContextForMetrics(peerRows, metrics, workspace.id);
+    const closestPeer = findClosestPeer(peerRows, workspace.id);
     const closestPeerBlock = closestPeer
       ? `\n\nClosest comparable peer by revenue scale: ${closestPeer.company_name} ` +
         `(revenue ${inr(closestPeer.revenue_cr)}). Where it sharpens the analysis, compare the ` +
@@ -296,7 +292,7 @@ export async function POST(req: NextRequest) {
       .from("sentinel_investigations")
       .upsert(
         {
-          workspace_id,
+          workspace_id: workspace.id,
           // Inherits whatever review cycle the underlying statement is
           // already attached to (set via Add Period's "Review cycle"
           // picker) - no new request parameter or caller change needed.
@@ -349,7 +345,7 @@ export async function POST(req: NextRequest) {
       const evidenceText = flags.map((f) => f.description).join(" | ");
       const { error: insertRecError } = await supabase.from("sentinel_recommendations").insert(
         followUps.recommendations.map((rec) => ({
-          workspace_id,
+          workspace_id: workspace.id,
           investigation_id: investigationId,
           review_cycle_id: stmt.review_cycle_id ?? null,
           owner_id: userId,

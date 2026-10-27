@@ -36,6 +36,7 @@
 
 import { computeRatios } from "./engine";
 import { getSectorConfig } from "./config";
+import { formatMoney } from "./units";
 import type { FinancialStatement } from "./types";
 
 export type HealthStatus = "healthy" | "watch" | "concern" | "critical" | "no_data";
@@ -64,7 +65,11 @@ const STATUS_SCORE: Record<Exclude<HealthStatus, "no_data">, number> = {
 /** severity: 0 = comfortably fine, 1.0 = exactly at the existing
  * anomaly.ts threshold line, higher = further past it. Same four bands
  * used for every ratio-vs-threshold category below. */
-function bandFromSeverity(severity: number): Exclude<HealthStatus, "no_data"> {
+function bandFromSeverity(raw: number): Exclude<HealthStatus, "no_data"> {
+  // Rounded so a value sitting exactly on a band edge stays on it: a 2pp
+  // margin fall computes as 2.0000000000000004 in binary floating point,
+  // which would otherwise tip it into the next band.
+  const severity = Math.round(raw * 1e6) / 1e6;
   if (severity <= 0.7) return "healthy";
   if (severity <= 1.0) return "watch";
   if (severity <= 1.4) return "concern";
@@ -72,14 +77,15 @@ function bandFromSeverity(severity: number): Exclude<HealthStatus, "no_data"> {
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-const inr = (v: number) =>
-  `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cr`;
-
 export function computeHealthScore(
   stmt: FinancialStatement,
   prior: FinancialStatement | null,
-  sector: string
+  sector: string,
+  // The company's reporting unit, so rupee amounts in the detail text carry
+  // the right label (the statement's own figures are in that unit).
+  currencyUnit?: string | null
 ): HealthScore {
+  const inr = (v: number) => formatMoney(v, currencyUnit);
   const cfg = getSectorConfig(sector);
   const t = cfg.anomaly_thresholds;
   const ratios = computeRatios(stmt, prior, sector);
@@ -182,7 +188,17 @@ export function computeHealthScore(
   // Leverage — debt-to-equity vs. debt_equity_max (existing threshold).
   {
     const de = ratios["debt_to_equity"];
-    if (de == null) {
+    if (stmt.total_equity != null && stmt.total_equity <= 0) {
+      // Debt-to-equity is undefined at zero or negative equity (config.ts
+      // returns null for it), but that is the worst leverage position, not
+      // a missing one - it must not fall through to "no data" or to a
+      // negative ratio that bands as healthy.
+      categories.push({
+        key: "leverage", label: "Leverage", status: "critical",
+        metric_label: "Total equity", value: stmt.total_equity,
+        detail: `Total equity is ${stmt.total_equity < 0 ? "negative" : "zero"} (${inr(stmt.total_equity)}) - debt-to-equity is not meaningful`,
+      });
+    } else if (de == null) {
       categories.push({
         key: "leverage", label: "Leverage", status: "no_data",
         metric_label: null, value: null, detail: null,

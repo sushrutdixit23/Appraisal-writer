@@ -6,9 +6,8 @@
 // Findings are condensed to a one-line headline (firstSentence) rather
 // than the full narrative shown in the PDF - see board-deck.ts for why.
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { buildPeerTable, findPriorYear } from "../../../../sentinel/lib/engine";
+import { NextResponse } from "next/server";
+import { isFailure, loadExportContext, safeFilename } from "../../../../sentinel/lib/server";
 import { getBenchmark } from "../../../../sentinel/lib/benchmark";
 import { computeHealthScore } from "../../../../sentinel/lib/health";
 import { getSectorConfig } from "../../../../sentinel/lib/config";
@@ -21,14 +20,6 @@ import {
 import type { FinancialStatement, Investigation, Workspace } from "../../../../sentinel/lib/types";
 
 export const runtime = "nodejs";
-
-const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  SUPABASE_SERVICE_KEY!
-);
 
 const pct = (v: number | null) => (v == null ? "-" : (v * 100).toFixed(1) + "%");
 const num = (v: number | null) =>
@@ -133,70 +124,11 @@ function extractVerdict(narrative: string): { verdict: string | null; body: stri
   return { verdict, body };
 }
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
-  if (!token) {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-  }
-  const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !userData.user) {
-    return NextResponse.json({ error: "Invalid session." }, { status: 401 });
-  }
-
-  const { workspace_id, period_label } = await req.json();
-  if (!workspace_id) {
-    return NextResponse.json({ error: "Missing workspace_id." }, { status: 400 });
-  }
-
-  const { data: wsData, error: wsError } = await supabaseAdmin
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("id", workspace_id)
-    .single();
-  if (wsError || !wsData) {
-    return NextResponse.json({ error: "Workspace not found." }, { status: 404 });
-  }
-  const workspace = wsData as Workspace;
-
-  const { data: sectorWsData, error: sectorWsError } = await supabaseAdmin
-    .from("sentinel_workspaces")
-    .select("*")
-    .eq("sector", workspace.sector);
-  if (sectorWsError) {
-    return NextResponse.json({ error: sectorWsError.message }, { status: 500 });
-  }
-  const sectorWorkspaces = (sectorWsData ?? []) as Workspace[];
-
-  const { data: stmtData, error: stmtError } = await supabaseAdmin
-    .from("sentinel_statements")
-    .select("*")
-    .in(
-      "workspace_id",
-      sectorWorkspaces.map((w) => w.id)
-    );
-  if (stmtError) {
-    return NextResponse.json({ error: stmtError.message }, { status: 500 });
-  }
-  const statements = (stmtData ?? []) as FinancialStatement[];
-
-  const ownFYStatements = statements
-    .filter((s) => s.workspace_id === workspace_id && s.period_type === "FY")
-    .sort((a, b) => a.period_end_date.localeCompare(b.period_end_date));
-  if (ownFYStatements.length === 0) {
-    return NextResponse.json(
-      { error: "No annual statements on file for this company yet." },
-      { status: 404 }
-    );
-  }
-  const latestStmt = period_label
-    ? ownFYStatements.find((s) => s.period_label === period_label) ??
-      ownFYStatements[ownFYStatements.length - 1]
-    : ownFYStatements[ownFYStatements.length - 1];
-  const priorStmt = findPriorYear(latestStmt, statements);
-
-  const peerRows = buildPeerTable(sectorWorkspaces, statements, workspace_id, "FY");
-  const selfRow = peerRows.find((r) => r.is_subject) ?? null;
+export async function POST(req: Request) {
+  const ctx = await loadExportContext(req, { investigations: true });
+  if (isFailure(ctx)) return ctx.error;
+  const { workspace, latestStmt, priorStmt, peerRows, selfRow } = ctx;
+  const workspace_id = workspace.id;
 
   const kpis: BoardDeckKpi[] = KPI_DEFS.map((d) => {
     const benchmark = getBenchmark(peerRows, workspace_id, d.metric, d.direction ?? "higher_is_better");
@@ -211,20 +143,13 @@ export async function POST(req: NextRequest) {
     };
   });
 
-  const health = computeHealthScore(latestStmt, priorStmt, workspace.sector);
+  const health = computeHealthScore(latestStmt, priorStmt, workspace.sector, workspace.currency_unit);
   const healthForDeck = {
     overall: health.overall,
     categories: health.categories.map((c) => ({ label: c.label, status: c.status })),
   };
 
-  const { data: invData, error: invError } = await supabaseAdmin
-    .from("sentinel_investigations")
-    .select("*")
-    .eq("workspace_id", workspace_id);
-  if (invError) {
-    return NextResponse.json({ error: invError.message }, { status: 500 });
-  }
-  const allInvestigations = (invData ?? []) as Investigation[];
+  const allInvestigations = ctx.investigations;
   const statusRank: Record<string, number> = { approved: 0, edited: 0, pending: 1 };
   const findings: BoardDeckFinding[] = allInvestigations
     .filter((i) => i.status === "approved" || i.status === "edited" || i.status === "pending")
@@ -273,9 +198,9 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "Content-Disposition":
           "attachment; filename=\"" +
-          workspace.company_name.replace(/\s+/g, "_") +
+          safeFilename(workspace.company_name) +
           "_Board_Deck_" +
-          latestStmt.period_label +
+          safeFilename(latestStmt.period_label, "FY") +
           ".pptx\"",
       },
     });

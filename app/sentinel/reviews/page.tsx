@@ -27,6 +27,8 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { sortWorkspaces } from "../lib/access";
+import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { LIFECYCLE, lifecycleLabel, nextStatus, PERIOD_TYPES, periodTypeLabel } from "../lib/reviewCycle";
 import { SERIF, T } from "../lib/theme";
 import type { ReviewCycle, ReviewCyclePeriodType, ReviewCycleStatus, Workspace } from "../lib/types";
@@ -101,7 +103,7 @@ export default function ReviewCyclesPage() {
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [workspaceId, setWorkspaceId] = useState<string>("");
+  const [workspaceId, setWorkspaceId] = useSelectedWorkspace(workspaces.map((w) => w.id));
 
   const [cycles, setCycles] = useState<ReviewCycle[]>([]);
   const [loadingCycles, setLoadingCycles] = useState(false);
@@ -126,9 +128,8 @@ export default function ReviewCyclesPage() {
       if (wsError) {
         setError(wsError.message);
       } else {
-        const ws = (data ?? []) as Workspace[];
+        const ws = sortWorkspaces((data ?? []) as Workspace[], sessionData.session.user.id);
         setWorkspaces(ws);
-        if (ws.length > 0) setWorkspaceId(ws[0].id);
       }
       setLoadingWorkspaces(false);
     })();

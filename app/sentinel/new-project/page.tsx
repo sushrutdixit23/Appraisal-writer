@@ -1,73 +1,31 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-// Sentinel — New Project. The self-service onboarding path: create a
-// workspace, then enter the first period's numbers - either typed
-// manually or pre-filled from an uploaded PDF via Document Intelligence
-// (/api/sentinel/extract). Either way this form is the single source of
-// truth for what gets saved: extraction only pre-fills `values`, the
-// human always reviews/edits before Save & finish actually inserts.
-// owner_id is set to the signed-in user, so RLS isolates this workspace
-// from every other user automatically - no new policies needed, the
-// existing "owner manages workspace"/"owner manages statements" policies
-// already cover insert.
+// Sentinel — New Project. The self-service onboarding path: describe the company, then enter the first
+// period's numbers - typed, or pre-filled from an uploaded PDF via Document Intelligence
+// (/api/sentinel/extract). Either way this form is the single source of truth for what gets saved:
+// extraction only pre-fills the fields, and a person reviews and edits before Save.
+//
+// The company is created only when the first statement has passed validation (and removed again if the
+// statement then fails to save), so an abandoned or refused entry never leaves an empty company behind.
+// owner_id is the signed-in user, so row-level security isolates the company from every other user.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import { supabase } from "../../lib/supabase";
 import { SECTOR_CONFIGS } from "../lib/config";
+import { BASES, PERIOD_TYPES } from "../lib/fields";
+import { ExtractUpload, type AppliedDraft } from "../lib/ExtractUpload";
+import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
 import { SERIF, T } from "../lib/theme";
-
-const CURRENCY_UNITS = [
-  { value: "INR_CRORE", label: "\u20b9 Crore" },
-  { value: "INR_LAKH", label: "\u20b9 Lakh" },
-  { value: "INR", label: "\u20b9 (plain)" },
-];
+import { UNIT_OPTIONS, unitLabel } from "../lib/units";
+import { prepareFromForm, type Issue } from "../lib/validate";
+import type { Basis } from "../lib/types";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  fontFamily: "inherit",
-  fontSize: "0.9rem",
-  padding: "0.55rem 0.7rem",
-  border: `1px solid ${T.rule}`,
-  borderRadius: 3,
-  background: T.card,
-  color: T.ink,
-  boxSizing: "border-box",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "0.7rem",
-  fontWeight: 500,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  color: T.inkSoft,
-  marginBottom: "0.3rem",
-};
-
-function Field({
-  label,
-  children,
-  span2,
-}: {
-  label: string;
-  children: React.ReactNode;
-  span2?: boolean;
-}) {
-  return (
-    <div style={{ gridColumn: span2 ? "span 2" : undefined }}>
-      <label style={labelStyle}>{label}</label>
-      {children}
-    </div>
-  );
-}
 
 const btnPrimary: React.CSSProperties = {
   fontFamily: "inherit",
@@ -80,116 +38,86 @@ const btnPrimary: React.CSSProperties = {
   color: T.background,
   cursor: "pointer",
 };
-const btnGhost: React.CSSProperties = {
-  ...btnPrimary,
-  background: "transparent",
-  color: T.ink,
+const btnGhost: React.CSSProperties = { ...btnPrimary, background: "transparent", color: T.ink };
+
+const card: React.CSSProperties = {
+  background: T.card,
+  border: `1px solid ${T.rule}`,
+  borderRadius: 3,
+  padding: "1.6rem 1.8rem",
+  maxWidth: 640,
 };
-
-// Income Statement fields collected on the second step - required
-// fields match the database's NOT NULL constraints exactly, so a
-// submission here can never fail on a missing-column error.
-const STATEMENT_FIELDS: {
-  key: string;
-  label: string;
-  required?: boolean;
-}[] = [
-  { key: "revenue_from_operations", label: "Revenue from Operations", required: true },
-  { key: "other_income", label: "Other Income" },
-  { key: "total_income", label: "Total Income" },
-  { key: "total_expenses", label: "Total Expenses" },
-  { key: "ebitda", label: "EBITDA" },
-  { key: "depreciation_amortisation", label: "Depreciation & Amortisation" },
-  { key: "finance_costs", label: "Finance Costs" },
-  { key: "exceptional_items", label: "Exceptional Items" },
-  { key: "profit_before_tax", label: "Profit Before Tax", required: true },
-  { key: "tax_expense", label: "Tax Expense" },
-  { key: "profit_after_tax", label: "Profit After Tax", required: true },
-];
-
-// Balance Sheet fields - optional, feed the liquidity/leverage/working-
-// capital checks added to anomaly.ts. Scoped to exactly the 7 fields
-// those checks actually use (current_ratio, debt_to_equity, inventory/
-// receivable/payable days) - not the full Balance Sheet schema, matching
-// how STATEMENT_FIELDS above is scoped to what's actually consumed.
-const BALANCE_SHEET_FIELDS: {
-  key: string;
-  label: string;
-}[] = [
-  { key: "current_assets", label: "Current Assets" },
-  { key: "current_liabilities", label: "Current Liabilities" },
-  { key: "inventory", label: "Inventory" },
-  { key: "trade_receivables", label: "Trade Receivables" },
-  { key: "trade_payables", label: "Trade Payables" },
-  { key: "total_debt", label: "Total Debt" },
-  { key: "total_equity", label: "Total Equity" },
-];
-
-// Cash Flow fields - optional, feed the Health Engine's Cash Flow
-// category (operating cash flow vs. PAT). capex is captured even
-// though the current Cash Flow health check doesn't use it yet, since
-// it's part of the same statement section and cheap to collect now
-// rather than needing a second pass through this filing later.
-const CASH_FLOW_FIELDS: {
-  key: string;
-  label: string;
-}[] = [
-  { key: "cash_from_operations", label: "Cash from Operations" },
-  { key: "cash_from_investing", label: "Cash from Investing" },
-  { key: "cash_from_financing", label: "Cash from Financing" },
-  { key: "capex", label: "Capital Expenditure" },
-];
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  // Step 1 - workspace
+  // Step 1 - the company
   const [companyName, setCompanyName] = useState("");
   const [sector, setSector] = useState("general");
   const [industry, setIndustry] = useState("");
   const [fyStartMonth, setFyStartMonth] = useState(4);
-  const [currencyUnit, setCurrencyUnit] = useState("INR_LAKH");
-  const [comparisonBasis, setComparisonBasis] = useState<"standalone" | "consolidated">("standalone");
+  const [currencyUnit, setCurrencyUnit] = useState("INR_CRORE");
+  const [comparisonBasis, setComparisonBasis] = useState<Basis>("consolidated");
 
-  // Step 2 - first statement
-  const [periodType, setPeriodType] = useState<"FY" | "Q1" | "Q2" | "Q3" | "Q4">("FY");
+  // Step 2 - the first statement
+  const [periodType, setPeriodType] = useState<string>("FY");
   const [periodLabel, setPeriodLabel] = useState("");
   const [periodEndDate, setPeriodEndDate] = useState("");
+  const [basis, setBasis] = useState<Basis>("consolidated");
   const [values, setValues] = useState<Record<string, string>>({});
-
-  // Document Intelligence - optional PDF pre-fill before manual review.
-  // Extraction only ever populates `values`/`values`-adjacent state below;
-  // nothing is written to sentinel_statements until the human reviews and
-  // clicks Save & finish, same as pure manual entry.
-  const [extracting, setExtracting] = useState(false);
   const [sourceFile, setSourceFile] = useState("manual entry");
   const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
-  const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
+  const [verify, setVerify] = useState<string[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
 
-  // Phase 0 — Data Quality Layer, advisory half. The hard invariants
-  // (balance sheet balances, no negative values, subtotal <= total) are
-  // enforced by a database trigger on sentinel_statements, so they apply
-  // no matter which page performs the insert. These are heuristics, not
-  // invariants, so they stay advisory here rather than blocking a save.
+  // Step 3
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
 
-  async function createWorkspace() {
-    setError(null);
+  function applyDraft({ result, values: extracted, unitNote }: AppliedDraft) {
+    if (result.period_type) setPeriodType(result.period_type);
+    if (result.period_label) setPeriodLabel(result.period_label);
+    if (result.period_end_date) setPeriodEndDate(result.period_end_date);
+    if (result.basis) setBasis(result.basis);
+    setValues((prev) => ({ ...prev, ...extracted }));
+    setExtractionNotes([result.extraction_notes, unitNote].filter(Boolean).join(" ") || null);
+    setVerify(result.low_confidence_fields ?? []);
+    setSourceFile(result.source_file ?? "uploaded filing");
+    setIssues([]);
+  }
+
+  function continueToNumbers() {
+    setErrors([]);
     if (!companyName.trim()) {
-      setError("Company name is required.");
+      setErrors(["Company name is required."]);
+      return;
+    }
+    setBasis(comparisonBasis);
+    setStep(2);
+  }
+
+  async function save() {
+    setErrors([]);
+    const prepared = prepareFromForm(
+      { periodType, periodLabel: periodLabel.trim(), periodEndDate, basis, values, sourceFile, extractionNotes },
+      [] // a brand-new company has no other statements to compare with
+    );
+    setIssues([...prepared.issues]);
+    if (!prepared.row) {
+      setErrors(prepared.errors);
       return;
     }
     setSaving(true);
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
+      setSaving(false);
       router.push("/login");
       return;
     }
-    const { data, error: insertError } = await supabase
+
+    const { data: workspace, error: wsError } = await supabase
       .from("sentinel_workspaces")
       .insert({
         owner_id: userData.user.id,
@@ -204,187 +132,30 @@ export default function NewProjectPage() {
       })
       .select()
       .single();
-    setSaving(false);
-    if (insertError) {
-      setError(insertError.message);
+    if (wsError || !workspace) {
+      setSaving(false);
+      setErrors([wsError?.message ?? "Could not create the company."]);
       return;
     }
-    setWorkspaceId(data.id);
-    setStep(2);
-  }
 
-  async function handleExtract(file: File) {
-    setError(null);
-    setExtracting(true);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) {
-      setExtracting(false);
-      router.push("/login");
-      return;
-    }
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      // Vercel hard-caps serverless function request bodies at 4.5MB.
-      // Full annual reports routinely run 20-50MB, so anything above a
-      // safe margin under that goes to Vercel Blob directly from the
-      // browser first, and only the resulting URL is sent to our own
-      // route - the raw file never passes through a Function body.
-      // Ported from the data-entry page, which already had this - this
-      // page's handleExtract never got the same fix when it was added.
-      const FUNCTION_BODY_SAFE_LIMIT = 4 * 1024 * 1024; // 4MB
-      let res: Response;
-
-      if (file.size > FUNCTION_BODY_SAFE_LIMIT) {
-        const blob = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/sentinel/extract-upload",
-          clientPayload: JSON.stringify({ accessToken: token }),
-        });
-        res = await fetch("/api/sentinel/extract", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ blob_url: blob.url, filename: file.name }),
-        });
-      } else {
-        res = await fetch("/api/sentinel/extract", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        });
-      }
-
-      const result = await res.json();
-      if (!res.ok) {
-        setError(result.error ?? "Extraction failed.");
-        setExtracting(false);
-        return;
-      }
-      if (result.period_type) setPeriodType(result.period_type);
-      if (result.period_label) setPeriodLabel(result.period_label);
-      if (result.period_end_date) setPeriodEndDate(result.period_end_date);
-      const extracted: Record<string, string> = {};
-      for (const key of Object.keys(result.fields ?? {})) {
-        const v = result.fields[key];
-        if (v != null) extracted[key] = String(v);
-      }
-      setValues((prev) => ({ ...prev, ...extracted }));
-      setExtractionNotes(result.extraction_notes ?? null);
-      setLowConfidenceFields(result.low_confidence_fields ?? []);
-      setSourceFile(result.source_file ?? file.name);
-    } catch {
-      setError("Could not reach the extraction service. Please enter the figures manually.");
-    }
-    setExtracting(false);
-  }
-
-  async function createStatement() {
-    setError(null);
-    if (!periodLabel.trim() || !periodEndDate) {
-      setError("Period label and period end date are required.");
-      return;
-    }
-    const revenue = parseFloat(values["revenue_from_operations"]);
-    const pbt = parseFloat(values["profit_before_tax"]);
-    const pat = parseFloat(values["profit_after_tax"]);
-    if (Number.isNaN(revenue) || Number.isNaN(pbt) || Number.isNaN(pat)) {
-      setError("Revenue, Profit Before Tax, and Profit After Tax are required numbers.");
-      return;
-    }
-    setSaving(true);
-
-    // Unit-mismatch heuristic and duplicate-period-date check: pull
-    // whatever else is already on file for this workspace and compare.
-    // A >20x jump or drop in revenue vs. the most recent period is far
-    // more often a lakhs/crores mix-up than a real business swing.
-    const warnings: string[] = [];
-    const { data: priorStatements } = await supabase
+    const { error: stmtError } = await supabase
       .from("sentinel_statements")
-      .select("period_label, period_end_date, revenue_from_operations")
-      .eq("workspace_id", workspaceId);
-    if (priorStatements && priorStatements.length > 0) {
-      const sorted = [...priorStatements].sort((a, b) =>
-        (b.period_end_date ?? "").localeCompare(a.period_end_date ?? "")
-      );
-      const mostRecent = sorted[0];
-      if (mostRecent?.revenue_from_operations != null && mostRecent.revenue_from_operations > 0) {
-        const ratio = revenue / mostRecent.revenue_from_operations;
-        if (ratio > 20 || ratio < 0.05) {
-          const direction = ratio > 1 ? `${ratio.toFixed(1)}x higher` : `${(1 / ratio).toFixed(1)}x lower`;
-          warnings.push(
-            `Revenue from operations (${revenue}) is ${direction} than the most recent period on file ` +
-            `(${mostRecent.period_label}: ${mostRecent.revenue_from_operations}). This is more often a units ` +
-            `mismatch (e.g. lakhs vs. crores) than a real swing — double-check before relying on it.`
-          );
-        }
-      }
-      const dupe = priorStatements.find(
-        (s) => s.period_end_date === periodEndDate && s.period_label !== periodLabel.trim()
-      );
-      if (dupe) {
-        warnings.push(
-          `A statement already exists for this workspace with the same period end date (${periodEndDate}) ` +
-          `but a different label ("${dupe.period_label}" vs "${periodLabel.trim()}"). Check this isn't a duplicate entry.`
-        );
-      }
-    }
-    const totalIncomeRaw = values["total_income"];
-    if (totalIncomeRaw && parseFloat(totalIncomeRaw) < revenue - 0.01) {
-      warnings.push(
-        `Total income (${totalIncomeRaw}) is less than revenue from operations (${revenue}) — total income ` +
-        `should normally include revenue plus other income. Double-check these two figures.`
-      );
-    }
-
-    const record: Record<string, unknown> = {
-      workspace_id: workspaceId,
-      period_type: periodType,
-      period_label: periodLabel.trim(),
-      period_end_date: periodEndDate,
-      basis: comparisonBasis,
-      revenue_from_operations: revenue,
-      profit_before_tax: pbt,
-      profit_after_tax: pat,
-      source_file: sourceFile,
-      source_page: null,
-      extraction_notes: extractionNotes,
-    };
-    for (const f of STATEMENT_FIELDS) {
-      if (f.required) continue;
-      const raw = values[f.key];
-      record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
-    }
-    for (const f of BALANCE_SHEET_FIELDS) {
-      const raw = values[f.key];
-      record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
-    }
-    for (const f of CASH_FLOW_FIELDS) {
-      const raw = values[f.key];
-      record[f.key] = raw != null && raw !== "" ? parseFloat(raw) : null;
-    }
-    // The database trigger enforces the hard invariants (balance sheet
-    // balancing, no negatives, subtotal <= total) here — a violation
-    // comes back as insertError.message below, same as any other DB
-    // error, no special-casing needed.
-    const { error: insertError } = await supabase.from("sentinel_statements").insert(record);
-    setSaving(false);
-    if (insertError) {
-      setError(insertError.message);
+      .insert({ ...prepared.row, workspace_id: workspace.id });
+    if (stmtError) {
+      // Do not leave an empty company behind because its first statement could not be saved.
+      await supabase.from("sentinel_workspaces").delete().eq("id", workspace.id);
+      setSaving(false);
+      setErrors([stmtError.message]);
       return;
     }
-    setSaveWarnings(warnings);
+    setSaving(false);
+    setSaveWarnings(prepared.warnings);
     setStep(3);
   }
 
   return (
     <div>
-      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>
-        New Project
-      </h1>
+      <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "2.1rem", margin: 0 }}>New Project</h1>
       <p
         style={{
           fontSize: "0.7rem",
@@ -398,256 +169,132 @@ export default function NewProjectPage() {
         Step {step} of 3 — {step === 1 ? "Company details" : step === 2 ? "First period's numbers" : "Done"} · visible only to you
       </p>
 
-      {error && (
-        <p
-          style={{
-            fontSize: "0.85rem",
-            color: T.ink,
-            background: T.accentSoft,
-            borderLeft: `2px solid ${T.accent}`,
-            padding: "0.6rem 0.9rem",
-            marginBottom: "1.2rem",
-          }}
+      {errors.length > 0 && (
+        <div
+          role="alert"
+          style={{ fontSize: "0.85rem", color: T.ink, background: T.accentSoft, borderLeft: `2px solid ${T.accent}`, padding: "0.6rem 0.9rem", marginBottom: "1.2rem", maxWidth: 640 }}
         >
-          {error}
-        </p>
+          {errors.map((e, i) => (
+            <p key={i} style={{ margin: i === 0 ? 0 : "0.3rem 0 0 0" }}>{e}</p>
+          ))}
+        </div>
       )}
 
       {step === 1 && (
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            padding: "1.6rem 1.8rem",
-            maxWidth: 640,
-          }}
-        >
+        <div style={card}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
-            <Field label="Company name" span2>
-              <input style={inputStyle} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Acme Manufacturing Pvt Ltd" />
+            <Field label="Company name" htmlFor="np-name" span2>
+              <input id="np-name" style={inputStyle} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Acme Manufacturing Pvt Ltd" maxLength={120} />
             </Field>
-            <Field label="Sector">
-              <select style={inputStyle} value={sector} onChange={(e) => setSector(e.target.value)}>
+            <Field label="Sector" htmlFor="np-sector">
+              <select id="np-sector" style={inputStyle} value={sector} onChange={(e) => setSector(e.target.value)}>
                 {Object.entries(SECTOR_CONFIGS).map(([key, cfg]) => (
-                  <option key={key} value={key}>
-                    {cfg.display_name}
-                  </option>
+                  <option key={key} value={key}>{cfg.display_name}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Industry (optional)">
-              <input style={inputStyle} value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Auto components" />
+            <Field label="Industry (optional)" htmlFor="np-industry">
+              <input id="np-industry" style={inputStyle} value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Auto components" maxLength={80} />
             </Field>
-            <Field label="Fiscal year starts">
-              <select style={inputStyle} value={fyStartMonth} onChange={(e) => setFyStartMonth(Number(e.target.value))}>
+            <Field label="Fiscal year starts" htmlFor="np-fy">
+              <select id="np-fy" style={inputStyle} value={fyStartMonth} onChange={(e) => setFyStartMonth(Number(e.target.value))}>
                 {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>
-                    {m}
-                  </option>
+                  <option key={m} value={i + 1}>{m}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Reporting unit">
-              <select style={inputStyle} value={currencyUnit} onChange={(e) => setCurrencyUnit(e.target.value)}>
-                {CURRENCY_UNITS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
+            <Field label="Reporting unit" htmlFor="np-unit">
+              <select id="np-unit" style={inputStyle} value={currencyUnit} onChange={(e) => setCurrencyUnit(e.target.value)}>
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u.value} value={u.value}>{u.label}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Basis">
-              <select style={inputStyle} value={comparisonBasis} onChange={(e) => setComparisonBasis(e.target.value as "standalone" | "consolidated")}>
-                <option value="standalone">Standalone</option>
-                <option value="consolidated">Consolidated</option>
+            <Field label="Basis" htmlFor="np-basis">
+              <select id="np-basis" style={inputStyle} value={comparisonBasis} onChange={(e) => setComparisonBasis(e.target.value as Basis)}>
+                {BASES.map((b) => (
+                  <option key={b} value={b}>{b === "standalone" ? "Standalone" : "Consolidated"}</option>
+                ))}
               </select>
             </Field>
           </div>
-          <button style={btnPrimary} onClick={createWorkspace} disabled={saving}>
-            {saving ? "Creating…" : "Continue"}
-          </button>
+          <p style={{ fontSize: "0.75rem", color: T.inkSoft, margin: "0 0 1.2rem 0", lineHeight: 1.5 }}>
+            Every figure you enter is read as {unitLabel(currencyUnit)}. Companies are compared with each other in crore, so a lakh or million company still lines up with the rest.
+          </p>
+          <button style={btnPrimary} onClick={continueToNumbers}>Continue</button>
         </div>
       )}
 
       {step === 2 && (
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            padding: "1.6rem 1.8rem",
-            maxWidth: 640,
-          }}
-        >
-          <div
-            style={{
-              border: `1px dashed ${T.rule}`,
-              borderRadius: 3,
-              padding: "1rem 1.2rem",
-              marginBottom: "1.2rem",
-              background: T.background,
-            }}
-          >
-            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.6rem 0", lineHeight: 1.5 }}>
-              Optional — upload a text-based PDF filing to pre-fill the fields below. Scanned/image-only PDFs
-              aren&apos;t supported yet; enter those manually. Nothing is saved until you review and click
-              &quot;Save &amp; finish.&quot;
-            </p>
-            <input
-              type="file"
-              accept="application/pdf"
-              disabled={extracting}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleExtract(file);
-                e.target.value = "";
-              }}
-              style={{ fontSize: "0.85rem" }}
-            />
-            {extracting && (
-              <p style={{ fontSize: "0.8rem", color: T.accent, margin: "0.6rem 0 0 0" }}>
-                Reading filing and extracting figures…
-              </p>
-            )}
-            {extractionNotes && !extracting && (
-              <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0.6rem 0 0 0", lineHeight: 1.5 }}>
-                Extraction notes: {extractionNotes}
-              </p>
-            )}
-          </div>
+        <div style={card}>
+          <ExtractUpload
+            workspaceUnit={currencyUnit}
+            basis={comparisonBasis}
+            onDraft={applyDraft}
+            onError={(m) => setErrors(m ? [m] : [])}
+            onUnauthenticated={() => router.push("/login")}
+          />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
-            <Field label="Period type">
-              <select style={inputStyle} value={periodType} onChange={(e) => setPeriodType(e.target.value as typeof periodType)}>
-                <option value="FY">Full Year</option>
-                <option value="Q1">Q1</option>
-                <option value="Q2">Q2</option>
-                <option value="Q3">Q3</option>
-                <option value="Q4">Q4</option>
+            <Field label="Period type" htmlFor="np-ptype">
+              <select id="np-ptype" style={inputStyle} value={periodType} onChange={(e) => setPeriodType(e.target.value)}>
+                {PERIOD_TYPES.map((p) => (
+                  <option key={p} value={p}>{p === "FY" ? "Full Year" : p}</option>
+                ))}
               </select>
             </Field>
-            <Field label="Period label">
-              <input style={inputStyle} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="e.g. FY26" />
+            <Field label="Period label" htmlFor="np-plabel">
+              <input id="np-plabel" style={inputStyle} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="e.g. FY26" maxLength={40} />
             </Field>
-            <Field label="Period end date" span2>
-              <input type="date" style={inputStyle} value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
+            <Field label="Period end date" htmlFor="np-pend">
+              <input id="np-pend" type="date" style={inputStyle} value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
+            </Field>
+            <Field label="Basis of these figures" htmlFor="np-pbasis">
+              <select id="np-pbasis" style={inputStyle} value={basis} onChange={(e) => setBasis(e.target.value as Basis)}>
+                {BASES.map((b) => (
+                  <option key={b} value={b}>{b === "standalone" ? "Standalone" : "Consolidated"}</option>
+                ))}
+              </select>
             </Field>
           </div>
 
           <div style={{ height: 1, background: T.rule, margin: "0.4rem 0 1.2rem 0" }} />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
-            {STATEMENT_FIELDS.map((f) => {
-              const isLowConfidence = lowConfidenceFields.includes(f.key);
-              return (
-                <Field
-                  key={f.key}
-                  label={f.label + (f.required ? " *" : "") + (isLowConfidence ? " (verify)" : "")}
-                >
-                  <input
-                    type="number"
-                    step="0.01"
-                    style={{ ...inputStyle, borderColor: isLowConfidence ? T.accent : T.rule }}
-                    value={values[f.key] ?? ""}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                </Field>
-              );
-            })}
-          </div>
-
-          <div style={{ height: 1, background: T.rule, margin: "0.4rem 0 1.2rem 0" }} />
-
-          <p
-            style={{
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: T.inkSoft,
-              margin: "0 0 0.8rem 0",
-            }}
-          >
-            Balance Sheet (optional) - unlocks liquidity, leverage, and working-capital checks
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
-            {BALANCE_SHEET_FIELDS.map((f) => {
-              const isLowConfidence = lowConfidenceFields.includes(f.key);
-              return (
-                <Field
-                  key={f.key}
-                  label={f.label + (isLowConfidence ? " (verify)" : "")}
-                >
-                  <input
-                    type="number"
-                    step="0.01"
-                    style={{ ...inputStyle, borderColor: isLowConfidence ? T.accent : T.rule }}
-                    value={values[f.key] ?? ""}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                </Field>
-              );
-            })}
-          </div>
+          <StatementFields
+            values={values}
+            onChange={(key, v) => setValues((prev) => ({ ...prev, [key]: v }))}
+            verify={verify}
+            issues={issues}
+            unitLabel={unitLabel(currencyUnit)}
+            disabled={saving}
+          />
 
           <div style={{ display: "flex", gap: "0.6rem" }}>
-            <button style={btnPrimary} onClick={createStatement} disabled={saving}>
+            <button style={btnPrimary} onClick={save} disabled={saving}>
               {saving ? "Saving…" : "Save & finish"}
             </button>
-            <button style={btnGhost} onClick={() => setStep(1)} disabled={saving}>
-              Back
-            </button>
+            <button style={btnGhost} onClick={() => setStep(1)} disabled={saving}>Back</button>
           </div>
         </div>
       )}
 
       {step === 3 && (
-        <div
-          style={{
-            background: T.card,
-            border: `1px solid ${T.rule}`,
-            borderRadius: 3,
-            padding: "1.6rem 1.8rem",
-            maxWidth: 640,
-          }}
-        >
-          <p style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.2rem", margin: "0 0 0.6rem 0" }}>
-            {companyName} is set up.
-          </p>
+        <div style={card}>
+          <p style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.2rem", margin: "0 0 0.6rem 0" }}>{companyName} is set up.</p>
           <p style={{ fontSize: "0.9rem", color: T.inkSoft, lineHeight: 1.6, marginBottom: "1.2rem" }}>
-            This workspace is visible only to you. Add more periods any time to unlock YoY comparisons and trend
-            charts — everything here works the same way it does for the demo companies.
+            This workspace is visible only to you. Add more periods any time to unlock YoY comparisons and trend charts — everything here works the same way it does for the demo companies.
           </p>
           {saveWarnings.length > 0 && (
-            <div
-              style={{
-                background: T.accentSoft,
-                borderLeft: `2px solid ${T.accent}`,
-                padding: "0.7rem 0.9rem",
-                marginBottom: "1.2rem",
-              }}
-            >
-              <p style={{ fontSize: "0.75rem", fontWeight: 600, color: T.ink, margin: "0 0 0.4rem 0" }}>
-                Saved — but worth a second look:
-              </p>
+            <div style={{ background: T.accentSoft, borderLeft: `2px solid ${T.accent}`, padding: "0.7rem 0.9rem", marginBottom: "1.2rem" }}>
+              <p style={{ fontSize: "0.75rem", fontWeight: 600, color: T.ink, margin: "0 0 0.4rem 0" }}>Saved — but worth a second look:</p>
               {saveWarnings.map((w, i) => (
-                <p key={i} style={{ fontSize: "0.8rem", color: T.ink, margin: "0.2rem 0", lineHeight: 1.5 }}>
-                  {w}
-                </p>
+                <p key={i} style={{ fontSize: "0.8rem", color: T.ink, margin: "0.2rem 0", lineHeight: 1.5 }}>{w}</p>
               ))}
             </div>
           )}
           <div style={{ display: "flex", gap: "0.6rem" }}>
-            <button style={btnPrimary} onClick={() => router.push("/sentinel/statements")}>
-              View Financial Statements
-            </button>
-            <button style={btnGhost} onClick={() => router.push("/sentinel")}>
-              Go to Investigation Queue
-            </button>
+            <button style={btnPrimary} onClick={() => router.push("/sentinel/statements")}>View Financial Statements</button>
+            <button style={btnGhost} onClick={() => router.push("/sentinel")}>Go to Investigation Queue</button>
           </div>
         </div>
       )}

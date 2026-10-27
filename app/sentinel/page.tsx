@@ -113,7 +113,9 @@ function FlagChip({ flag }: { flag: AnomalyFlag }) {
   );
 }
 
-function ConfidenceBar({ score, signals }: { score: number; signals: Record<string, unknown> }) {
+// `signals` can be missing on an investigation saved before the signals were recorded; the bar then
+// shows the score alone instead of taking the whole queue down.
+function ConfidenceBar({ score, signals }: { score: number; signals: Record<string, unknown> | null | undefined }) {
   return (
     <div style={{ margin: "0.9rem 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -135,10 +137,12 @@ function ConfidenceBar({ score, signals }: { score: number; signals: Record<stri
       <div style={{ height: 4, background: T.rule, marginTop: "0.35rem" }}>
         <div style={{ height: 4, width: `${score}%`, background: T.accent }} />
       </div>
-      <p style={{ fontSize: "0.72rem", color: T.inkSoft, marginTop: "0.35rem" }}>
-        {String(signals.flag_count)} flag(s) · {String(signals.corroborating_flag_types)} independent
-        signal type(s) agreeing · peer set n={String(signals.peer_sample_size)}
-      </p>
+      {signals && typeof signals.flag_count === "number" && (
+        <p style={{ fontSize: "0.72rem", color: T.inkSoft, marginTop: "0.35rem" }}>
+          {String(signals.flag_count)} flag(s) · {String(signals.corroborating_flag_types)} independent
+          signal type(s) agreeing · peer set n={String(signals.peer_sample_size)}
+        </p>
+      )}
     </div>
   );
 }

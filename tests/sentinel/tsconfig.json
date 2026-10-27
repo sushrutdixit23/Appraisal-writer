@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "incremental": false,
+    "plugins": [],
+    "rootDir": "../..",
+    "outDir": "../../node_modules/.cache/sentinel-tests",
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../../app/sentinel/lib/**/*.ts", "../../app/api/sentinel/**/*.ts"],
+  "exclude": ["../../node_modules"]
+}
