@@ -15,6 +15,9 @@ import { authenticate, getAdmin, isFailure } from "../../../sentinel/lib/server"
 import { readUpload } from "../../../sentinel/lib/upload";
 
 export const runtime = "nodejs";
+// 300s is the ceiling Vercel allows on every plan (Hobby's own max); set explicitly so a reading on a plan
+// without Fluid Compute enabled does not fall back to a much shorter legacy default.
+export const maxDuration = 300;
 
 const MAX_SHEET_BYTES = 10 * 1024 * 1024;
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });

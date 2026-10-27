@@ -33,5 +33,14 @@ if (files.length === 0) {
   process.exit(1);
 }
 const extra = process.argv.slice(2);
-const run = spawnSync(process.execPath, ["--test", ...extra, ...files], { stdio: "inherit", cwd: root });
+// Placeholder values so a browser-side module (one that builds the Supabase client at import time, e.g.
+// app/lib/supabase.ts) can be imported in any test file without that import itself throwing before a test's
+// own before() hook gets a chance to run - createClient() only validates that a URL is present, it is never
+// actually called over the network unless a test does so.
+const env = {
+  ...process.env,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:1",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "test-anon-key",
+};
+const run = spawnSync(process.execPath, ["--test", ...extra, ...files], { stdio: "inherit", cwd: root, env });
 process.exit(run.status ?? 1);

@@ -43,6 +43,9 @@ import { authenticate, rateLimit, getAdmin, isFailure } from "../../../sentinel/
 import { readUpload } from "../../../sentinel/lib/upload";
 
 export const runtime = "nodejs";
+// 300s is the ceiling Vercel allows on every plan (Hobby's own max); set explicitly so a reading on a plan
+// without Fluid Compute enabled does not fall back to a much shorter legacy default.
+export const maxDuration = 300;
 
 const MODEL = "claude-sonnet-5";
 const MAX_PROMPT_CHARS = 150_000;

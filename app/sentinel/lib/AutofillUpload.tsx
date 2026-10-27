@@ -8,7 +8,7 @@
 // button offers to ask an AI model to read just the blanks (the file is sent to it, and its figures are marked
 // "verify"). It is never part of the default path.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ALL_FIELD_KEYS } from "./fields";
 import { applyExtractionResult, type ExtractionResult } from "./extraction";
 import { applyAutofillPeriod, countFields, defaultPeriod, type AppliedPeriod } from "./autofill/apply";
@@ -49,12 +49,20 @@ export function AutofillUpload({
   multiHint?: React.ReactNode;
 }) {
   const [working, setWorking] = useState<"" | "reading" | "ai">("");
+  const [workingSeconds, setWorkingSeconds] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<AutofillResult | null>(null);
   const [periodKey, setPeriodKey] = useState("");
   const [fileUnit, setFileUnit] = useState<CurrencyUnit | "">("");
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [blanks, setBlanks] = useState(0);
+  useEffect(() => {
+    if (!working) return;
+    setWorkingSeconds(0);
+    const started = Date.now();
+    const id = setInterval(() => setWorkingSeconds(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [working]);
 
   function apply(r: AutofillResult, key: string, unit: CurrencyUnit | "") {
     const period = r.periods.find((p) => p.key === key) ?? defaultPeriod(r);
@@ -144,8 +152,13 @@ export function AutofillUpload({
         }}
         style={{ fontSize: "0.85rem" }}
       />
-      {working === "reading" && <p role="status" style={{ ...small, color: T.accent }}>Reading the file...</p>}
-      {working === "ai" && <p role="status" style={{ ...small, color: T.accent }}>Asking the AI model to read the blanks...</p>}
+      {working !== "" && (
+        <p role="status" style={{ ...small, color: T.accent }}>
+          {working === "reading" ? "Reading the file" : "Asking the AI model to read the blanks"}
+          {workingSeconds > 0 ? ` (${workingSeconds}s)` : "..."}
+          {workingSeconds >= 20 && " - a large filing can take a minute or two."}
+        </p>
+      )}
 
       {result && working === "" && period && (
         <div role="status" data-testid="autofill-summary">

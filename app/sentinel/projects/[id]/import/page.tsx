@@ -40,6 +40,9 @@ export default function ImportPage() {
   const [existing, setExisting] = useState<ExistingPeriod[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reading, setReading] = useState(false);
+  const [readingFile, setReadingFile] = useState<string | null>(null);
+  const [readingSeconds, setReadingSeconds] = useState(0);
+  const readAbort = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
@@ -102,30 +105,52 @@ export default function ImportPage() {
     setErrors([]);
     setOutcomes({});
     setReading(true);
+    setReadingSeconds(0);
+    const started = Date.now();
+    const ticker = setInterval(() => setReadingSeconds(Math.round((Date.now() - started) / 1000)), 1000);
+    const ctrl = new AbortController();
+    readAbort.current = ctrl;
     const added: ImportFile[] = [];
     const problems: string[] = [];
-    for (const f of Array.from(list)) {
-      if (files.some((x) => x.name === f.name) || added.some((x) => x.name === f.name)) {
-        problems.push(`${f.name} is already in the list.`);
-        continue;
-      }
-      try {
-        const result = await sendFile<AutofillResult>("/api/sentinel/autofill", f, {
-          basis: workspace.comparison_basis,
-          fy_start_month: String(workspace.fiscal_year_start_month),
-        });
-        added.push({ name: f.name, result, unit: result.unit.unit });
-      } catch (e) {
-        if (e instanceof UploadError && e.unauthenticated) {
-          router.push("/login");
-          return;
+    try {
+      for (const f of Array.from(list)) {
+        if (files.some((x) => x.name === f.name) || added.some((x) => x.name === f.name)) {
+          problems.push(`${f.name} is already in the list.`);
+          continue;
         }
-        problems.push(`${f.name}: ${e instanceof Error ? e.message : "could not be read."}`);
+        setReadingFile(f.name);
+        try {
+          const result = await sendFile<AutofillResult>(
+            "/api/sentinel/autofill",
+            f,
+            { basis: workspace.comparison_basis, fy_start_month: String(workspace.fiscal_year_start_month) },
+            { signal: ctrl.signal }
+          );
+          added.push({ name: f.name, result, unit: result.unit.unit });
+        } catch (e) {
+          if (e instanceof UploadError && e.unauthenticated) {
+            router.push("/login");
+            return;
+          }
+          if (ctrl.signal.aborted && !(e instanceof UploadError && e.timedOut)) {
+            problems.push("Stopped - the rest of this file list was not read.");
+            break;
+          }
+          problems.push(`${f.name}: ${e instanceof Error ? e.message : "could not be read."}`);
+        }
       }
+    } finally {
+      clearInterval(ticker);
+      readAbort.current = null;
+      setReadingFile(null);
+      setReading(false);
     }
     setFiles((prev) => [...prev, ...added]);
     setErrors(problems);
-    setReading(false);
+  }
+
+  function cancelReading() {
+    readAbort.current?.abort();
   }
 
   function removeFile(name: string) {
@@ -207,7 +232,25 @@ export default function ImportPage() {
           }}
           style={{ fontSize: "0.85rem" }}
         />
-        {reading && <p role="status" style={{ ...small, color: T.accent }}>Reading...</p>}
+        {reading && (
+          <div role="status" style={{ marginTop: "0.5rem" }}>
+            <p style={{ ...small, color: T.accent, margin: 0 }}>
+              {readingFile ? `Reading ${readingFile}\u2026` : "Reading\u2026"} ({readingSeconds}s)
+            </p>
+            {readingSeconds >= 20 && readingSeconds < 90 && (
+              <p style={{ ...small, margin: "0.2rem 0 0 0" }}>A full annual report can run to hundreds of pages - this can take a minute or two.</p>
+            )}
+            {readingSeconds >= 90 && (
+              <p style={{ ...small, margin: "0.2rem 0 0 0" }}>
+                Still working. If this passes five minutes it will stop on its own; you can also{" "}
+                <button type="button" onClick={cancelReading} style={{ ...small, color: T.accent, background: "none", border: "none", padding: 0, textDecoration: "underline", cursor: "pointer", font: "inherit" }}>
+                  cancel
+                </button>{" "}
+                and try a smaller file.
+              </p>
+            )}
+          </div>
+        )}
         {files.length > 0 && (
           <ul style={{ listStyle: "none", margin: "1rem 0 0 0", padding: 0 }} aria-label="Files read">
             {files.map((f) => (
