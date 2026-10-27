@@ -9,12 +9,14 @@ export const dynamic = "force-dynamic";
 // this is the product for an analyst.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { buildPeerTable, findPriorYear } from "../lib/engine";
 import { sortWorkspaces, workspaceOptionLabel } from "../lib/access";
 import { useDisplayUnit, type DisplayUnit } from "../lib/displayUnit";
 import { displayFormat, type DisplayFormat } from "../lib/displayUnitCore";
+import { useShell } from "../lib/shell/ShellData";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { buildProfitBridge } from "../lib/viz/bridge";
@@ -109,6 +111,7 @@ function downloadCsv(workspace: Workspace, periods: FinancialStatement[], unit: 
 
 export default function FinancialStatementsPage() {
   const router = useRouter();
+  const { userId: shellUserId } = useShell();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -304,7 +307,21 @@ export default function FinancialStatementsPage() {
       </div>
 
       {periods.length === 0 ? (
-        <p style={{ fontSize: "0.9rem", color: T.inkSoft }}>No annual statements available for this company yet.</p>
+        <section aria-label="No statements yet" data-testid="empty-statements" style={{ background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "2rem 1.6rem", textAlign: "center" }}>
+          <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.3rem", margin: "0 0 0.4rem 0" }}>No financial statements yet</h2>
+          {workspace.owner_id === shellUserId ? (
+            <>
+              <p style={{ fontSize: "0.88rem", color: T.inkSoft, margin: "0 auto 1.1rem auto", maxWidth: 480, lineHeight: 1.55 }}>
+                Import an annual report or results PDF, a CSV or an Excel sheet. Every period found is previewed with the line each figure came from before anything is saved.
+              </p>
+              <Link href={`/sentinel/projects/${workspace.id}/import`} style={{ display: "inline-block", textDecoration: "none", fontSize: "0.88rem", fontWeight: 600, color: T.background, background: T.accent, padding: "0.6rem 1.4rem", borderRadius: 3 }}>
+                Import a file
+              </Link>
+            </>
+          ) : (
+            <p style={{ fontSize: "0.88rem", color: T.inkSoft, margin: 0 }}>This reference company has no annual statements on file.</p>
+          )}
+        </section>
       ) : (
         <>
           <StatementTable
@@ -331,9 +348,6 @@ export default function FinancialStatementsPage() {
         </>
       )}
 
-      <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>
-        Balance Sheet and Cash Flow are not yet extracted for the demo dataset — Income Statement only, for now.
-      </p>
     </div>
   );
 }

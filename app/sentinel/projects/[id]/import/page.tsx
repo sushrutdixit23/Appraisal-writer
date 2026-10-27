@@ -373,7 +373,7 @@ export default function ImportPage() {
       {files.length === 0 && !reading && (
         <p style={{ fontSize: "0.84rem", color: T.inkSoft, lineHeight: 1.6 }}>
           Scanned or image-only PDFs have no text to read; use the filing&apos;s text version, or type the figures on{" "}
-          <Link href={`/sentinel/data-entry?workspace=${id}`} style={{ color: T.accent }}>Add period</Link>.
+          <Link href={`/sentinel/add-period?workspace=${id}`} style={{ color: T.accent }}>Edit periods</Link>.
         </p>
       )}
     </div>

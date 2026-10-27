@@ -129,8 +129,8 @@ export default function ProjectOverviewPage() {
         </div>
         {canWrite && (
           <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-            <Link href={`/sentinel/data-entry${w}`} style={btn}>Add period</Link>
-            <Link href={`/sentinel/projects/${id}/import`} style={btnGhost}>Import files</Link>
+            <Link href={`/sentinel/projects/${id}/import`} style={btn}>Import a file</Link>
+            <Link href={`/sentinel/add-period${w}`} style={btnGhost}>Edit periods</Link>
           </div>
         )}
       </div>
@@ -156,7 +156,7 @@ export default function ProjectOverviewPage() {
                     An annual report or results PDF, or a sheet with several years. Every period it finds is previewed before anything is saved.
                   </p>
                 </Link>
-                <Link href={`/sentinel/data-entry${w}`} style={{ ...card, textDecoration: "none", color: T.ink }}>
+                <Link href={`/sentinel/add-period${w}`} style={{ ...card, textDecoration: "none", color: T.ink }}>
                   <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 500, margin: 0 }}>Type the figures</p>
                   <p style={{ fontSize: "0.82rem", color: T.inkSoft, margin: "0.4rem 0 0 0", lineHeight: 1.5 }}>
                     One period at a time, with the same checks. You can also fill the form from a file and correct it by hand.

@@ -47,8 +47,13 @@ const GLOBAL_CSS = `
   .sn-switcher:hover, .sn-palette-btn:hover { background: ${T.accentSoft}; }
   .sn-skip { position: absolute; left: -9999px; top: 0; background: ${T.ink}; color: ${T.background}; padding: 0.6rem 1rem; z-index: 100; }
   .sn-skip:focus { left: 0; }
-  @media (prefers-reduced-motion: reduce) { .sn-nav a { transition: none; } }
+  .sn-aside { transition: width 200ms ease, padding 200ms ease; }
+  .sn-aside-inner { transition: opacity 150ms ease; }
+  .sn-toggle:hover { background: ${T.accentSoft}; }
+  @media (prefers-reduced-motion: reduce) { .sn-nav a, .sn-aside, .sn-aside-inner { transition: none; } }
 `;
+
+const SIDEBAR_KEY = "sentinel-sidebar-collapsed";
 
 export default function SentinelLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -65,6 +70,25 @@ function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { workspaces, userId, loading } = useShell();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Open by default. A remembered choice wins; with none, a narrow window starts closed so the page gets the room.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_KEY);
+      setCollapsed(stored === null ? window.innerWidth < 900 : stored === "1");
+    } catch {
+      /* storage blocked: stay open */
+    }
+  }, []);
+  const toggleSidebar = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(SIDEBAR_KEY, c ? "0" : "1");
+      } catch {
+        /* the choice just is not remembered */
+      }
+      return !c;
+    });
 
   const ids = useMemo(() => workspaces.map((w) => w.id), [workspaces]);
   const [selected] = useSelectedWorkspace(ids);
@@ -80,6 +104,17 @@ function Shell({ children }: { children: React.ReactNode }) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setCollapsed((c) => {
+          try {
+            localStorage.setItem(SIDEBAR_KEY, c ? "0" : "1");
+          } catch {
+            /* the choice just is not remembered */
+          }
+          return !c;
+        });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -115,7 +150,21 @@ function Shell({ children }: { children: React.ReactNode }) {
       <style>{GLOBAL_CSS}</style>
       <a href="#sentinel-main" className="sn-skip">Skip to content</a>
 
-      <aside aria-label="Sentinel navigation" style={{ width: 232, flexShrink: 0, background: T.sidebar, borderRight: `1px solid ${T.rule}`, padding: "1.4rem 1.1rem", display: "flex", flexDirection: "column" }}>
+      <aside
+        id="sentinel-sidebar"
+        className="sn-aside"
+        aria-label="Sentinel navigation"
+        aria-hidden={collapsed}
+        inert={collapsed}
+        style={{
+          position: "sticky", top: 0, alignSelf: "flex-start", height: "100vh", overflowY: collapsed ? "hidden" : "auto", overflowX: "hidden",
+          width: collapsed ? 0 : 232, flexShrink: 0, boxSizing: "border-box", background: T.sidebar,
+          // No border at all when closed: a border-box cannot be narrower than its own border, which left a 1px sliver.
+          borderRight: collapsed ? "none" : `1px solid ${T.rule}`,
+          padding: collapsed ? "1.4rem 0" : "1.4rem 1.1rem", display: "flex", flexDirection: "column",
+        }}
+      >
+        <div className="sn-aside-inner" style={{ width: 195, display: "flex", flexDirection: "column", flex: 1, minHeight: 0, opacity: collapsed ? 0 : 1 }}>
         <div style={{ paddingBottom: "0.9rem", borderBottom: `1px solid ${T.rule}`, marginBottom: "0.9rem" }}>
           <Link href="/" style={{ textDecoration: "none" }}>
             <p style={{ fontSize: "0.62rem", fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: T.sidebarTextMuted, margin: "0 0 0.15rem 0" }}>Zyntask</p>
@@ -182,12 +231,30 @@ function Shell({ children }: { children: React.ReactNode }) {
           <br />
           Nothing is final without sign-off.
         </p>
+        </div>
       </aside>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <header
           style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", padding: "0.6rem 2.8rem", background: T.background, borderBottom: `1px solid ${T.rule}` }}
         >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", minWidth: 0 }}>
+          <button
+            type="button"
+            className="sn-toggle"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-expanded={!collapsed}
+            aria-controls="sentinel-sidebar"
+            aria-keyshortcuts="Control+B Meta+B"
+            title={collapsed ? "Show sidebar (Ctrl+B)" : "Hide sidebar (Ctrl+B)"}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, flexShrink: 0, background: "transparent", border: "none", borderRadius: 3, color: T.inkSoft, cursor: "pointer" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <rect x="1.75" y="2.75" width="14.5" height="12.5" rx="2" stroke="currentColor" strokeWidth="1.4" />
+              <line x1="6.75" y1="2.75" x2="6.75" y2="15.25" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
+          </button>
           <nav aria-label="Breadcrumb" style={{ display: "flex", alignItems: "center", gap: "0.55rem", fontSize: "0.85rem", minWidth: 0 }}>
             <Link href="/sentinel/projects" style={{ color: T.inkSoft, textDecoration: "none" }}>Projects</Link>
             {!portfolio && (
@@ -203,6 +270,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               </>
             )}
           </nav>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
             <button
               type="button"

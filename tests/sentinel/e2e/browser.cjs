@@ -406,7 +406,7 @@ async function ready(page, url, waitFor) {
     assert.equal(await a.getByRole("link", { name: "Add period" }).count(), 0);
     await ready(a, "/sentinel/projects/" + IDS.alpha, "h1");
     const own = await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(own, ["Overview", "Statements", "Add period", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
   }, a);
 
   await check("Shell: someone else's project, opened by its address, is 'not found' - and nothing of it is shown", async () => {
@@ -483,12 +483,47 @@ async function ready(page, url, waitFor) {
     await a.getByRole("radio", { name: "As reported" }).click();
   }, a);
 
-  await check("Add period: the nav link opens on the project you are in, and links to the whole-file Import", async () => {
+  await check("Add period is gone: the Overview leads with 'Import a file', and nothing links to the old page", async () => {
     await ready(a, "/sentinel/projects/" + IDS.alpha, "h1");
-    await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).getByRole("link", { name: "Add period" }).click();
-    await a.waitForSelector("#de-existing");
-    await a.waitForFunction((id) => document.querySelector("#de-existing").value === id, IDS.alpha);
-    assert.equal(await a.getByRole("link", { name: "Import files" }).first().getAttribute("href"), "/sentinel/projects/" + IDS.alpha + "/import");
+    assert.equal(await a.getByRole("link", { name: "Add period" }).count(), 0);
+    assert.equal(await a.getByRole("link", { name: "Import a file" }).first().getAttribute("href"), "/sentinel/projects/" + IDS.alpha + "/import");
+    await a.keyboard.press("Control+k");
+    await a.getByRole("combobox", { name: "Type a command or a project name" }).fill("add period");
+    assert.equal(await a.getByRole("option", { name: /^Add period/ }).count(), 0);
+    await a.keyboard.press("Escape");
+  }, a);
+
+  await check("Sidebar: it stays put while the page scrolls, hides and shows from the top bar or Ctrl+B, and the choice is remembered", async () => {
+    try {
+      await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
+      await a.waitForSelector("text=Key figures");
+      await a.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const top = await a.evaluate(() => document.querySelector("#sentinel-sidebar").getBoundingClientRect().top);
+      assert.equal(top, 0, "the sidebar scrolled away with the page");
+      assert.ok(await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).isVisible());
+      await a.evaluate(() => window.scrollTo(0, 0));
+
+      const widthOf = () => a.evaluate(() => Math.round(document.querySelector("#sentinel-sidebar").getBoundingClientRect().width));
+      assert.equal(await widthOf(), 232);
+      await a.getByRole("button", { name: "Hide sidebar" }).click();
+      await a.waitForFunction(() => document.querySelector("#sentinel-sidebar").getBoundingClientRect().width === 0);
+      assert.equal(await a.locator("#sentinel-sidebar").getAttribute("aria-hidden"), "true");
+      assert.equal(await a.getByRole("button", { name: "Show sidebar" }).getAttribute("aria-expanded"), "false");
+
+      await a.reload();
+      await a.waitForSelector('select[aria-label="Company"]');
+      await a.waitForFunction(() => document.querySelector("#sentinel-sidebar").getBoundingClientRect().width === 0);
+
+      await a.keyboard.press("Control+b");
+      await a.waitForFunction(() => document.querySelector("#sentinel-sidebar").getBoundingClientRect().width === 232);
+      assert.equal(await a.locator("#sentinel-sidebar").getAttribute("aria-hidden"), "false");
+      await a.getByRole("button", { name: "Hide sidebar" }).waitFor();
+    } finally {
+      // Whatever happened above, leave the sidebar open for every check after this one.
+      await a.evaluate(() => { try { localStorage.setItem("sentinel-sidebar-collapsed", "0"); } catch (e) {} });
+      await a.reload();
+      await a.waitForSelector("#sentinel-sidebar");
+    }
   }, a);
 
   await check("Queue: generating a draft for a flagged company saves it for the caller", async () => {
@@ -670,6 +705,15 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="setup-checklist"]').innerText(), /0 of 6 done/);
     // The shell now shows this project in the switcher and the side nav.
     assert.ok((await a.getByRole("navigation", { name: /Pyxis Lakh Co pages/ }).getByRole("link", { name: "Import files" }).count()) === 1);
+  }, a);
+
+  await check("Statements: a project with no periods says so and offers 'Import a file'", async () => {
+    await a.getByRole("navigation", { name: /Pyxis Lakh Co pages/ }).getByRole("link", { name: "Statements" }).click();
+    await a.waitForSelector('[data-testid="empty-statements"]');
+    const box = a.locator('[data-testid="empty-statements"]');
+    assert.match(await box.innerText(), /No financial statements yet/);
+    assert.match(await box.getByRole("link", { name: "Import a file" }).getAttribute("href"), /\/sentinel\/projects\/[0-9a-f-]{36}\/import$/);
+    await ready(a, "/sentinel/projects/" + pyxis, '[data-testid="setup-checklist"]');
   }, a);
 
   await check("Import: a real PDF is previewed period by period and saved in the project's unit (1,000 crore = 1,00,000 lakh)", async () => {

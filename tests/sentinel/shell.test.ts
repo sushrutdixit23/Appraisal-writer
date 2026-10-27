@@ -52,7 +52,7 @@ const flat = (g: ReturnType<typeof projectNav>) => g.flatMap((x) => x.items.map(
 
 test("nav: an owner sees every page, in the order Overview, Data, Analysis, Settings", () => {
   const nav = projectNav("p1", true);
-  assert.deepEqual(flat(nav), ["Overview", "Statements", "Add period", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+  assert.deepEqual(flat(nav), ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
   assert.deepEqual(nav.map((g) => g.label), [null, "Data", "Analysis", null]);
 });
 
@@ -86,9 +86,15 @@ const ws = [
 test("commands: navigation, project switching and the display units are all there", () => {
   const cmds = buildCommands(ws, "me", "a");
   const labels = cmds.map((c) => c.label);
-  for (const l of ["All projects", "New project", "Executive dashboard", "KPIs", "Add period", "Switch to Alpha Tyres", "Switch to Reference Tyres", "Show figures in lakh", "Show figures in crore", "Show figures in million", "Show figures as reported"]) {
+  for (const l of ["All projects", "New project", "Executive dashboard", "KPIs", "Import files", "Edit periods", "Switch to Alpha Tyres", "Switch to Reference Tyres", "Show figures in lakh", "Show figures in crore", "Show figures in million", "Show figures as reported"]) {
     assert.ok(labels.includes(l), l);
   }
+});
+
+test("commands: there is no separate Add period page; a file is imported, and an existing period is edited", () => {
+  const labels = buildCommands(ws, "me", "a").map((c) => c.label);
+  assert.ok(!labels.includes("Add period"));
+  assert.ok(labels.includes("Import files") && labels.includes("Edit periods"));
 });
 
 test("commands: a reference company offers no way to add data", () => {
@@ -181,4 +187,10 @@ test("palette: 'lakh', 'lac' and 'lacs' all find the lakh display command, and i
   // Naming the project more specifically still gets the project.
   assert.equal(filterCommands(commands, "lakh ind")[0].id, "switch-w1");
   assert.equal(filterCommands(commands, "alpha")[0].id, "switch-w2");
+});
+
+test("checklist: no step sends a person to a page that no longer exists - every link is an import or the edit page", () => {
+  const steps = setupChecklist({ projectId: "p", statements: [], investigations: [] });
+  for (const s of steps) assert.ok(!(s.href ?? "").includes("data-entry"), `${s.id} -> ${s.href}`);
+  assert.equal(steps.find((s) => s.id === "prior-year")!.href, "/sentinel/projects/p/import");
 });

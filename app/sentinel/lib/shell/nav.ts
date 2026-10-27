@@ -18,7 +18,6 @@ export function projectNav(projectId: string, canWrite: boolean): NavGroup[] {
         { href: `/sentinel/statements${w}`, label: "Statements" },
         ...(canWrite
           ? [
-              { href: `/sentinel/data-entry${w}`, label: "Add period" },
               { href: `/sentinel/projects/${projectId}/import`, label: "Import files" },
               { href: `/sentinel/add-period${w}`, label: "Edit periods" },
             ]
@@ -174,7 +173,7 @@ export function setupChecklist(input: {
     {
       id: "prior-year", title: "Add the previous year", done: hasPrior,
       detail: "Growth rates and the year-on-year flags need a like-for-like prior year (same basis).",
-      href: `/sentinel/data-entry${w}`, cta: "Add a period",
+      href: `/sentinel/projects/${projectId}/import`, cta: "Import a file",
     },
     {
       id: "first-investigation", title: "Generate your first investigation", done: investigations.length > 0,
