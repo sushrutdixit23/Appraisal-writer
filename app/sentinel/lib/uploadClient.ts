@@ -9,8 +9,24 @@
 // The upload phase used to have no guard at all: @vercel/blob's upload() was given no abortSignal, so a stalled
 // client-side upload - on a slow connection, or a 50-100MB annual report PDF this session has actually seen -
 // left the tab on "Reading..." forever with nothing in Vercel's own logs, since the server was never called.
-// It now reports real progress (bytes uploaded, not a guess) and is aborted if that progress stalls, rather than
-// capped at a flat duration that would be wrong for a large file on a slow line and pointless on a fast one.
+// It now reports real progress (bytes uploaded, not a guess).
+//
+// There is deliberately NO stall-detection abort here anymore - two rounds of it were tried and tuned against a
+// real, ordinary-sized (8.9MB) production file and both produced false positives, because of what the installed
+// @vercel/blob build (2.6.1) actually does, read directly from node_modules/@vercel/blob/dist/chunk-CIIQSN42.js:
+//   1. Its PUT request is itself wrapped in automatic retry (async-retry, default 10 retries, exponential
+//      backoff with no ceiling - see requestApi()). A single transient blip mid-upload can legitimately produce
+//      tens of seconds, or on a bad connection several minutes, of complete silence - no progress event of any
+//      kind - while the library quietly retries the whole PUT. That silence is the library working as designed,
+//      not a stall.
+//   2. Its onUploadProgress wrapper explicitly swallows the one event this code used to wait for: `if
+//      (percentage === 100 && bodyLength > 0) { return; }` - the exact "loaded >= total" event is never
+//      forwarded to us. The "fullyQueued" fix from the previous round assumed that event would eventually
+//      arrive; structurally, for a normal single-PUT upload, it never does, which is why that fix had no effect
+//      in production despite passing every test against a fake uploadFn that (unlike the real library) did send it.
+// Given that, no stall threshold this code could pick is both short enough to be useful and long enough to
+// never cut off a real, self-healing retry. The only guard left is the unconditional outer cap below, plus the
+// person's own cancel button.
 
 import { upload } from "@vercel/blob/client";
 import { supabase } from "../../lib/supabase";
@@ -21,12 +37,9 @@ const FUNCTION_BODY_SAFE_LIMIT = 4 * 1024 * 1024;
 /** The server read route's own ceiling, plus a margin - past this point the server has certainly given up even
  * if no response has arrived yet. */
 export const READ_TIMEOUT_MS = 320_000;
-/** No forward progress on the upload for this long means it has genuinely stalled, not just slowed down. Loose
- * enough to tolerate real latency: the browser's own progress events (from @vercel/blob's chunked-stream
- * tracking, or XHR's where fetch streaming is unavailable) can plausibly go quiet for a stretch on a slow
- * connection without the transfer actually having stopped. */
-export const UPLOAD_STALL_MS = 90_000;
-/** A hard outer cap on the upload phase, reached only if progress keeps trickling in without ever finishing. */
+/** A hard outer cap on the upload phase - the only thing that ends it unasked. Generous on purpose: @vercel/blob's
+ * own retry can legitimately run for minutes on a flaky connection (see the file header), and the alternative to
+ * waiting it out is the person's own cancel button, not a guess dressed up as a timeout. */
 export const UPLOAD_MAX_MS = 20 * 60_000;
 
 export class UploadError extends Error {
@@ -39,9 +52,8 @@ export type SendProgress = { phase: "uploading"; loaded: number; total: number; 
 
 export type SendFileOptions = {
   signal?: AbortSignal;
-  /** Overrides READ_TIMEOUT_MS / UPLOAD_STALL_MS / UPLOAD_MAX_MS. For tests only - production callers get the real values. */
+  /** Overrides READ_TIMEOUT_MS / UPLOAD_MAX_MS. For tests only - production callers get the real values. */
   timeoutMs?: number;
-  stallMs?: number;
   maxUploadMs?: number;
   /** Real upload progress, then one "reading" call when the server-side read starts. Large files only - a small
    * file goes straight to "reading" since there is no separate upload phase to report. */
@@ -60,15 +72,9 @@ type BlobUploadFn = (
   }
 ) => Promise<{ url: string }>;
 
-/** The blob upload itself: aborted if progress stalls for too long before it finishes, or if the whole phase
- * simply runs too long. Every progress event resets the stall clock, so a slow-but-moving upload is never
- * mistaken for a stuck one - except the stall clock stops being armed once a progress event reports the file
- * fully queued (loaded >= total). Past that point the library has handed every byte to the browser's own
- * network stack; what remains is the network actually delivering them and the server acknowledging receipt,
- * neither of which produces another progress event to reset against, even though the upload is not stuck -
- * this is exactly what was seen with a file under 9MB reported as "stalled" within 45 seconds: the local side
- * had queued 100% almost immediately, then genuinely still had the real transfer left to finish. Only the
- * overall UPLOAD_MAX_MS ceiling applies from that point on.
+/** The blob upload itself: only the unconditional UPLOAD_MAX_MS ceiling can end this on its own - see the file
+ * header for why a stall-based abort was removed rather than tuned a third time. Progress events are only ever
+ * forwarded to the caller for the UI, never used to decide anything here.
  * `uploadFn` defaults to the real @vercel/blob upload; a test passes a fake one instead of standing up a server
  * that speaks Blob's own presign-and-PUT protocol, so the timing logic here can be tested directly. */
 export async function uploadToBlob(
@@ -79,14 +85,6 @@ export async function uploadToBlob(
 ): Promise<{ url: string }> {
   const ctrl = new AbortController();
   const maxTimer = setTimeout(() => ctrl.abort(), options.maxUploadMs ?? UPLOAD_MAX_MS);
-  let stallTimer: ReturnType<typeof setTimeout> = setTimeout(() => {}, 0);
-  let fullyQueued = false;
-  const resetStall = () => {
-    if (fullyQueued) return;
-    clearTimeout(stallTimer);
-    stallTimer = setTimeout(() => ctrl.abort(), options.stallMs ?? UPLOAD_STALL_MS);
-  };
-  resetStall();
   const onOuterAbort = () => ctrl.abort();
   options.signal?.addEventListener("abort", onOuterAbort);
 
@@ -97,21 +95,14 @@ export async function uploadToBlob(
       clientPayload: JSON.stringify({ accessToken: token }),
       abortSignal: ctrl.signal,
       onUploadProgress: (p) => {
-        if (p.loaded >= p.total) {
-          fullyQueued = true;
-          clearTimeout(stallTimer);
-        } else {
-          resetStall();
-        }
         options.onProgress?.({ phase: "uploading", loaded: p.loaded, total: p.total, percentage: p.percentage });
       },
     });
   } catch (e) {
     if (ctrl.signal.aborted && !options.signal?.aborted) {
       throw new UploadError(
-        "The upload stopped making progress and was given up on. This can happen on a slow or unstable " +
-          "connection with a large file - check your connection and try again, or try a smaller export of " +
-          "just the financial statement pages.",
+        "This upload is taking far longer than expected (over 20 minutes) and has been given up on. " +
+          "Check your connection and try again, or try a smaller export of just the financial statement pages.",
         false,
         true
       );
@@ -119,7 +110,6 @@ export async function uploadToBlob(
     throw e;
   } finally {
     clearTimeout(maxTimer);
-    clearTimeout(stallTimer);
     options.signal?.removeEventListener("abort", onOuterAbort);
   }
 }
