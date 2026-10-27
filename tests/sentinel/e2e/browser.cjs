@@ -664,6 +664,39 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="autofill-summary"]').innerText(), /converted to .*Crore/i);
   }, a);
 
+  const multiPeriodCsvPath = path.join(SHOTS, "fy40-fy41.csv");
+  fs.writeFileSync(
+    multiPeriodCsvPath,
+    ["period,revenue from operations,profit before tax,profit after tax", "FY40,2000,300,220", "FY41,1800,260,190"].join("\n")
+  );
+
+  await check("Manage Periods: a file with more than one period offers the rest after you save the first, with no re-upload", async () => {
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.setInputFiles("#sentinel-autofill-file", multiPeriodCsvPath);
+    await a.waitForSelector('[data-testid="autofill-summary"]', { timeout: 60000 });
+    assert.match(await a.locator('[data-testid="autofill-summary"]').innerText(), /2 periods found/);
+    const firstLabel = await a.locator("#mp-plabel").inputValue();
+    assert.ok(["FY40", "FY41"].includes(firstLabel), firstLabel);
+    const secondLabel = firstLabel === "FY40" ? "FY41" : "FY40";
+    await a.getByRole("button", { name: "Save new period" }).click();
+    await a.waitForSelector("text=Period added.");
+    // The other period from the same file is offered right here - no re-upload, no trip to Import files.
+    const offer = a.getByRole("button", { name: new RegExp("Fill the form with " + secondLabel) });
+    await offer.waitFor();
+    await offer.click();
+    await a.waitForSelector("#mp-company"); // back on the editable form
+    assert.equal(await a.locator("#mp-plabel").inputValue(), secondLabel);
+    await a.getByRole("button", { name: "Save new period" }).click();
+    await a.waitForSelector("text=Period added.");
+    // Both periods landed, not just the first - the gap this check exists for.
+    const fy40 = await db("sentinel_statements", "&period_label=eq.FY40&workspace_id=eq." + IDS.alpha);
+    const fy41 = await db("sentinel_statements", "&period_label=eq.FY41&workspace_id=eq." + IDS.alpha);
+    assert.equal(fy40.length, 1);
+    assert.equal(fy41.length, 1);
+    assert.equal(fy40[0].revenue_from_operations, 2000);
+    assert.equal(fy41[0].revenue_from_operations, 1800);
+  }, a);
+
   await check("Autofill: a real PDF is read by rules; derived and doubtful figures are marked 'verify'", async () => {
     await ready(a, "/sentinel/data-entry?workspace=" + IDS.alpha, "#de-existing");
     await a.setInputFiles("#sentinel-autofill-file", pdfPath);

@@ -18,7 +18,7 @@ import { T } from "./theme";
 import { UNIT_OPTIONS, normaliseUnit, unitLabel, type CurrencyUnit } from "./units";
 import type { Basis } from "./types";
 
-export type AutofillApplied = { period: AutofillPeriod; applied: AppliedPeriod; result: AutofillResult };
+export type AutofillApplied = { period: AutofillPeriod; applied: AppliedPeriod; result: AutofillResult; fileUnit: CurrencyUnit | "" };
 
 const small: React.CSSProperties = { fontSize: "0.78rem", color: T.inkSoft, margin: "0.5rem 0 0 0", lineHeight: 1.5 };
 const selectStyle: React.CSSProperties = {
@@ -70,7 +70,7 @@ export function AutofillUpload({
     if (!period) return;
     const applied = applyAutofillPeriod(period, unit || null, workspaceUnit);
     setBlanks(ALL_FIELD_KEYS.filter((k) => !(k in applied.values)).length);
-    onApply({ period, applied, result: r });
+    onApply({ period, applied, result: r, fileUnit: unit });
   }
 
   async function read(f: File) {

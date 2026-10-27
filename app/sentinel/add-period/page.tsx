@@ -19,9 +19,11 @@ import { supabase } from "../../lib/supabase";
 import { sortWorkspaces } from "../lib/access";
 import { BASES, PERIOD_TYPES, statementToFormValues, withoutUnsetOptionalColumns } from "../lib/fields";
 import { AutofillUpload, type AutofillApplied } from "../lib/AutofillUpload";
+import { applyAutofillPeriod, countFields } from "../lib/autofill/apply";
+import type { AutofillResult } from "../lib/autofill/types";
 import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
 import { SERIF, T } from "../lib/theme";
-import { unitLabel } from "../lib/units";
+import { unitLabel, type CurrencyUnit } from "../lib/units";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { prepareFromForm, type Issue } from "../lib/validate";
 import type { Basis, FinancialStatement, ReviewCycle, Workspace } from "../lib/types";
@@ -77,6 +79,14 @@ export default function AddPeriodPage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
 
+  // A file can hold more than one period (a multi-year filing, a sheet with several columns); this form
+  // fills and saves one at a time, so after a save we offer the others from the same file rather than
+  // silently leaving them unsaved - the gap that made it look like only one year had been "extracted".
+  const [autofillResult, setAutofillResult] = useState<AutofillResult | null>(null);
+  const [autofillUnit, setAutofillUnit] = useState<CurrencyUnit | "">("");
+  const [autofillPeriodKey, setAutofillPeriodKey] = useState<string | null>(null);
+  const [usedPeriodKeys, setUsedPeriodKeys] = useState<Set<string>>(new Set());
+
   // "new" means the form is building an insert; any other value is the id of the statement being edited.
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
   const [selectedStatementId, setSelectedStatementId] = useState<string>("new");
@@ -87,6 +97,15 @@ export default function AddPeriodPage() {
   const [selectedReviewCycleId, setSelectedReviewCycleId] = useState<string>("");
 
   const selectedWs = workspaces.find((w) => w.id === workspaceId);
+
+  // A different company is a different file context - any "this file also has..." hint from the last one
+  // no longer applies.
+  useEffect(() => {
+    setAutofillResult(null);
+    setAutofillUnit("");
+    setAutofillPeriodKey(null);
+    setUsedPeriodKeys(new Set());
+  }, [workspaceId]);
 
   useEffect(() => {
     (async () => {
@@ -178,7 +197,7 @@ export default function AddPeriodPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatementId, statements, selectedWs?.id]);
 
-  function applyAutofill({ period, applied, result }: AutofillApplied) {
+  function fillFormFrom(period: AutofillResult["periods"][number], applied: ReturnType<typeof applyAutofillPeriod>, result: AutofillResult) {
     if (period.period_type) setPeriodType(period.period_type);
     if (period.period_label) setPeriodLabel(period.period_label);
     if (period.period_end_date) setPeriodEndDate(period.period_end_date);
@@ -191,6 +210,25 @@ export default function AddPeriodPage() {
       [`Filled from ${result.source_file} by rules (no AI).`, applied.unitNote, ...result.notes, ...period.notes].filter(Boolean).join(" ") || null
     );
     setIssues([]);
+    setAutofillPeriodKey(period.key);
+  }
+
+  function applyAutofill({ period, applied, result, fileUnit }: AutofillApplied) {
+    fillFormFrom(period, applied, result);
+    setAutofillResult(result);
+    setAutofillUnit(fileUnit);
+    setUsedPeriodKeys(new Set());
+  }
+
+  /** A file can hold several periods; this loads another one straight from what was already read, no
+   * re-upload needed, so saving one does not quietly leave the rest sitting unsaved in the file. */
+  function loadOtherPeriod(key: string) {
+    if (!autofillResult) return;
+    const period = autofillResult.periods.find((p) => p.key === key);
+    if (!period) return;
+    const applied = applyAutofillPeriod(period, autofillUnit || null, selectedWs?.currency_unit);
+    fillFormFrom(period, applied, autofillResult);
+    setDone(false);
   }
 
   function applyAiFill({ values: filled, sources: more, notes }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) {
@@ -258,6 +296,7 @@ export default function AddPeriodPage() {
     await reloadStatements(workspaceId);
     setSaving(false);
     setSaveWarnings(prepared.warnings);
+    if (autofillPeriodKey) setUsedPeriodKeys((prev) => new Set(prev).add(autofillPeriodKey));
     setDone(true);
   }
 
@@ -274,6 +313,8 @@ export default function AddPeriodPage() {
     setSelectedStatementId("new");
     setConfirmDeleteStatement(false);
   }
+
+  const remainingPeriods = autofillResult?.periods.filter((p) => !usedPeriodKeys.has(p.key)) ?? [];
 
   if (loadingWorkspaces) return <p style={{ color: T.inkSoft }}>Loading Sentinel…</p>;
 
@@ -330,6 +371,25 @@ export default function AddPeriodPage() {
               {saveWarnings.map((w, i) => (
                 <p key={i} style={{ fontSize: "0.8rem", color: T.ink, margin: "0.2rem 0", lineHeight: 1.5 }}>{w}</p>
               ))}
+            </div>
+          )}
+          {remainingPeriods.length > 0 && (
+            <div style={{ background: T.accentSoft, borderLeft: `2px solid ${T.ochre}`, padding: "0.7rem 0.9rem", marginBottom: "1.2rem" }}>
+              <p style={{ fontSize: "0.75rem", fontWeight: 600, color: T.ink, margin: "0 0 0.4rem 0" }}>
+                {autofillResult?.source_file} also has {remainingPeriods.length} more period{remainingPeriods.length === 1 ? "" : "s"} not yet saved:
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                {remainingPeriods.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    style={{ ...btnGhost, padding: "0.4rem 0.9rem", fontSize: "0.8rem" }}
+                    onClick={() => loadOtherPeriod(p.key)}
+                  >
+                    Fill the form with {p.period_label ?? "this period"} ({countFields(p)} figures)
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: "0.6rem" }}>
