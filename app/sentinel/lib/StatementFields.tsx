@@ -73,18 +73,21 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
   const issueFields = new Map<string, Issue[]>();
   for (const issue of issues) for (const f of issue.fields) issueFields.set(f, [...(issueFields.get(f) ?? []), issue]);
 
-  function renderField(f: FieldDef) {
+  function renderField(f: FieldDef, span2?: boolean) {
     const raw = values[f.key] ?? "";
     const typedButInvalid = raw.trim() !== "" && parseNumberInput(raw).invalid;
     const doubted = verify.includes(f.key);
     const flagged = (issueFields.get(f.key) ?? []).some((i) => i.severity === "error");
     const id = `${uid}-${f.key}`;
-    const border = typedButInvalid || flagged ? T.oxblood : doubted || issueFields.has(f.key) ? T.accent : T.rule;
+    // Oxblood is a real problem (an unreadable figure or a failed check); ochre is this app's own
+    // "pending / watch / caution" colour, so a field worth a second look reads as a flag, not an error.
+    const border = typedButInvalid || flagged ? T.oxblood : doubted || issueFields.has(f.key) ? T.ochre : T.rule;
     return (
       <Field
         key={f.key}
         htmlFor={id}
         label={f.label + (f.required ? " *" : "") + (doubted ? " (verify)" : "")}
+        span2={span2}
       >
         <input
           id={id}
@@ -99,23 +102,28 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
           aria-invalid={typedButInvalid || flagged ? true : undefined}
           aria-describedby={f.hint || typedButInvalid ? `${id}-hint` : undefined}
         />
-        {(f.hint || typedButInvalid) && (
-          <p
-            id={`${id}-hint`}
-            style={{ fontSize: "0.7rem", color: typedButInvalid ? T.oxblood : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
-          >
-            {typedButInvalid ? "That is not a number." : f.hint}
-          </p>
-        )}
-        {sources[f.key] && raw !== "" && (
-          <p
-            data-source-for={f.key}
-            title={sources[f.key]}
-            style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.2rem 0 0 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-          >
-            {sources[f.key]}
-          </p>
-        )}
+        {/* A fixed-height footer, not just the hint-or-source paragraphs themselves, so a field with a
+            two-line note (a static hint plus a source line) doesn't sit taller than its neighbour in the
+            same row and throw the row rhythm off down the rest of the form. */}
+        <div style={{ minHeight: "2.1rem" }}>
+          {(f.hint || typedButInvalid) && (
+            <p
+              id={`${id}-hint`}
+              style={{ fontSize: "0.7rem", color: typedButInvalid ? T.oxblood : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
+            >
+              {typedButInvalid ? "That is not a number." : f.hint}
+            </p>
+          )}
+          {sources[f.key] && raw !== "" && (
+            <p
+              data-source-for={f.key}
+              title={sources[f.key]}
+              style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.2rem 0 0 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {sources[f.key]}
+            </p>
+          )}
+        </div>
       </Field>
     );
   }
@@ -151,7 +159,7 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
           )}
           {section.id === "income" && <div style={{ height: "0.7rem" }} />}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            {section.fields.map(renderField)}
+            {section.fields.map((f, i) => renderField(f, section.fields.length % 2 === 1 && i === section.fields.length - 1))}
           </div>
         </div>
       ))}
