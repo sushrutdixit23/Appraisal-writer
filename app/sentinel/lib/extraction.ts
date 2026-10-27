@@ -179,6 +179,44 @@ export function selectStatementPages(
 }
 
 // ---------------------------------------------------------------------------------------------
+// 2b. The auditor's own Key Audit Matters - never read into a field (it is prose, not a figure),
+// but pointed to: real red flags often live here before they ever show up as a number, and the
+// extraction pipeline otherwise never looks at the audit report at all, only the statement pages.
+// ---------------------------------------------------------------------------------------------
+
+const KEY_AUDIT_MATTERS_HEADING = /key\s+audit\s+matters?\b/i;
+// A table-of-contents or cross-reference line names the section and nothing else: "Key Audit
+// Matters .......... 45" or "Key Audit Matters 45". A real heading is not immediately followed by
+// bare page-number digits (with only dots/spaces/a dash between), so this disqualifies those lines
+// rather than mistaking a contents page for the section itself.
+const LOOKS_LIKE_CONTENTS_LINE = /key\s+audit\s+matters?\s*[.\s-]*\d{1,4}\s*$/i;
+// Lines that mean the Key Audit Matters section has ended - the next section of a standard audit
+// report.
+const KEY_AUDIT_MATTERS_END = /^\s*(?:other\s+information|responsibilit(?:y|ies)\s+(?:of|for)|management'?s?\s+responsibilit|auditor'?s?\s+responsibilit|report\s+on\s+other\s+legal)/i;
+
+/** Which pages carry the auditor's Key Audit Matters section, so a person can go read it rather
+ * than Sentinel guessing at a summary of free-form audit prose. Starts at the first page with a line
+ * that looks like the heading itself, not a table-of-contents or cross-reference mention of it, and
+ * keeps following pages until one plainly belongs to the next section of the report or the section
+ * has run three pages, whichever comes first - real KAM sections are typically one to three pages,
+ * several matters each with its own short sub-heading. */
+export function findKeyAuditMattersPages(pages: PdfPage[]): number[] {
+  const sorted = [...pages].sort((a, b) => a.num - b.num);
+  const startIndex = sorted.findIndex((p) =>
+    p.text.split(/\r?\n/).some((l) => KEY_AUDIT_MATTERS_HEADING.test(l) && !LOOKS_LIKE_CONTENTS_LINE.test(l))
+  );
+  if (startIndex === -1) return [];
+
+  const found = [sorted[startIndex].num];
+  for (let i = startIndex + 1; i < sorted.length && found.length < 3; i++) {
+    const lines = sorted[i].text.split(/\r?\n/);
+    if (lines.some((l) => KEY_AUDIT_MATTERS_END.test(l))) break;
+    found.push(sorted[i].num);
+  }
+  return found;
+}
+
+// ---------------------------------------------------------------------------------------------
 // 3. Grounding: is this number actually on the page?
 // ---------------------------------------------------------------------------------------------
 

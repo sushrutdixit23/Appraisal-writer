@@ -276,11 +276,47 @@ export function detectWorkingCapitalStress(rows: PeerRow[], sector: string): Ano
   return flags;
 }
 
+/** Unbilled revenue growing materially faster than revenue itself - a real, specific revenue-recognition red
+ * flag (most relevant for IT services: work recognised well ahead of being billed against a milestone), not a
+ * generic working-capital one. Needs unbilled_revenue on file for both years on a positive prior-year base;
+ * most filings do not print this line at all, so this resolves to no flags for the great majority of
+ * companies until it is specifically entered. */
+export function detectUnbilledRevenueGrowth(rows: PeerRow[], sector: string): AnomalyFlag[] {
+  const cfg = getSectorConfig(sector);
+  const thresholdPp = cfg.anomaly_thresholds.unbilled_revenue_growth_gap_pct;
+  const flags: AnomalyFlag[] = [];
+
+  for (const row of rows) {
+    if (row.unbilled_revenue_cr == null || row.prior_unbilled_revenue_cr == null || row.prior_unbilled_revenue_cr <= 0) continue;
+    if (row.prior_revenue_cr == null || row.prior_revenue_cr <= 0) continue;
+    const unbilledGrowth = (row.unbilled_revenue_cr - row.prior_unbilled_revenue_cr) / row.prior_unbilled_revenue_cr;
+    const revenueGrowth = (row.revenue_cr - row.prior_revenue_cr) / row.prior_revenue_cr;
+    const gapPp = (unbilledGrowth - revenueGrowth) * 100;
+    if (gapPp <= thresholdPp) continue;
+    flags.push({
+      workspace_id: row.workspace_id,
+      company_name: row.company_name,
+      period_label: row.period_label,
+      flag_type: "revenue_recognition",
+      metric: "unbilled_revenue_growth_gap",
+      value: gapPp,
+      threshold: thresholdPp,
+      severity: gapPp / thresholdPp,
+      description:
+        `unbilled revenue grew ${pct(unbilledGrowth)} YoY (${inr(row.prior_unbilled_revenue_cr)} → ${inr(row.unbilled_revenue_cr)}) ` +
+        `against ${pct(revenueGrowth)} revenue growth — a ${gapPp.toFixed(0)}-point gap, past the configured ` +
+        `${thresholdPp.toFixed(0)}-point threshold; work may be being recognised well ahead of being billed`,
+    });
+  }
+  return flags;
+}
+
 export function runAllChecks(rows: PeerRow[], sector: string): AnomalyFlag[] {
   return [
     ...detectYoySwings(rows, sector),
     ...detectPeerRelativeOutliers(rows, sector),
     ...detectExceptionalItems(rows, sector),
+    ...detectUnbilledRevenueGrowth(rows, sector),
     ...detectLiquidityRisk(rows, sector),
     ...detectLeverageRisk(rows, sector),
     ...detectWorkingCapitalStress(rows, sector),

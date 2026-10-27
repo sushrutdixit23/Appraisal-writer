@@ -116,7 +116,8 @@ function peer(id: string, revenue: number, metrics: Record<string, number | null
   return {
     workspace_id: id, company_name: id.toUpperCase(), is_subject: false, period_label: "FY26", basis: "consolidated",
     basis_caveat: null, revenue_cr: revenue, pat_cr: revenue / 10, pbt_cr: revenue / 8, exceptional_items_cr: 0,
-    prior_revenue_cr: null, prior_pat_cr: null, total_equity_cr: null, has_prior_year: false, ratios: metrics,
+    prior_revenue_cr: null, prior_pat_cr: null, total_equity_cr: null, unbilled_revenue_cr: null, prior_unbilled_revenue_cr: null,
+    has_prior_year: false, ratios: metrics,
   };
 }
 

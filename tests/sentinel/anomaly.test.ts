@@ -8,6 +8,7 @@ import {
   detectLeverageRisk,
   detectLiquidityRisk,
   detectPeerRelativeOutliers,
+  detectUnbilledRevenueGrowth,
   detectWorkingCapitalStress,
   detectYoySwings,
   groupFlagsByWorkspace,
@@ -33,6 +34,8 @@ function row(id: string, over: Partial<PeerRow> & { ratios?: Record<string, numb
     prior_revenue_cr: null,
     prior_pat_cr: null,
     total_equity_cr: null,
+    unbilled_revenue_cr: null,
+    prior_unbilled_revenue_cr: null,
     has_prior_year: false,
     ratios: {},
     ...over,
@@ -154,6 +157,30 @@ test("working capital: 73 inventory days against 60 and 40 receivable days again
   assert.equal(flags.length, 1);
   assert.equal(flags[0].metric, "inventory_days");
   assert.ok(near(flags[0].severity, 73 / 60));
+});
+
+// --- unbilled revenue growth ----------------------------------------------------------------
+
+test("unbilled revenue: 100% growth against 10% revenue growth is a 90-point gap - flags on technology's 15-point threshold, severity 6", () => {
+  const r = row("a", { revenue_cr: 1100, prior_revenue_cr: 1000, unbilled_revenue_cr: 200, prior_unbilled_revenue_cr: 100 });
+  const [flag] = detectUnbilledRevenueGrowth([r], "technology");
+  assert.equal(flag.flag_type, "revenue_recognition");
+  assert.ok(near(flag.severity, 6));
+  assert.match(flag.description, /unbilled revenue grew 100\.0% YoY/);
+  assert.match(flag.description, /90-point gap/);
+});
+
+test("unbilled revenue: the same gap sits under tyre's wider 30-point threshold", () => {
+  const r = row("a", { revenue_cr: 1100, prior_revenue_cr: 1000, unbilled_revenue_cr: 200, prior_unbilled_revenue_cr: 100 });
+  assert.equal(detectUnbilledRevenueGrowth([r], "tyre").length, 1); // 90 > 30, still flags here
+  const mild = row("a", { revenue_cr: 1100, prior_revenue_cr: 1000, unbilled_revenue_cr: 125, prior_unbilled_revenue_cr: 100 });
+  assert.equal(detectUnbilledRevenueGrowth([mild], "tyre").length, 0); // 25% - 10% = 15 points, under 30
+});
+
+test("unbilled revenue: no flag without both years on file, or from a zero/negative prior-year base", () => {
+  assert.equal(detectUnbilledRevenueGrowth([row("a", { unbilled_revenue_cr: 200 })], "technology").length, 0);
+  assert.equal(detectUnbilledRevenueGrowth([row("a", { unbilled_revenue_cr: 200, prior_unbilled_revenue_cr: 0 })], "technology").length, 0);
+  assert.equal(detectUnbilledRevenueGrowth([row("a", { unbilled_revenue_cr: 200, prior_unbilled_revenue_cr: 100, prior_revenue_cr: 0 })], "technology").length, 0);
 });
 
 // --- confidence score ---------------------------------------------------------------------

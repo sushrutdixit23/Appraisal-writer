@@ -71,6 +71,11 @@ export type SectorConfig = {
     /** Return on capital employed below which capital allocation is a concern. A starting assumption (about a
      * cost of capital), not calibrated against filings. */
     roce_min: number;
+    /** Percentage points: unbilled revenue's own YoY growth rate, less revenue's YoY growth rate. A real,
+     * specific revenue-recognition red flag when unbilled revenue is growing much faster than the revenue it
+     * is meant to turn into - work recognised well ahead of being billed. Needs unbilled_revenue on file for
+     * both years, which most filings do not print as its own line. */
+    unbilled_revenue_growth_gap_pct: number;
   };
   narrative_context: string;
   derived_ratios: RatioDef[];
@@ -183,6 +188,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       inventory_days_max: 60,
       receivable_days_max: 60,
       roce_min: 0.1,
+      unbilled_revenue_growth_gap_pct: 30.0,
     },
     narrative_context:
       "Tyre manufacturers are exposed to natural rubber and crude-derivative " +
@@ -208,6 +214,9 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       inventory_days_max: 15,
       receivable_days_max: 90,
       roce_min: 0.2,
+      // Tighter than the other sectors: unbilled revenue is a routine, named line for IT services (work
+      // done, not yet invoiced against a milestone), so a real gap here is the most diagnostic in this sector.
+      unbilled_revenue_growth_gap_pct: 15.0,
     },
     narrative_context:
       "Technology companies (IT services, software, platforms) are asset-light and people-heavy: " +
@@ -234,6 +243,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       inventory_days_max: 60,
       receivable_days_max: 30,
       roce_min: 0.15,
+      unbilled_revenue_growth_gap_pct: 30.0,
     },
     narrative_context:
       "FMCG companies are exposed to commodity input cost cycles (milk, wheat, " +
@@ -261,6 +271,7 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       inventory_days_max: 75,
       receivable_days_max: 75,
       roce_min: 0.1,
+      unbilled_revenue_growth_gap_pct: 30.0,
     },
     narrative_context:
       "No sector-specific tuning has been applied for this company's industry " +

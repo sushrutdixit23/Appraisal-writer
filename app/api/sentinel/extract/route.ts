@@ -35,6 +35,7 @@ import {
   buildExtractionUserPrompt,
   checkDraft,
   checkGrounding,
+  findKeyAuditMattersPages,
   groundingNotes,
   locateQuotePage,
   parseModelDraft,
@@ -98,6 +99,12 @@ export async function POST(req: Request) {
     selection?.text ??
     pages.map((p) => `=== PAGE ${p.num} ===\n${p.text.trim()}`).join("\n\n").slice(0, MAX_PROMPT_CHARS);
   const notes: string[] = selection ? [...selection.notes] : ["No page looked like a financial statement, so the start of the document was read - verify every figure."];
+  // Never read into a field - it is prose, not a figure - but worth a pointer: real red flags often show up
+  // here before they ever become a number, and nothing else in this pipeline looks at the audit report at all.
+  const kamPages = findKeyAuditMattersPages(pages);
+  if (kamPages.length > 0) {
+    notes.push(`The auditor's Key Audit Matters are on p.${kamPages.join(", ")} - worth reading before relying on this period.`);
+  }
 
   let raw: string;
   try {

@@ -113,7 +113,8 @@ export type AnomalyFlag = {
     | "exceptional_item"
     | "liquidity"
     | "leverage"
-    | "working_capital";
+    | "working_capital"
+    | "revenue_recognition";
   metric: string;
   value: number;
   threshold: number;
@@ -139,6 +140,10 @@ export type PeerRow = {
   prior_revenue_cr: number | null;
   prior_pat_cr: number | null;
   total_equity_cr: number | null;
+  // Unbilled revenue, in crore, and the prior year's - null whenever either year doesn't have the line.
+  // Kept apart from the other absolute figures above (added for one specific check, not general display).
+  unbilled_revenue_cr: number | null;
+  prior_unbilled_revenue_cr: number | null;
   has_prior_year: boolean;
   ratios: Record<string, number | null>;
 };

@@ -6,6 +6,7 @@ import {
   checkDraft,
   checkGrounding,
   checkGroundingOfField,
+  findKeyAuditMattersPages,
   groundingNotes,
   parseBlobUrl,
   parseModelDraft,
@@ -94,6 +95,36 @@ test("the character budget drops the lowest-scoring pages first", () => {
   const sel = selectStatementPages(pages, { maxChars: 1500 })!;
   assert.ok(sel.text.length <= 1500 + 400, `${sel.text.length} chars`);
   assert.ok(sel.pages.length < 4);
+});
+
+// --- the auditor's Key Audit Matters ---------------------------------------------------------
+
+const kamPages = (...texts: string[]): PdfPage[] => texts.map((text, i) => ({ num: i + 1, text }));
+
+test("finds the page the heading is on, and no pages at all when it never appears", () => {
+  const found = findKeyAuditMattersPages(
+    kamPages("Board's report", "Key Audit Matters\nRevenue recognition is a key audit matter.", "Other Information\nBalance Sheet")
+  );
+  assert.deepEqual(found, [2]);
+  assert.deepEqual(findKeyAuditMattersPages(kamPages("Board's report", "Balance Sheet")), []);
+  assert.deepEqual(findKeyAuditMattersPages([]), []);
+});
+
+test("a table-of-contents or cross-reference line naming the section is not mistaken for the section itself", () => {
+  const found = findKeyAuditMattersPages(
+    kamPages("Contents\nKey Audit Matters .......... 12", "Independent Auditor's Report\nSome other heading here.\nKey Audit Matters\nRevenue recognition.")
+  );
+  assert.deepEqual(found, [2]);
+});
+
+test("runs onto following pages until the next report section, capped at three pages", () => {
+  const threePages = findKeyAuditMattersPages(
+    kamPages("Key Audit Matters\nFirst matter: revenue.", "Second matter: goodwill, continued from the page before.", "Other Information\nThe rest of the annual report.")
+  );
+  assert.deepEqual(threePages, [1, 2]);
+
+  const capped = findKeyAuditMattersPages(kamPages("Key Audit Matters\nA.", "B, more of the same matter.", "C, still going.", "D, a fourth page with no section break."));
+  assert.deepEqual(capped, [1, 2, 3]);
 });
 
 // --- grounding ----------------------------------------------------------------------------------

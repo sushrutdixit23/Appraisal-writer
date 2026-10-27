@@ -13,7 +13,7 @@
 // figures (marked "derived"), or empty.
 
 import { parseNumberInput } from "../fields";
-import { selectStatementPages, type PdfPage } from "../extraction";
+import { findKeyAuditMattersPages, selectStatementPages, type PdfPage } from "../extraction";
 import { detectUnitInText } from "../units";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
@@ -250,6 +250,14 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
     throw new AutofillError("No page of this file looks like a financial statement (profit and loss, balance sheet or cash flow).");
   }
   const notes: string[] = [...selection.notes];
+
+  // Never read into a field - it is prose, not a figure - but worth a pointer: real red flags often
+  // show up here before they ever become a number, and nothing else in this pipeline looks at the
+  // audit report at all.
+  const kamPages = findKeyAuditMattersPages(pages);
+  if (kamPages.length > 0) {
+    notes.push(`The auditor's Key Audit Matters are on p.${kamPages.join(", ")} - worth reading before relying on this period.`);
+  }
 
   // Read every statement page.
   const reads: PageRead[] = [];

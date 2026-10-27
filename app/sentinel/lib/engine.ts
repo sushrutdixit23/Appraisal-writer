@@ -127,6 +127,8 @@ export function buildPeerTable(
       prior_revenue_cr: prior ? prior.revenue_from_operations * f : null,
       prior_pat_cr: prior ? prior.profit_after_tax * f : null,
       total_equity_cr: stmt.total_equity == null ? null : stmt.total_equity * f,
+      unbilled_revenue_cr: stmt.unbilled_revenue == null ? null : stmt.unbilled_revenue * f,
+      prior_unbilled_revenue_cr: prior?.unbilled_revenue == null ? null : prior.unbilled_revenue * f,
       has_prior_year: prior != null,
       ratios,
     });
