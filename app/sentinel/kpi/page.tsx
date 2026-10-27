@@ -168,6 +168,9 @@ const PEER_RANKING_METRICS: {
   { label: "Interest cover", metric: "interest_cover", direction: "higher_is_better", unit: "x" },
   { label: "Net debt / EBITDA", metric: "net_debt_to_ebitda", direction: "lower_is_better", unit: "x" },
   { label: "Cash from operations / PAT", metric: "cfo_to_pat", direction: "higher_is_better", unit: "x" },
+  { label: "P/E", metric: "pe_ratio", direction: "lower_is_better", unit: "x" },
+  { label: "EV/EBITDA", metric: "ev_ebitda", direction: "lower_is_better", unit: "x" },
+  { label: "EV/Sales", metric: "ev_sales", direction: "lower_is_better", unit: "x" },
 ];
 
 const HEALTH_COLORS: Record<HealthStatus, { text: string; statusLabel: string }> = {
@@ -636,6 +639,46 @@ export default function KpiDashboardPage() {
         "goods sold and shares outstanding respectively; out of 9 when both are on file, fewer otherwise. A screen, not a verdict",
       delta: makeDelta("multiple", "higher", ratioNow("piotroski_f"), ratioPrev("piotroski_f"), vs),
       spark: series("piotroski_f"),
+    },
+    {
+      label: `Market cap (${du.crossLabel})`,
+      value: ratioNow("market_cap_cr") == null ? "-" : num(du.fromCrore(ratioNow("market_cap_cr")!)),
+      note: selected.market_price == null ? "Needs a share price - set one on this project's Settings page" : `${selected.market_price_as_of ? `As of ${selected.market_price_as_of}` : "No date set"}; needs shares outstanding too`,
+      formula: "Share price x shares outstanding. The price is your own entry (Settings), not a live feed",
+      delta: makeDelta("amount", "higher", ratioNow("market_cap_cr"), ratioPrev("market_cap_cr"), vs),
+      spark: series("market_cap_cr", (v) => du.fromCrore(v)),
+    },
+    {
+      label: `Enterprise value (${du.crossLabel})`,
+      value: ratioNow("ev_cr") == null ? "-" : num(du.fromCrore(ratioNow("ev_cr")!)),
+      formula: "Market cap + total debt - cash and equivalents",
+      note: null,
+      delta: makeDelta("amount", "higher", ratioNow("ev_cr"), ratioPrev("ev_cr"), vs),
+      spark: series("ev_cr", (v) => du.fromCrore(v)),
+    },
+    {
+      label: "P/E",
+      value: ratioX(ratioNow("pe_ratio")),
+      formula: "Market cap / profit after tax. Blank for a loss-making year - a negative P/E is not a meaningful multiple",
+      note: null,
+      delta: makeDelta("multiple", "lower", ratioNow("pe_ratio"), ratioPrev("pe_ratio"), vs),
+      spark: series("pe_ratio"),
+    },
+    {
+      label: "EV/EBITDA",
+      value: ratioX(ratioNow("ev_ebitda")),
+      formula: "Enterprise value / EBITDA",
+      note: null,
+      delta: makeDelta("multiple", "lower", ratioNow("ev_ebitda"), ratioPrev("ev_ebitda"), vs),
+      spark: series("ev_ebitda"),
+    },
+    {
+      label: "EV/Sales",
+      value: ratioX(ratioNow("ev_sales")),
+      formula: "Enterprise value / Revenue from operations",
+      note: null,
+      delta: makeDelta("multiple", "lower", ratioNow("ev_sales"), ratioPrev("ev_sales"), vs),
+      spark: series("ev_sales"),
     },
   ];
 

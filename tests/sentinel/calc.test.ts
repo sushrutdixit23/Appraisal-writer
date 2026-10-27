@@ -142,6 +142,23 @@ test("peer table: absolute figures are normalised to crore so lakh and crore com
   assert.ok(near(big.ratios.pat_margin, 0.08)); // ratios do not depend on the unit
 });
 
+test("peer table: valuation figures land in ratios too, converted through the same crore factor", () => {
+  // Price 500, 2,00,00,000 shares -> market cap 500 x 2,00,00,000 / 1e7 = 1,000 cr.
+  // Debt 50,000 lakh and cash 20,000 lakh are 500 cr and 200 cr -> EV = 1,000 + 500 - 200 = 1,300 cr.
+  // PAT 800 cr (as above) -> P/E 1,000 / 800 = 1.25x. EBITDA 150,000 lakh = 1,500 cr -> EV/EBITDA 1,300 / 1,500.
+  const w = ws("big", { currency_unit: "INR_LAKH", market_price: 500 });
+  const stmt = st("big", {
+    revenue_from_operations: 1_000_000, profit_before_tax: 100_000, profit_after_tax: 80_000, ebitda: 150_000,
+    total_debt: 50_000, cash_and_equivalents: 20_000, shares_outstanding: 20_000_000,
+  });
+  const rows = buildPeerTable([w], [stmt], "big", "FY");
+  const r = rows[0];
+  assert.ok(near(r.ratios.market_cap_cr!, 1000));
+  assert.ok(near(r.ratios.ev_cr!, 1300));
+  assert.ok(near(r.ratios.pe_ratio!, 1.25));
+  assert.ok(near(r.ratios.ev_ebitda!, 1300 / 1500));
+});
+
 test("peer table: when two bases share the latest date the workspace's comparison basis is used", () => {
   const w = ws("a", { comparison_basis: "consolidated" });
   const sa = st("a", { basis: "standalone", revenue_from_operations: 700 });

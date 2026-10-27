@@ -8,6 +8,7 @@
 
 import { getSectorConfig } from "./config";
 import { croreFactor } from "./units";
+import { computeValuation } from "./valuation";
 import type { FinancialStatement, PeerRow, Workspace } from "./types";
 
 /** Same workspace, same period type, same basis, period ending exactly one
@@ -103,6 +104,9 @@ export function buildPeerTable(
     // Everything absolute is converted to crore here, once, so a company
     // entered in lakh or million lines up with one entered in crore.
     const f = croreFactor(ws.currency_unit);
+    // Valuation needs the workspace's own market price (not a statement line), so it is computed here rather
+    // than through the sector ratio registry, and merged into the same ratios map getMetricValue already reads.
+    Object.assign(ratios, computeValuation(ws, stmt, f));
 
     let basisCaveat: string | null = null;
     if (stmt.basis !== ws.comparison_basis) {
@@ -184,6 +188,7 @@ export function buildTimeSeries(
     } else {
       const prior = findPriorYear(stmt, statements);
       const ratios = computeRatios(stmt, prior, workspace.sector);
+      Object.assign(ratios, computeValuation(workspace, stmt, croreFactor(workspace.currency_unit)));
       value = ratios[metricKey] ?? null;
     }
     if (value != null) out.push({ label: stmt.period_label, value });

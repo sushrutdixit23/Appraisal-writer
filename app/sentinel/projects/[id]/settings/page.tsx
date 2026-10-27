@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import { SECTOR_CONFIGS } from "../../../lib/config";
-import { BASES } from "../../../lib/fields";
+import { BASES, parseNumberInput } from "../../../lib/fields";
 import { Field, inputStyle } from "../../../lib/StatementFields";
 import { useShell } from "../../../lib/shell/ShellData";
 import { SERIF, T } from "../../../lib/theme";
@@ -51,6 +51,12 @@ export default function ProjectSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [marketPrice, setMarketPrice] = useState("");
+  const [marketPriceAsOf, setMarketPriceAsOf] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [savedPrice, setSavedPrice] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
+
   const [newUnit, setNewUnit] = useState("");
   const [mode, setMode] = useState<UnitChangeMode>("convert");
   const [changingUnit, setChangingUnit] = useState(false);
@@ -74,6 +80,8 @@ export default function ProjectSettingsPage() {
     setFyStart(workspace.fiscal_year_start_month);
     setBasis(workspace.comparison_basis);
     setNewUnit((u) => u || (normaliseUnit(workspace.currency_unit) === "INR_LAKH" ? "INR_CRORE" : "INR_LAKH"));
+    setMarketPrice(workspace.market_price != null ? String(workspace.market_price) : "");
+    setMarketPriceAsOf(workspace.market_price_as_of ?? "");
   }, [workspace]);
 
   useEffect(() => {
@@ -134,6 +142,38 @@ export default function ProjectSettingsPage() {
     }
     await reload();
     setSaved(true);
+  }
+
+  async function saveMarketPrice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!workspace) return;
+    setPriceError(null);
+    setSavedPrice(false);
+    const raw = marketPrice.trim();
+    const parsed = raw === "" ? { value: null, invalid: false } : parseNumberInput(raw);
+    if (parsed.invalid) {
+      setPriceError("That is not a number.");
+      return;
+    }
+    if (parsed.value != null && parsed.value <= 0) {
+      setPriceError("A share price has to be a positive number.");
+      return;
+    }
+    setSavingPrice(true);
+    // Not sent at all when the migration that adds these two columns has not been applied yet and the price
+    // is being cleared - same "don't reference a column the database might not have" rule as
+    // withoutUnsetOptionalColumns in fields.ts, just inlined here since this is a different table.
+    const payload: Record<string, unknown> = {};
+    if (parsed.value != null || "market_price" in workspace) payload.market_price = parsed.value;
+    if (parsed.value != null || "market_price_as_of" in workspace) payload.market_price_as_of = parsed.value == null ? null : marketPriceAsOf || new Date().toISOString().slice(0, 10);
+    const { error: updateError } = await supabase.from("sentinel_workspaces").update(payload).eq("id", id);
+    setSavingPrice(false);
+    if (updateError) {
+      setPriceError(updateError.message);
+      return;
+    }
+    await reload();
+    setSavedPrice(true);
   }
 
   async function changeUnit() {
@@ -268,6 +308,45 @@ export default function ProjectSettingsPage() {
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
             <button type="submit" style={btn} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
             {saved && <span role="status" style={{ fontSize: "0.82rem", color: T.inkSoft }}>Saved.</span>}
+          </div>
+        )}
+      </form>
+
+      <form onSubmit={saveMarketPrice} style={card} aria-label="Market data">
+        <h2 style={h2}>Market data</h2>
+        <p style={lead}>
+          The current share price, for peer valuation (market cap, enterprise value, P/E, EV/EBITDA, EV/Sales). Sentinel has no live market feed - this is
+          your own entry, dated so a stale price is visible rather than assumed current. Leave it blank to leave valuation figures blank.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
+          <Field label="Share price" htmlFor="ps-price">
+            <input
+              id="ps-price"
+              style={inputStyle}
+              value={marketPrice}
+              onChange={(e) => setMarketPrice(e.target.value)}
+              placeholder="e.g. 1,450.50"
+              disabled={readOnly || savingPrice}
+            />
+          </Field>
+          <Field label="As of" htmlFor="ps-price-date">
+            <input
+              id="ps-price-date"
+              type="date"
+              style={inputStyle}
+              value={marketPriceAsOf}
+              onChange={(e) => setMarketPriceAsOf(e.target.value)}
+              disabled={readOnly || savingPrice || marketPrice.trim() === ""}
+            />
+          </Field>
+        </div>
+        {priceError && (
+          <p role="alert" style={{ fontSize: "0.82rem", color: T.oxblood, margin: "0 0 1rem 0" }}>{priceError}</p>
+        )}
+        {!readOnly && (
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            <button type="submit" style={btn} disabled={savingPrice}>{savingPrice ? "Saving..." : "Save price"}</button>
+            {savedPrice && <span role="status" style={{ fontSize: "0.82rem", color: T.inkSoft }}>Saved.</span>}
           </div>
         )}
       </form>

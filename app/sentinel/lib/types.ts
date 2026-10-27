@@ -20,6 +20,12 @@ export type Workspace = {
   currency: string;
   currency_unit: string;
   comparison_basis: Basis;
+  // Market data for peer valuation (EV/EBITDA, P/E, EV/Sales, market cap). A person's own manual entry, not a
+  // live feed - Sentinel has none - so it is kept apart from everything the filing itself reports, with its
+  // own "as of" date so a stale price is visible rather than silently assumed current. Optional in the type
+  // (and in the database until supabase/migrations/20261101000000_sentinel_market_data.sql is applied).
+  market_price?: number | null;
+  market_price_as_of?: string | null;
 };
 
 export type WorkspaceRole = "owner" | "analyst" | "viewer";

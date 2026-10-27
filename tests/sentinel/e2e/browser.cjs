@@ -832,6 +832,31 @@ async function ready(page, url, waitFor) {
     assert.equal((await db("sentinel_statements", "&workspace_id=eq." + pyxis)).length, 0);
   }, a);
 
+  await check("Peer valuation: a share price plus shares outstanding gives a market cap and P/E on the KPI page", async () => {
+    // FY41 is Alpha's latest period on file by this point (saved earlier from the two-period CSV: revenue
+    // 1,800, PBT 260, PAT 190) - editing FY26 here would miss, since it is no longer the latest statement.
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.locator("#mp-period").selectOption({ label: "FY41 (FY, consolidated)" });
+    await fill(a, "Shares outstanding", "10000000"); // 1 crore shares
+    await a.getByRole("button", { name: "Update period" }).click();
+    await a.waitForSelector("text=Period updated.");
+
+    await ready(a, "/sentinel/projects/" + IDS.alpha + "/settings", "#ps-name");
+    await a.locator("#ps-price").fill("abc");
+    await a.getByRole("button", { name: "Save price" }).click();
+    await a.waitForSelector('[role="alert"]:has-text("That is not a number.")');
+    await a.locator("#ps-price").fill("1000");
+    await a.getByRole("button", { name: "Save price" }).click();
+    await a.waitForSelector('[aria-label="Market data"]:has-text("Saved.")');
+    const [row] = await db("sentinel_workspaces", "&id=eq." + IDS.alpha);
+    assert.equal(row.market_price, 1000);
+
+    // Market cap = price 1,000 x 10,000,000 shares / 1e7 = 1,000 cr. P/E = 1,000 / PAT 190 = 5.263...x.
+    await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
+    assert.equal(await tileValue(a, "Market cap (₹ crore"), "1,000");
+    assert.equal(await stat(a, "P/E"), "5.26x");
+  }, a);
+
   // ------------------------------------------------------------------------------- data entry (server-validated path)
   await check("Data Entry: picks from your own companies and saves through the server", async () => {
     await ready(a, "/sentinel/data-entry", "#de-existing");
