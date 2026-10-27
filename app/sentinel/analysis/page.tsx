@@ -42,8 +42,11 @@ import { croreFactor } from "../lib/units";
 import { useDisplayUnit } from "../lib/displayUnit";
 import type { DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
-import { MultiTrendLineChart } from "../lib/charts";
+import { DataTable, type DataColumn } from "../lib/viz/DataTable";
+import { LineChart } from "../lib/viz/LineChart";
+import { formatAmount, formatDays, formatMultiple, formatPercent, type MetricKind } from "../lib/viz/format";
 import { buildPeerTable, computeRatios, findPriorYear } from "../lib/engine";
+import type { PeerRow } from "../lib/types";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
@@ -276,12 +279,32 @@ export default function DeepAnalysisPage() {
   }));
   const timeline = buildUnifiedTimeline(perCompany.map((p) => p.points));
   const xLabels = timeline.map((t) => t.label);
+  // Amounts were gathered in crore so companies on different units share one axis; show them in the chosen unit.
   const series = perCompany.map(({ workspace, points }) => ({
+    id: workspace.id,
     label: workspace.company_name,
     values: alignToTimeline(points, timeline).map((v) => (v != null && metric.unit === "cr" ? du.fromCrore(v) : v)),
-    highlight: workspace.id === primaryId,
+    subject: workspace.id === primaryId,
   }));
   const hasAnyData = series.some((s) => s.values.some((v) => v != null));
+  const metricKind: MetricKind = metric.unit === "pp" ? "percent" : metric.unit === "cr" ? "amount" : metric.unit === "x" ? "multiple" : "days";
+
+  // The benchmark table: every company's latest year on the company's own basis, one row each.
+  const ratio = (id: string) => (r: PeerRow) => r.ratios[id] ?? null;
+  const benchmarkColumns: DataColumn<PeerRow>[] = [
+    { key: "name", header: "Company", value: (r) => r.company_name, natural: "asc" },
+    { key: "revenue", header: "Revenue", unit: du.crossLabel, value: (r) => du.fromCrore(r.revenue_cr), format: (v) => formatAmount(v, 0), heat: "higher" },
+    { key: "ebitda_margin", header: "EBITDA margin", value: ratio("ebitda_margin"), format: (v) => formatPercent(v), heat: "higher" },
+    { key: "pat_margin", header: "PAT margin", value: ratio("pat_margin"), format: (v) => formatPercent(v), heat: "higher" },
+    { key: "yoy_revenue_growth", header: "Revenue YoY", value: ratio("yoy_revenue_growth"), format: (v) => formatPercent(v), heat: "higher" },
+    { key: "yoy_pat_growth", header: "PAT YoY", value: ratio("yoy_pat_growth"), format: (v) => formatPercent(v), heat: "higher" },
+    { key: "current_ratio", header: "Current ratio", value: ratio("current_ratio"), format: (v) => formatMultiple(v), heat: "higher" },
+    { key: "debt_to_equity", header: "Debt / equity", value: ratio("debt_to_equity"), format: (v) => formatMultiple(v), heat: "lower" },
+    { key: "inventory_days", header: "Inventory days", value: ratio("inventory_days"), format: (v) => formatDays(v), heat: "lower" },
+    { key: "receivable_days", header: "Receivable days", value: ratio("receivable_days"), format: (v) => formatDays(v), heat: "lower" },
+    { key: "payable_days", header: "Payable days", value: ratio("payable_days"), format: (v) => formatDays(v) },
+    { key: "cash_conversion_cycle", header: "Cash cycle", value: ratio("cash_conversion_cycle"), format: (v) => formatDays(v), heat: "lower" },
+  ];
 
   return (
     <div>
@@ -343,21 +366,16 @@ export default function DeepAnalysisPage() {
       >
         {hasAnyData ? (
           <>
-            <MultiTrendLineChart xLabels={xLabels} series={series} isRatio={metric.unit === "pp"} />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem 1.1rem", marginTop: "1rem" }}>
-              {sectorWorkspaces.map((w) => (
-                <span
-                  key={w.id}
-                  style={{
-                    fontSize: "0.76rem",
-                    color: w.id === primaryId ? T.accent : T.inkSoft,
-                    fontWeight: w.id === primaryId ? 600 : 400,
-                  }}
-                >
-                  {w.company_name}
-                </span>
-              ))}
-            </div>
+            <LineChart
+              xLabels={xLabels}
+              xDates={timeline.map((t) => t.date)}
+              series={series}
+              kind={metricKind}
+              ariaLabel={`${metric.label} by ${periodType === "FY" ? "year" : "quarter"}, ${primaryWorkspace.company_name} against its peers`}
+              caption={metric.unit === "cr" ? `Amounts in ${du.crossLabel}, whatever unit each company reports in.` : null}
+              unitHeader={metric.unit === "cr" ? du.crossLabel : undefined}
+              area={false}
+            />
             {peerRows.some((r) => r.basis_caveat) && (
               <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>
                 {peerRows
@@ -372,6 +390,24 @@ export default function DeepAnalysisPage() {
             No {periodType === "FY" ? "annual" : "quarterly"} records on file yet for this metric
             across the {primaryWorkspace.sector} sector.
           </p>
+        )}
+      </Schedule>
+
+      <Schedule title="Peer benchmark" subtitle={`Each company's latest annual figures, on its own comparison basis`}>
+        {peerRows.length > 1 ? (
+          <DataTable
+            columns={benchmarkColumns}
+            rows={peerRows}
+            rowKey={(r) => r.workspace_id}
+            isSubject={(r) => r.is_subject}
+            subjectLabel="you"
+            ariaLabel={`Peer benchmark for ${primaryWorkspace.company_name}`}
+            csvName={`${primaryWorkspace.company_name.replace(/[^A-Za-z0-9]+/g, "_")}_peer_benchmark`}
+            initialSort={{ key: "revenue", dir: "desc" }}
+            caption="A blank means the company has not supplied what that measure needs. Payable days is not shaded: a longer payment period helps cash but can also mean stretching suppliers."
+          />
+        ) : (
+          <p style={{ fontSize: "0.88rem", color: T.inkSoft, margin: 0 }}>There are no other companies in this sector to compare against yet.</p>
         )}
       </Schedule>
     </div>

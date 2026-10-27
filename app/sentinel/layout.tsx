@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { CommandPalette } from "./lib/shell/CommandPalette";
 import { DisplayUnitControl } from "./lib/shell/DisplayUnitControl";
@@ -47,9 +48,12 @@ const GLOBAL_CSS = `
 
 export default function SentinelLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ShellProvider>
-      <Shell>{children}</Shell>
-    </ShellProvider>
+    // reducedMotion "user": animations that move things are skipped for anyone whose system asks for less motion.
+    <MotionConfig reducedMotion="user">
+      <ShellProvider>
+        <Shell>{children}</Shell>
+      </ShellProvider>
+    </MotionConfig>
   );
 }
 

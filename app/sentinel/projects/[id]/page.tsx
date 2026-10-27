@@ -16,6 +16,8 @@ import { computeRatios, findPriorYear } from "../../lib/engine";
 import { setupChecklist } from "../../lib/shell/nav";
 import { useShell } from "../../lib/shell/ShellData";
 import { HEALTH_STYLE, summarise } from "../../lib/shell/summary";
+import { makeDelta } from "../../lib/viz/delta";
+import { StatTile } from "../../lib/viz/StatTile";
 import { SERIF, T } from "../../lib/theme";
 import { unitLabel } from "../../lib/units";
 import type { FinancialStatement } from "../../lib/types";
@@ -108,13 +110,10 @@ export default function ProjectOverviewPage() {
   const annual = statements.filter((s) => s.period_type === "FY");
   const w = `?workspace=${id}`;
 
-  const tile = (label: string, value: string, note?: string) => (
-    <div style={{ ...card, padding: "0.9rem 1.1rem" }}>
-      <p style={eyebrow}>{label}</p>
-      <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 500, margin: "0.25rem 0 0 0", lineHeight: 1.15 }}>{value}</p>
-      {note && <p style={{ fontSize: "0.74rem", color: T.inkSoft, margin: "0.2rem 0 0 0" }}>{note}</p>}
-    </div>
-  );
+  // The company's own basis, oldest first: the shape of each figure over the years, for the sparklines.
+  const sameBasis = latest ? annual.filter((st) => st.basis === latest.basis).sort((x, y) => x.period_end_date.localeCompare(y.period_end_date)) : [];
+  const priorMargin = prior && prior.ebitda != null && prior.revenue_from_operations ? prior.ebitda / prior.revenue_from_operations : null;
+  const vs = prior?.period_label;
 
   return (
     <div>
@@ -175,11 +174,11 @@ export default function ProjectOverviewPage() {
             {latest ? `${latest.period_label} (${latest.basis}) - ${du.ownLabel(workspace.currency_unit)}` : "No annual statement yet"}
           </p>
           {latest ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.8rem" }}>
-              {tile("Revenue", fmt(own(latest.revenue_from_operations)), ratios?.["yoy_revenue_growth"] != null ? `${pct(ratios["yoy_revenue_growth"])} on ${prior?.period_label ?? "prior year"}` : undefined)}
-              {tile("Profit after tax", fmt(own(latest.profit_after_tax)), ratios?.["pat_margin"] != null ? `${pct(ratios["pat_margin"])} of revenue` : undefined)}
-              {tile("EBITDA margin", pct(ratios?.["ebitda_margin"]))}
-              {tile("Health", h ? h.label : "No data", h ? `${health!.categories.filter((c) => c.status !== "no_data").length} of ${health!.categories.length} checks have data` : undefined)}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 1, background: T.rule, border: `1px solid ${T.rule}` }}>
+              <StatTile index={0} label="Revenue" value={fmt(own(latest.revenue_from_operations))} delta={makeDelta("amount", "higher", latest.revenue_from_operations, prior?.revenue_from_operations ?? null, vs)} spark={sameBasis.map((st) => own(st.revenue_from_operations))} sparkTitle="Revenue across the years on file" />
+              <StatTile index={1} label="Profit after tax" value={fmt(own(latest.profit_after_tax))} note={ratios?.["pat_margin"] != null ? `${pct(ratios["pat_margin"])} of revenue` : null} delta={makeDelta("amount", "higher", latest.profit_after_tax, prior?.profit_after_tax ?? null, vs)} spark={sameBasis.map((st) => own(st.profit_after_tax))} sparkTitle="Profit after tax across the years on file" />
+              <StatTile index={2} label="EBITDA margin" value={pct(ratios?.["ebitda_margin"])} delta={makeDelta("percent", "higher", ratios?.["ebitda_margin"] ?? null, priorMargin, vs)} spark={sameBasis.map((st) => (st.ebitda != null && st.revenue_from_operations ? st.ebitda / st.revenue_from_operations : null))} sparkTitle="EBITDA margin across the years on file" />
+              <StatTile index={3} label="Health" value={h ? h.label : "No data"} note={h ? `${health!.categories.filter((c) => c.status !== "no_data").length} of ${health!.categories.length} checks have data` : null} />
             </div>
           ) : (
             <p style={{ fontSize: "0.86rem", color: T.inkSoft }}>

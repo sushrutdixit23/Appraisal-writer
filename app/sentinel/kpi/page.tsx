@@ -25,11 +25,10 @@ export const dynamic = "force-dynamic";
 //   meta strings throughout in favor of plain sentence-case headings -
 //   decorative conventions, not information.
 //
-// charts.tsx (HorizontalBarChart, TrendLineChart) is untouched - only
-// how this page wraps them changed. Trend charts only get meaningfully
-// better as more periods exist per company (see Add Period) - for a
-// company with only one period on file, the trend chart legitimately
-// shows a single point, which is expected, not a bug.
+// The charts are the shared kit in ../lib/viz (see docs/sentinel-viz.md): key figures carry their change on the year
+// before and their shape over the years; Peer standing ranks best first against the peer average; Trend is columns
+// for amounts (anchored on zero) and a line for margins; Capital structure is one split bar. A company with a single
+// period on file legitimately shows a single point.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -39,8 +38,16 @@ import { ordinal } from "../lib/format";
 import { useDisplayUnit } from "../lib/displayUnit";
 import type { DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
-import { HorizontalBarChart, TrendLineChart } from "../lib/charts";
-import { buildPeerTable, buildTimeSeries, findPriorYear } from "../lib/engine";
+import { ColumnChart } from "../lib/viz/ColumnChart";
+import { LineChart } from "../lib/viz/LineChart";
+import { RankChart } from "../lib/viz/RankChart";
+import { SeverityMeter } from "../lib/viz/SeverityMeter";
+import { SplitBar } from "../lib/viz/SplitBar";
+import { makeDelta, type TileDelta } from "../lib/viz/delta";
+import { StatTile } from "../lib/viz/StatTile";
+import type { MetricKind } from "../lib/viz/format";
+import { VIZ } from "../lib/viz/tokens";
+import { buildPeerTable, buildTimeSeries, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
 import { computeHealthScore, type HealthCategory, type HealthScore, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
@@ -109,15 +116,15 @@ function computeRank(
   return { rank: better + 1, total: values.length };
 }
 
-// Generalized version of the old hardcoded revenueData/patMarginData/
-// ebitdaMarginData builders - drives the Peer Standing bar chart off
-// whichever metric is currently selected, using the same getMetricValue
-// extraction computeRank and getBenchmark already use.
-function buildBarData(rows: PeerRow[], metric: string): { label: string; value: number }[] {
+/** Peer rows for the ranking chart, with ids so a row keeps its identity when the measure changes. */
+function buildRankRows(rows: PeerRow[], metric: string, convert: (v: number) => number): { id: string; label: string; value: number }[] {
   return rows
-    .map((r) => ({ label: r.company_name, value: getMetricValue(r, metric) }))
-    .filter((d): d is { label: string; value: number } => d.value != null);
+    .map((r) => ({ id: r.workspace_id, label: r.company_name, value: getMetricValue(r, metric) }))
+    .filter((d): d is { id: string; label: string; value: number } => d.value != null)
+    .map((d) => ({ ...d, value: convert(d.value) }));
 }
+
+const KIND_OF_UNIT: Record<"pp" | "cr" | "x" | "d", MetricKind> = { pp: "percent", cr: "amount", x: "multiple", d: "days" };
 
 // Quick Financial Summary - deterministic, not AI prose. Stitches
 // together the already-computed Health Engine detail sentences for the
@@ -231,46 +238,22 @@ function Schedule({
   );
 }
 
-function StatFigure({
-  label,
-  value,
-  note,
-  formula,
-}: {
-  label: string;
-  value: string;
-  note?: string | null;
-  formula?: string;
-}) {
-  return (
-    <div style={{ background: T.card, padding: "1rem 1.1rem" }} title={formula}>
-      <p style={{ fontSize: "0.74rem", color: T.inkSoft, margin: "0 0 0.35rem 0" }}>{label}</p>
-      <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 500, color: T.ink, margin: 0 }}>
-        {value}
-      </p>
-      {note && <p style={{ fontSize: "0.68rem", color: T.inkSoft, margin: "0.35rem 0 0 0" }}>{note}</p>}
-    </div>
-  );
-}
+const HEALTH_LEVEL: Record<HealthStatus, 0 | 1 | 2 | 3 | 4> = { healthy: 4, watch: 3, concern: 2, critical: 1, no_data: 0 };
 
 function HealthRow({ category, isLast }: { category: HealthCategory; isLast: boolean }) {
   const colors = HEALTH_COLORS[category.status];
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0.6rem 0",
-        borderBottom: isLast ? "none" : `1px solid ${T.rule}`,
-      }}
-      title={category.detail ?? undefined}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: colors.text, flexShrink: 0 }} />
-        <span style={{ fontSize: "0.9rem", color: T.ink }}>{category.label}</span>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", columnGap: "1.2rem", alignItems: "center", padding: "0.7rem 0", borderBottom: isLast ? "none" : `1px solid ${T.rule}` }}>
+      <div style={{ minWidth: 0 }}>
+        <span style={{ fontSize: "0.9rem", color: T.ink, fontWeight: 500 }}>{category.label}</span>
+        <p style={{ fontSize: "0.76rem", color: T.inkSoft, margin: "0.15rem 0 0 0", lineHeight: 1.45 }}>
+          {category.detail ?? (category.status === "no_data" ? "Needs figures this company does not have on file yet." : "")}
+        </p>
       </div>
-      <span style={{ fontSize: "0.84rem", fontWeight: 600, color: colors.text }}>{colors.statusLabel}</span>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem" }}>
+        <SeverityMeter level={HEALTH_LEVEL[category.status]} color={colors.text} label={`${category.label}: ${colors.statusLabel}`} />
+        <span style={{ fontSize: "0.84rem", fontWeight: 600, color: colors.text, minWidth: 64, textAlign: "right" }}>{colors.statusLabel}</span>
+      </div>
     </div>
   );
 }
@@ -415,9 +398,9 @@ export default function KpiDashboardPage() {
     PEER_RANKING_METRICS.find((m) => m.metric === rankingMetric) ?? PEER_RANKING_METRICS[0];
   const rankingBenchmark = getBenchmark(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
   const rank = computeRank(peerRows, selected.id, rankingDef.metric, rankingDef.direction);
-  const rankingBarData = buildBarData(peerRows, rankingDef.metric).map((d) =>
-    rankingDef.unit === "cr" ? { ...d, value: du.fromCrore(d.value) } : d
-  );
+  const rankConvert = (v: number) => (rankingDef.unit === "cr" ? du.fromCrore(v) : v);
+  const rankRows = buildRankRows(peerRows, rankingDef.metric, rankConvert);
+  const rankAverage = rankingBenchmark.industryAverage == null ? null : rankConvert(rankingBenchmark.industryAverage);
 
   const revenueBenchmark = getBenchmark(peerRows, selected.id, "revenue_cr");
   const ebitdaBenchmark = getBenchmark(peerRows, selected.id, "ebitda_margin");
@@ -447,17 +430,136 @@ export default function KpiDashboardPage() {
     : null;
   const quickSummary = healthScore ? buildQuickSummary(healthScore) : null;
 
-  const shown = (series: { label: string; value: number }[]) =>
-    series.map((d) => ({ ...d, value: du.fromCompany(d.value, selected.currency_unit) }));
-  const revenueTrend = shown(buildTimeSeries(selected, statements, "revenue_from_operations"));
-  const patTrend = shown(buildTimeSeries(selected, statements, "profit_after_tax"));
+  // Amount columns: the company's own basis only (a standalone and a consolidated year are not the same column),
+  // in the display unit, oldest first.
+  const trendBasis = latestOwnStatement?.basis ?? selected.comparison_basis;
+  const trendStatements = ownFYStatements.filter((st) => st.basis === trendBasis);
+  const trendLabels = trendStatements.map((st) => st.period_label);
+  const toDisplay = (v: number | null | undefined) => (v == null ? null : du.fromCompany(v, selected.currency_unit));
+  const revenueColumns = trendStatements.map((st) => ({ label: st.period_label, date: st.period_end_date, value: toDisplay(st.revenue_from_operations) }));
+  const patColumns = trendStatements.map((st) => ({ label: st.period_label, date: st.period_end_date, value: toDisplay(st.profit_after_tax) }));
+  const marginSeries = [
+    { id: "ebitda", label: "EBITDA margin", subject: true, values: trendStatements.map((st) => (st.ebitda != null && st.revenue_from_operations ? st.ebitda / st.revenue_from_operations : null)) },
+    { id: "pat", label: "PAT margin", secondary: true, values: trendStatements.map((st) => (st.revenue_from_operations ? st.profit_after_tax / st.revenue_from_operations : null)) },
+  ];
+
+  // Each key figure's change on the year before, and its shape over the years.
+  let priorRatios: Record<string, number | null> | null = null;
+  try {
+    priorRatios = priorOwnStatement ? computeRatios(priorOwnStatement, findPriorYear(priorOwnStatement, statements), selected.sector) : null;
+  } catch {
+    priorRatios = null;
+  }
+  const series = (key: string, convert?: (v: number) => number) => buildTimeSeries(selected, statements, key).map((d) => (convert ? convert(d.value) : d.value));
+  const own = (v: number) => du.fromCompany(v, selected.currency_unit);
+  const vs = priorOwnStatement?.period_label;
+  const ratioNow = (id: string) => selfRow?.ratios[id] ?? null;
+  const ratioPrev = (id: string) => priorRatios?.[id] ?? null;
+
+  const tiles: { label: string; value: string; note: string | null; formula: string; delta: TileDelta | null; spark: number[] }[] = [
+    {
+      label: `Revenue (latest FY, ${du.crossLabel})`,
+      value: selfRow ? num(du.fromCrore(selfRow.revenue_cr)) : "-",
+      note: formatBenchmarkNote(revenueBenchmark, "cr", du),
+      formula: "As reported: Revenue from Operations",
+      delta: makeDelta("amount", "higher", latestOwnStatement?.revenue_from_operations ?? null, priorOwnStatement?.revenue_from_operations ?? null, vs),
+      spark: series("revenue_from_operations", own),
+    },
+    {
+      label: "EBITDA margin",
+      value: pct(ratioNow("ebitda_margin")),
+      note: formatBenchmarkNote(ebitdaBenchmark, "pp", du),
+      formula: "EBITDA / Revenue from Operations",
+      delta: makeDelta("percent", "higher", ratioNow("ebitda_margin"), ratioPrev("ebitda_margin"), vs),
+      spark: series("ebitda_margin"),
+    },
+    {
+      label: "PAT margin",
+      value: pct(ratioNow("pat_margin")),
+      note: formatBenchmarkNote(patBenchmark, "pp", du),
+      formula: "Profit After Tax / Revenue from Operations",
+      delta: makeDelta("percent", "higher", ratioNow("pat_margin"), ratioPrev("pat_margin"), vs),
+      spark: series("pat_margin"),
+    },
+    {
+      label: "Revenue YoY",
+      value: pct(ratioNow("yoy_revenue_growth")),
+      note: formatBenchmarkNote(yoyBenchmark, "pp", du),
+      formula: "(Current Revenue - Prior Revenue) / Prior Revenue",
+      delta: null,
+      spark: series("yoy_revenue_growth"),
+    },
+    {
+      label: `PAT (latest FY, ${du.crossLabel})`,
+      value: selfRow ? num(du.fromCrore(selfRow.pat_cr)) : "-",
+      note: formatBenchmarkNote(patAbsBenchmark, "cr", du),
+      formula: "As reported: Profit After Tax",
+      delta: makeDelta("amount", "higher", latestOwnStatement?.profit_after_tax ?? null, priorOwnStatement?.profit_after_tax ?? null, vs),
+      spark: series("profit_after_tax", own),
+    },
+    {
+      label: "PAT YoY",
+      value: pct(ratioNow("yoy_pat_growth")),
+      note: formatBenchmarkNote(patYoyBenchmark, "pp", du),
+      formula: "(Current PAT - Prior PAT) / |Prior PAT| - measured against the size of the prior figure, so a loss that narrows reads as growth",
+      delta: null,
+      spark: series("yoy_pat_growth"),
+    },
+    {
+      label: "Current ratio",
+      value: ratioX(ratioNow("current_ratio")),
+      note: formatBenchmarkNote(currentRatioBenchmark, "x", du),
+      formula: "Current Assets / Current Liabilities",
+      delta: makeDelta("multiple", "higher", ratioNow("current_ratio"), ratioPrev("current_ratio"), vs),
+      spark: series("current_ratio"),
+    },
+    {
+      label: "Debt-to-equity",
+      value: ratioX(ratioNow("debt_to_equity")),
+      note: formatBenchmarkNote(debtEquityBenchmark, "x", du),
+      formula: "Total Debt / Total Equity",
+      delta: makeDelta("multiple", "lower", ratioNow("debt_to_equity"), ratioPrev("debt_to_equity"), vs),
+      spark: series("debt_to_equity"),
+    },
+    {
+      label: "Inventory days",
+      value: days(ratioNow("inventory_days")),
+      note: formatBenchmarkNote(inventoryDaysBenchmark, "d", du),
+      formula: "(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy",
+      delta: makeDelta("days", "lower", ratioNow("inventory_days"), ratioPrev("inventory_days"), vs),
+      spark: series("inventory_days"),
+    },
+    {
+      label: "Receivable days",
+      value: days(ratioNow("receivable_days")),
+      note: formatBenchmarkNote(receivableDaysBenchmark, "d", du),
+      formula: "(Trade Receivables / Revenue from Operations) x 365",
+      delta: makeDelta("days", "lower", ratioNow("receivable_days"), ratioPrev("receivable_days"), vs),
+      spark: series("receivable_days"),
+    },
+    {
+      label: "Payable days",
+      value: days(ratioNow("payable_days")),
+      note: formatBenchmarkNote(payableDaysBenchmark, "d", du),
+      formula: "(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy",
+      delta: makeDelta("days", "neutral", ratioNow("payable_days"), ratioPrev("payable_days"), vs),
+      spark: series("payable_days"),
+    },
+    {
+      label: "Cash conversion cycle",
+      value: days(ratioNow("cash_conversion_cycle")),
+      note: formatBenchmarkNote(cccBenchmark, "d", du),
+      formula: "Inventory Days + Receivable Days - Payable Days",
+      delta: makeDelta("days", "lower", ratioNow("cash_conversion_cycle"), ratioPrev("cash_conversion_cycle"), vs),
+      spark: series("cash_conversion_cycle"),
+    },
+  ];
 
   const debt = latestOwnStatement?.total_debt ?? null;
   const equity = latestOwnStatement?.total_equity ?? null;
   const capitalTotal = debt != null && equity != null ? debt + equity : null;
-  const hasCapitalData = debt != null && equity != null && capitalTotal != null && capitalTotal > 0;
-  const debtPct = hasCapitalData ? ((debt as number) / (capitalTotal as number)) * 100 : 0;
-  const equityPct = hasCapitalData ? 100 - debtPct : 0;
+  // A split bar needs positive parts; negative equity is shown as figures only (see the stats below it).
+  const hasCapitalData = debt != null && equity != null && debt >= 0 && equity > 0 && capitalTotal != null && capitalTotal > 0;
 
   return (
     <div>
@@ -529,84 +631,15 @@ export default function KpiDashboardPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
             gap: 1,
             background: T.rule,
             border: `1px solid ${T.rule}`,
           }}
         >
-          <StatFigure
-            label={`Revenue (latest FY, ${du.crossLabel})`}
-            value={selfRow ? num(du.fromCrore(selfRow.revenue_cr)) : "-"}
-            note={formatBenchmarkNote(revenueBenchmark, "cr", du)}
-            formula="As reported: Revenue from Operations"
-          />
-          <StatFigure
-            label="EBITDA margin"
-            value={pct(selfRow?.ratios.ebitda_margin ?? null)}
-            note={formatBenchmarkNote(ebitdaBenchmark, "pp", du)}
-            formula="EBITDA / Revenue from Operations"
-          />
-          <StatFigure
-            label="PAT margin"
-            value={pct(selfRow?.ratios.pat_margin ?? null)}
-            note={formatBenchmarkNote(patBenchmark, "pp", du)}
-            formula="Profit After Tax / Revenue from Operations"
-          />
-          <StatFigure
-            label="Revenue YoY"
-            value={pct(selfRow?.ratios.yoy_revenue_growth ?? null)}
-            note={formatBenchmarkNote(yoyBenchmark, "pp", du)}
-            formula="(Current Revenue - Prior Revenue) / Prior Revenue"
-          />
-          <StatFigure
-            label={`PAT (latest FY, ${du.crossLabel})`}
-            value={selfRow ? num(du.fromCrore(selfRow.pat_cr)) : "-"}
-            note={formatBenchmarkNote(patAbsBenchmark, "cr", du)}
-            formula="As reported: Profit After Tax"
-          />
-          <StatFigure
-            label="PAT YoY"
-            value={pct(selfRow?.ratios.yoy_pat_growth ?? null)}
-            note={formatBenchmarkNote(patYoyBenchmark, "pp", du)}
-            formula="(Current PAT - Prior PAT) / |Prior PAT| - measured against the size of the prior figure, so a loss that narrows reads as growth"
-          />
-          <StatFigure
-            label="Current ratio"
-            value={ratioX(selfRow?.ratios.current_ratio ?? null)}
-            note={formatBenchmarkNote(currentRatioBenchmark, "x", du)}
-            formula="Current Assets / Current Liabilities"
-          />
-          <StatFigure
-            label="Debt-to-equity"
-            value={ratioX(selfRow?.ratios.debt_to_equity ?? null)}
-            note={formatBenchmarkNote(debtEquityBenchmark, "x", du)}
-            formula="Total Debt / Total Equity"
-          />
-          <StatFigure
-            label="Inventory days"
-            value={days(selfRow?.ratios.inventory_days ?? null)}
-            note={formatBenchmarkNote(inventoryDaysBenchmark, "d", du)}
-            formula="(Inventory / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
-          />
-          <StatFigure
-            label="Receivable days"
-            value={days(selfRow?.ratios.receivable_days ?? null)}
-            note={formatBenchmarkNote(receivableDaysBenchmark, "d", du)}
-            formula="(Trade Receivables / Revenue from Operations) x 365"
-          />
-          <StatFigure
-            label="Payable days"
-            value={days(selfRow?.ratios.payable_days ?? null)}
-            note={formatBenchmarkNote(payableDaysBenchmark, "d", du)}
-            formula="(Trade Payables / Total Expenses) x 365 - Total Expenses used as a COGS proxy"
-          />
-          <StatFigure
-            label="Cash conversion cycle"
-            value={days(selfRow?.ratios.cash_conversion_cycle ?? null)}
-            note={formatBenchmarkNote(cccBenchmark, "d", du)}
-            formula="Inventory Days + Receivable Days - Payable Days"
-          />
+          {tiles.map((t, i) => (
+            <StatTile key={t.label} index={i} label={t.label} value={t.value} note={t.note} formula={t.formula} delta={t.delta} spark={t.spark} sparkTitle={`${t.label} across the years on file`} />
+          ))}
         </div>
       </Schedule>
 
@@ -665,46 +698,59 @@ export default function KpiDashboardPage() {
             }
           />
         </div>
-        <HorizontalBarChart
-          data={rankingBarData}
-          isRatio={rankingDef.unit === "pp"}
-          highlightLabel={selected.company_name}
+        <RankChart
+          rows={rankRows}
+          subjectId={selected.id}
+          kind={KIND_OF_UNIT[rankingDef.unit]}
+          want={rankingDef.direction === "lower_is_better" ? "lower" : "higher"}
+          average={rankAverage}
+          ariaLabel={`Peer standing: ${rankingDef.label}`}
+          caption={rankingDef.unit === "cr" ? `Amounts in ${du.crossLabel}, whatever unit each company reports in. Best first.` : rankingDef.direction === "lower_is_better" ? "Lower is better, so the lowest is first." : "Best first."}
+          unitHeader={rankingDef.unit === "cr" ? du.crossLabel : undefined}
         />
       </Schedule>
 
-      <Schedule title="Trend">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
+      <Schedule title="Trend" subtitle={trendStatements.length > 0 ? `${trendBasis} basis, ${trendLabels[0]} to ${trendLabels[trendLabels.length - 1]}` : null}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "2rem" }}>
           <div>
             <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Revenue ({du.ownLabel(selected.currency_unit)})</p>
-            <TrendLineChart data={revenueTrend} isRatio={false} />
+            <ColumnChart data={revenueColumns} seriesLabel="Revenue" ariaLabel="Revenue by year" unitHeader={du.ownLabel(selected.currency_unit)} />
           </div>
           <div>
             <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Profit after tax ({du.ownLabel(selected.currency_unit)})</p>
-            <TrendLineChart data={patTrend} isRatio={false} />
+            <ColumnChart data={patColumns} seriesLabel="Profit after tax" ariaLabel="Profit after tax by year" unitHeader={du.ownLabel(selected.currency_unit)} />
           </div>
         </div>
+        {trendStatements.length >= 2 && (
+          <div style={{ marginTop: "2rem" }}>
+            <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 0.8rem 0" }}>Margins, as a share of revenue</p>
+            <LineChart xLabels={trendLabels} xDates={trendStatements.map((st) => st.period_end_date)} series={marginSeries} kind="percent" ariaLabel="EBITDA and PAT margin by year" height={240} />
+          </div>
+        )}
       </Schedule>
 
       <Schedule title="Capital structure">
-        {hasCapitalData ? (
+        {debt != null && equity != null && capitalTotal != null ? (
           <>
-            <div style={{ display: "flex", height: "1.4rem", borderRadius: 3, overflow: "hidden", marginBottom: "0.5rem" }}>
-              <div style={{ width: `${debtPct}%`, background: T.accent }} />
-              <div style={{ width: `${equityPct}%`, background: T.rule }} />
+            {hasCapitalData && (
+              <div style={{ marginBottom: "1.3rem" }}>
+                <SplitBar
+                  ariaLabel="Capital structure: debt and equity"
+                  unitHeader={du.ownLabel(selected.currency_unit)}
+                  segments={[
+                    { id: "debt", label: "Debt", value: debt, color: VIZ.subject, display: num(du.fromCompany(debt, selected.currency_unit)) },
+                    { id: "equity", label: "Equity", value: equity, color: VIZ.secondary, display: num(du.fromCompany(equity, selected.currency_unit)) },
+                  ]}
+                />
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem" }}>
+              <RankStat label={`Total debt (${du.ownLabel(selected.currency_unit)})`} value={num(du.fromCompany(debt, selected.currency_unit))} />
+              <RankStat label={`Total equity (${du.ownLabel(selected.currency_unit)})`} value={num(du.fromCompany(equity, selected.currency_unit))} />
+              <RankStat label="Debt-to-equity" value={ratioX(equity > 0 ? debt / equity : null)} />
+              <RankStat label="Debt-to-capital" value={capitalTotal > 0 && equity > 0 ? pct(debt / capitalTotal) : "-"} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: T.inkSoft, marginBottom: "1.3rem" }}>
-              <span>Debt {debtPct.toFixed(0)}%</span>
-              <span>Equity {equityPct.toFixed(0)}%</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-              <RankStat label={`Total debt (${du.ownLabel(selected.currency_unit)})`} value={num(debt == null ? null : du.fromCompany(debt, selected.currency_unit))} />
-              <RankStat label={`Total equity (${du.ownLabel(selected.currency_unit)})`} value={num(equity == null ? null : du.fromCompany(equity, selected.currency_unit))} />
-              <RankStat
-                label="Debt-to-equity"
-                value={ratioX(equity !== 0 ? (debt as number) / (equity as number) : null)}
-              />
-              <RankStat label="Debt-to-capital" value={pct((debt as number) / (capitalTotal as number))} />
-            </div>
+            {equity <= 0 && <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0.9rem 0 0 0" }}>Equity is zero or negative, so the capital mix is not drawn and the ratios that need it are not computed.</p>}
           </>
         ) : (
           <p style={{ fontSize: "0.88rem", color: T.inkSoft, margin: 0 }}>

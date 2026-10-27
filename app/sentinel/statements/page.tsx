@@ -17,6 +17,10 @@ import { useDisplayUnit, type DisplayUnit } from "../lib/displayUnit";
 import { displayFormat, type DisplayFormat } from "../lib/displayUnitCore";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { getBenchmark, type Benchmark } from "../lib/benchmark";
+import { buildProfitBridge } from "../lib/viz/bridge";
+import { StatementTable, type StatementRowDef } from "../lib/viz/StatementTable";
+import { Waterfall } from "../lib/viz/Waterfall";
+import { VIZ } from "../lib/viz/tokens";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Workspace } from "../lib/types";
 
@@ -27,7 +31,7 @@ type RowDef = {
   indent?: boolean;
 };
 
-const ROWS: RowDef[] = [
+const CSV_ROWS: RowDef[] = [
   { label: "Revenue from Operations", key: "revenue_from_operations", bold: true },
   { label: "Other Income", key: "other_income", indent: true },
   { label: "Total Income", key: "total_income", bold: true },
@@ -41,6 +45,25 @@ const ROWS: RowDef[] = [
   { label: "Profit After Tax", key: "profit_after_tax", bold: true },
 ];
 
+// What each line means when it moves. Revenue and profit: up is good. Costs rise with the business, so they are
+// left neutral rather than painted as bad news.
+const num = (key: keyof FinancialStatement) => (s: FinancialStatement) => (s[key] as number | null) ?? null;
+const TABLE_ROWS: StatementRowDef[] = [
+  { key: "revenue_from_operations", label: "Revenue from Operations", bold: true, want: "higher", get: num("revenue_from_operations") },
+  { key: "other_income", label: "Other Income", indent: true, want: "higher", get: num("other_income") },
+  { key: "total_income", label: "Total Income", bold: true, want: "higher", get: num("total_income") },
+  { key: "total_expenses", label: "Total Expenses", indent: true, want: "neutral", get: num("total_expenses") },
+  { key: "ebitda", label: "EBITDA", bold: true, want: "higher", get: num("ebitda") },
+  { key: "depreciation_amortisation", label: "Depreciation & Amortisation", indent: true, want: "neutral", get: num("depreciation_amortisation") },
+  { key: "finance_costs", label: "Finance Costs", indent: true, want: "neutral", get: num("finance_costs") },
+  { key: "exceptional_items", label: "Exceptional Items", indent: true, want: "neutral", get: num("exceptional_items") },
+  { key: "profit_before_tax", label: "Profit Before Tax", bold: true, want: "higher", get: num("profit_before_tax") },
+  { key: "tax_expense", label: "Tax Expense", indent: true, want: "neutral", get: num("tax_expense") },
+  { key: "profit_after_tax", label: "Profit After Tax", bold: true, want: "higher", get: num("profit_after_tax") },
+  { key: "ebitda_margin", label: "EBITDA Margin", kind: "percent", want: "higher", get: (s) => (s.ebitda != null && s.revenue_from_operations ? s.ebitda / s.revenue_from_operations : null) },
+  { key: "pat_margin", label: "PAT Margin", kind: "percent", want: "higher", get: (s) => (s.revenue_from_operations ? s.profit_after_tax / s.revenue_from_operations : null) },
+];
+
 const selectStyle: React.CSSProperties = {
   fontFamily: "inherit",
   fontSize: "0.85rem",
@@ -50,21 +73,6 @@ const selectStyle: React.CSSProperties = {
   background: T.card,
   color: T.ink,
 };
-
-function fmtValue(value: number | null, commonSize: boolean, revenue: number | null, shown: (v: number) => number = (v) => v): string {
-  if (value == null) return "\u2014";
-  if (commonSize) {
-    if (revenue == null || revenue === 0) return "\u2014";
-    return `${((value / revenue) * 100).toFixed(1)}%`;
-  }
-  return shown(value).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-}
-
-function yoyPct(current: number | null, prior: number | null): string {
-  if (current == null || prior == null || prior === 0) return "\u2014";
-  const pct = ((current - prior) / Math.abs(prior)) * 100;
-  return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
-}
 
 function formatVsPeer(b: Benchmark | null | undefined, isRatio: boolean, du: DisplayFormat): string {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return "\u2014";
@@ -79,7 +87,7 @@ function downloadCsv(workspace: Workspace, periods: FinancialStatement[], unit: 
   const du = displayFormat(unit);
   const lines: string[] = [];
   lines.push([`"Line Item (${du.ownLabel(workspace.currency_unit)})"`, ...periods.map((p) => `"${p.period_label} (${p.basis})"`)].join(","));
-  for (const row of ROWS) {
+  for (const row of CSV_ROWS) {
     const cells = periods.map((p) => {
       const v = p[row.key] as number | null;
       // Converted, with the binary noise removed, so a lakh figure does not export as 123456.00000000001.
@@ -182,13 +190,6 @@ export default function FinancialStatementsPage() {
     }
   }
 
-  const ebitdaMargins = periods.map((p) =>
-    p.ebitda != null && p.revenue_from_operations !== 0 ? p.ebitda / p.revenue_from_operations : null
-  );
-  const patMargins = periods.map((p) =>
-    p.revenue_from_operations !== 0 ? p.profit_after_tax / p.revenue_from_operations : null
-  );
-
   // Benchmark Engine wiring: peer context is inherently latest-period,
   // same scoping YoY% already uses (last two periods only, regardless
   // of how many years the table shows) - "vs Peers" sits alongside
@@ -209,19 +210,28 @@ export default function FinancialStatementsPage() {
   const ebitdaMarginBenchmark = getBenchmark(peerRows, subjectId, "ebitda_margin");
   const patMarginBenchmark = getBenchmark(peerRows, subjectId, "pat_margin");
 
-  const cellStyle: React.CSSProperties = {
-    padding: "0.55rem 0.9rem",
-    textAlign: "right",
-    fontVariantNumeric: "tabular-nums",
-    fontSize: "0.87rem",
-    borderBottom: `1px solid ${T.rule}`,
+  const vsPeers: Record<string, string | null> = {
+    revenue_from_operations: formatVsPeer(rowBenchmarks.revenue_from_operations, false, du),
+    profit_before_tax: formatVsPeer(rowBenchmarks.profit_before_tax, false, du),
+    profit_after_tax: formatVsPeer(rowBenchmarks.profit_after_tax, false, du),
+    ebitda_margin: formatVsPeer(ebitdaMarginBenchmark, true, du),
+    pat_margin: formatVsPeer(patMarginBenchmark, true, du),
   };
-  const labelCellStyle: React.CSSProperties = {
-    padding: "0.55rem 0.9rem",
-    textAlign: "left",
-    fontSize: "0.87rem",
-    borderBottom: `1px solid ${T.rule}`,
-  };
+
+  // The bridge is built from the latest year in the display unit, so every step is in the same unit as the table.
+  const converted = latestPeriod
+    ? ({
+        ...latestPeriod,
+        ...Object.fromEntries(
+          (["revenue_from_operations", "other_income", "total_income", "total_expenses", "depreciation_amortisation", "finance_costs", "exceptional_items", "profit_before_tax", "tax_expense", "profit_after_tax"] as const).map((k) => {
+            const v = latestPeriod[k] as number | null;
+            return [k, v == null ? null : Number(du.fromCompany(v, workspace.currency_unit).toPrecision(12))];
+          })
+        ),
+      } as FinancialStatement)
+    : null;
+  const bridge = converted ? buildProfitBridge(converted) : null;
+  const bridgeDecimals = converted && Math.abs(converted.revenue_from_operations) < 200 ? 1 : 0;
 
   return (
     <div>
@@ -296,101 +306,29 @@ export default function FinancialStatementsPage() {
       {periods.length === 0 ? (
         <p style={{ fontSize: "0.9rem", color: T.inkSoft }}>No annual statements available for this company yet.</p>
       ) : (
-        <div style={{ background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ ...labelCellStyle, fontWeight: 600, color: T.inkSoft, fontSize: "0.72rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                  Line Item
-                </th>
-                {periods.map((p) => (
-                  <th
-                    key={p.id}
-                    style={{ ...cellStyle, fontFamily: SERIF, fontWeight: 600, fontSize: "0.95rem", color: T.ink }}
-                  >
-                    {p.period_label}
-                    <div style={{ fontSize: "0.65rem", fontWeight: 400, color: T.inkSoft, textTransform: "uppercase" }}>
-                      {p.basis}
-                    </div>
-                  </th>
-                ))}
-                {showYoy && (
-                  <th style={{ ...cellStyle, fontWeight: 600, color: T.accent, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                    YoY % ({latestPeriod!.period_label} vs {priorPeriod!.period_label})
-                  </th>
-                )}
-                {showPeerCol && (
-                  <th style={{ ...cellStyle, fontWeight: 600, color: T.accent, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                    vs Peers
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((row) => (
-                <tr key={row.key}>
-                  <td
-                    style={{
-                      ...labelCellStyle,
-                      fontWeight: row.bold ? 600 : 400,
-                      paddingLeft: row.indent ? "1.6rem" : "0.9rem",
-                      color: row.bold ? T.ink : T.inkSoft,
-                    }}
-                  >
-                    {row.label}
-                  </td>
-                  {periods.map((p) => (
-                    <td key={p.id} style={{ ...cellStyle, fontWeight: row.bold ? 600 : 400 }}>
-                      {fmtValue(p[row.key] as number | null, commonSize, p.revenue_from_operations, (v) => du.fromCompany(v, workspace.currency_unit))}
-                    </td>
-                  ))}
-                  {showYoy && (
-                    <td style={{ ...cellStyle, color: T.inkSoft }}>
-                      {yoyPct(latestPeriod![row.key] as number | null, priorPeriod![row.key] as number | null)}
-                    </td>
-                  )}
-                  {showPeerCol && (
-                    <td style={{ ...cellStyle, color: T.inkSoft, fontSize: "0.78rem" }}>
-                      {formatVsPeer(rowBenchmarks[row.key], false, du)}
-                    </td>
-                  )}
-                </tr>
-              ))}
-              <tr>
-                <td style={{ ...labelCellStyle, fontWeight: 400, color: T.inkSoft, fontStyle: "italic" }}>
-                  EBITDA Margin
-                </td>
-                {periods.map((p, i) => (
-                  <td key={p.id} style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic" }}>
-                    {ebitdaMargins[i] != null ? `${(ebitdaMargins[i]! * 100).toFixed(1)}%` : "\u2014"}
-                  </td>
-                ))}
-                {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
-                {showPeerCol && (
-                  <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
-                    {formatVsPeer(ebitdaMarginBenchmark, true, du)}
-                  </td>
-                )}
-              </tr>
-              <tr>
-                <td style={{ ...labelCellStyle, fontWeight: 400, color: T.inkSoft, fontStyle: "italic" }}>
-                  PAT Margin
-                </td>
-                {periods.map((p, i) => (
-                  <td key={p.id} style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic" }}>
-                    {patMargins[i] != null ? `${(patMargins[i]! * 100).toFixed(1)}%` : "\u2014"}
-                  </td>
-                ))}
-                {showYoy && <td style={{ ...cellStyle, color: T.inkSoft }}></td>}
-                {showPeerCol && (
-                  <td style={{ ...cellStyle, color: T.inkSoft, fontStyle: "italic", fontSize: "0.78rem" }}>
-                    {formatVsPeer(patMarginBenchmark, true, du)}
-                  </td>
-                )}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <>
+          <StatementTable
+            periods={periods}
+            rows={TABLE_ROWS}
+            convert={(v) => du.fromCompany(v, workspace.currency_unit)}
+            commonSize={commonSize}
+            latest={latestPeriod}
+            prior={priorPeriod}
+            showCagr={new Set(periods.map((p) => p.basis)).size === 1 && periods.length >= 3}
+            vsPeers={showPeerCol ? vsPeers : undefined}
+            unitLabel={du.ownLabel(workspace.currency_unit)}
+          />
+
+          {bridge && latestPeriod && (
+            <section aria-label="Revenue to profit" style={{ background: VIZ.surface, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.4rem 1.6rem", marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: "1.05rem", margin: "0 0 0.3rem 0" }}>From revenue to profit</h2>
+              <p style={{ fontSize: "0.78rem", color: T.inkSoft, margin: "0 0 1.1rem 0" }}>
+                {latestPeriod.period_label}, {latestPeriod.basis}, in {du.ownLabel(workspace.currency_unit)}. Where the filing&apos;s own lines leave a gap, the gap is shown as its own step.
+              </p>
+              <Waterfall bridge={bridge} decimals={bridgeDecimals} ariaLabel={`Revenue to profit after tax, ${latestPeriod.period_label}`} unitHeader={du.ownLabel(workspace.currency_unit)} />
+            </section>
+          )}
+        </>
       )}
 
       <p style={{ fontSize: "0.75rem", color: T.inkSoft, marginTop: "1rem" }}>

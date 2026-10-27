@@ -62,8 +62,14 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const field = (page, label) => page.getByLabel(new RegExp("^" + esc(label) + "( \\*)?( \\(verify\\))?$"));
 async function fill(page, label, value) { await field(page, label).fill(value); }
 async function stat(page, label) {
+  const tile = page.locator(`[data-stat="${label}"] [data-stat-value]`);
+  if (await tile.count()) return (await tile.first().textContent()).trim();
   const lab = page.locator("p", { hasText: new RegExp("^" + esc(label) + "$") }).first();
   return (await lab.locator("xpath=following-sibling::p[1]").textContent()).trim();
+}
+// The value of a key-figure tile whose label starts with `prefix` (the revenue tile's label carries the unit).
+async function tileValue(page, prefix) {
+  return (await page.locator(`[data-stat^="${prefix}"] [data-stat-value]`).first().textContent()).trim();
 }
 async function options(page, selector) { return page.locator(selector + " option").allTextContents(); }
 async function ready(page, url, waitFor) {
@@ -170,7 +176,7 @@ async function ready(page, url, waitFor) {
 
   await check("Statements: YoY compares the latest year with the prior year, labelled", async () => {
     await ready(a, "/sentinel/statements?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
-    await a.waitForSelector("text=YoY % (FY26 vs FY25)");
+    await a.waitForSelector("text=FY26 vs FY25");
     const row = a.locator("tr", { hasText: "Revenue from Operations" }).first();
     assert.match(await row.textContent(), /\+30\.0%/);
   }, a);
@@ -191,6 +197,166 @@ async function ready(page, url, waitFor) {
     // The page names the download itself (company name + MIS_Pack); the server header carries the period.
     assert.match(download.suggestedFilename(), /^Alpha_Tyres_MIS_Pack\.pdf$/);
   }, a);
+
+  // ------------------------------------------------------------------------------- charts and tables
+  await check("Charts: a key figure carries its change on last year, with an arrow, a sign and its meaning in words", async () => {
+    await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
+    await a.waitForSelector("text=Key figures");
+    const rev = a.locator('[data-stat^="Revenue (latest FY"]');
+    assert.match(await rev.innerText(), /\+30\.0%/);
+    const chip = rev.locator('[aria-label*="versus FY25"]');
+    assert.match(await chip.getAttribute("aria-label"), /^Up 30\.0% versus FY25, favourable$/);
+    // PAT margin fell 0.3pp: down, and unfavourable. Days outstanding up would be unfavourable too; costs are never coloured.
+    const pat = a.locator('[data-stat="PAT margin"] [aria-label*="versus FY25"]');
+    assert.match(await pat.getAttribute("aria-label"), /^Down 0\.3pp versus FY25, unfavourable$/);
+    // The formula is one press away, not hover-only.
+    await a.getByRole("button", { name: "How is EBITDA margin worked out?" }).click();
+    await a.waitForSelector("text=EBITDA / Revenue from Operations");
+  }, a);
+
+  await check("Charts: hovering a column shows the figure and its change on the year before; the Table view has the same numbers", async () => {
+    const fig = a.locator('figure[aria-label="Revenue by year"]');
+    const group = fig.locator('[role="group"]');
+    await group.scrollIntoViewIfNeeded();
+    const box = await group.boundingBox();
+    await a.mouse.move(box.x + box.width * 0.75, box.y + 90);
+    const tipEl = a.locator('[data-testid="chart-tooltip"]').last();
+    await tipEl.waitFor();
+    const tip = await tipEl.innerText();
+    assert.match(tip, /FY26/);
+    assert.match(tip, /1,300/);
+    assert.match(tip, /\+30\.0%/);
+    await a.mouse.move(0, 0);
+    await fig.getByRole("radio", { name: "Table" }).click();
+    const table = await fig.locator("table").innerText();
+    assert.match(table, /FY25\s+1,000/);
+    assert.match(table, /FY26\s+1,300\s+\+30\.0%/);
+  }, a);
+
+  await check("Charts: keyboard - arrow keys step through the periods and each stop is announced", async () => {
+    const fig = a.locator('figure[aria-label="Revenue by year"]');
+    await fig.getByRole("radio", { name: "Chart" }).click();
+    await fig.locator('[role="group"]').focus();
+    await a.keyboard.press("End");
+    assert.equal((await fig.locator('[role="status"]').textContent()).trim(), "FY26: 1,300");
+    await a.keyboard.press("ArrowLeft");
+    assert.equal((await fig.locator('[role="status"]').textContent()).trim(), "FY25: 1,000");
+    await a.keyboard.press("Escape");
+    assert.equal((await fig.locator('[role="status"]').textContent()).trim(), "");
+  }, a);
+
+  await check("Charts: peer standing ranks best first, the company is bronze, and lower-is-better flips the order", async () => {
+    const sec = a.locator("section", { hasText: "Peer standing" });
+    const names = async () => (await sec.getByRole("listitem").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label").split(",")[0])));
+    assert.deepEqual(await names(), ["Meridian Reference Tyres", "Alpha Tyres", "Apex Reference Tyres", "Zenith Reference Tyres"]);
+    assert.match(await sec.getByRole("listitem").nth(1).getAttribute("aria-label"), /rank 2 of 4, 1,300, the company you are viewing/);
+    assert.match(await sec.innerText(), /Average 1,338/);
+    // Debt-to-equity: only Alpha has balance-sheet data in the seed, so it is the only row; the order rule is unit-tested.
+    await sec.locator("select").selectOption({ label: "Current ratio" });
+    await a.waitForFunction(() => document.querySelectorAll('[role="listitem"]').length >= 1);
+  }, a);
+
+  await check("Charts: the trend comparison draws every peer quietly, names the company, and lists everyone at the hovered period", async () => {
+    await ready(a, "/sentinel/analysis?workspace=" + IDS.alpha, "text=Peer benchmark");
+    const sec = a.locator("section", { hasText: "Trend comparison" });
+    await sec.locator('[role="group"]').first().scrollIntoViewIfNeeded();
+    const box = await sec.locator('[role="group"]').first().boundingBox();
+    await a.mouse.move(box.x + box.width - 60, box.y + 120);
+    const tip = a.locator('[data-testid="chart-tooltip"]').last();
+    await tip.waitFor();
+    const text = await tip.innerText();
+    for (const name of ["Alpha Tyres", "Apex Reference Tyres", "Meridian Reference Tyres", "Zenith Reference Tyres"]) assert.match(text, new RegExp(name));
+    assert.match(text, /2,000/);
+    assert.match(text, /\+30\.0%/);
+  }, a);
+
+  await check("Charts: pressing a peer in the legend compares the company with just that peer; pressing again restores all", async () => {
+    const sec = a.locator("section", { hasText: "Trend comparison" });
+    await a.mouse.move(0, 0);
+    const apex = sec.getByRole("button", { name: "Apex Reference Tyres" });
+    await apex.click();
+    assert.equal(await apex.getAttribute("aria-pressed"), "true");
+    await apex.click();
+    assert.equal(await apex.getAttribute("aria-pressed"), "false");
+  }, a);
+
+  await check("Charts: 'Peer range' replaces the lines with the peers' median and spread, and says how many peers back it", async () => {
+    const sec = a.locator("section", { hasText: "Trend comparison" });
+    await sec.getByRole("radio", { name: "Peer range" }).click();
+    await a.waitForSelector("text=Peer range (low to high)");
+    await sec.locator('[role="group"]').first().scrollIntoViewIfNeeded();
+    const box = await sec.locator('[role="group"]').first().boundingBox();
+    await a.mouse.move(box.x + 90, box.y + 120);
+    const tip = a.locator('[data-testid="chart-tooltip"]').last();
+    await tip.waitFor();
+    const text = await tip.innerText();
+    assert.match(text, /Peer median\s+1,180/); // FY25 peers: 1,180, 1,900, 760
+    assert.match(text, /760 to 1,900/);
+    assert.match(text, /3 peers with data/);
+    await sec.getByRole("radio", { name: "Each peer" }).click();
+  }, a);
+
+  await check("Tables: the benchmark table sorts by any column (missing values last), flags the company, and downloads as CSV", async () => {
+    const bench = a.locator("section", { hasText: "Peer benchmark" });
+    const first = async () => bench.locator("tbody tr td:first-child").allInnerTexts();
+    await bench.getByRole("button", { name: /PAT margin/i }).click();
+    assert.deepEqual((await first()).map((t) => t.replace(/\s+/g, " ").trim()), ["Alpha Tyres YOU", "Meridian Reference Tyres", "Apex Reference Tyres", "Zenith Reference Tyres", "Peer median"]);
+    assert.equal(await bench.locator("th[aria-sort='descending']").count(), 1);
+    await bench.getByRole("button", { name: /PAT margin/i }).click();
+    assert.equal((await first())[0], "Zenith Reference Tyres");
+    // A column with blanks sorts them last in both directions.
+    await bench.getByRole("button", { name: /Current ratio/i }).click();
+    assert.match((await first())[0], /^Alpha Tyres/);
+    await bench.getByRole("button", { name: /Current ratio/i }).click();
+    assert.match((await first())[0], /^Alpha Tyres/);
+    const [download] = await Promise.all([a.waitForEvent("download"), bench.getByRole("button", { name: "Download" }).click()]);
+    const csv = fs.readFileSync(await download.path(), "utf8");
+    assert.match(csv.split("\r\n")[0], /^Company,Revenue \(₹ crore\),EBITDA margin,/);
+    assert.match(csv, /Alpha Tyres,1300,0\.2,/);
+  }, a);
+
+  await check("Tables: the statement shows the change on last year with its meaning, a trend line, and brackets for negatives", async () => {
+    await ready(a, "/sentinel/statements?workspace=" + IDS.alpha, "text=From revenue to profit");
+    const row = a.locator("tr", { hasText: "Profit After Tax" }).first();
+    assert.match(await row.innerText(), /\+25\.0%/);
+    assert.match(await row.locator('[aria-label*="Up 25.0%"]').getAttribute("aria-label"), /favourable/);
+    // The PAT margin fell, so its chip is down and unfavourable; the cost lines stay neutral.
+    const margin = a.locator("tr", { hasText: "PAT Margin" }).first();
+    assert.match(await margin.locator('[aria-label*="Down 0.3pp"]').getAttribute("aria-label"), /unfavourable/);
+    assert.equal(await a.locator("tr", { hasText: "Total Expenses" }).first().locator('[aria-label*="favourable"]').count(), 0);
+  }, a);
+
+  await check("Charts: the revenue-to-profit bridge ends on the reported profit, and shows a gap in the filing as its own step", async () => {
+    const wf = a.locator("section", { hasText: "From revenue to profit" });
+    await wf.getByRole("radio", { name: "Table" }).click();
+    const table = await wf.locator("table").innerText();
+    // Alpha's seed: revenue 1,300, costs 1,150, but profit before tax 130 (not 150): the 20 gap is shown, not hidden.
+    assert.match(table, /Revenue\s+1,300/);
+    assert.match(table, /Costs\s+-1,150/);
+    assert.match(table, /Other \/ unreconciled\s+-20/);
+    assert.match(table, /Profit before tax\s+130/);
+    assert.match(table, /Profit after tax\s+100/);
+    await wf.getByRole("radio", { name: "Chart" }).click();
+    await wf.locator('[role="group"]').scrollIntoViewIfNeeded();
+    const box = await wf.locator('[role="group"]').boundingBox();
+    await a.mouse.move(box.x + box.width * 0.3, box.y + 150);
+    const tip = a.locator('[data-testid="chart-tooltip"]').last();
+    await tip.waitFor();
+    assert.match(await tip.innerText(), /costs/i); // the tooltip title is set in capitals
+  }, a);
+
+  await check("Motion: with 'reduce motion' on, charts are drawn in their final state straight away", async () => {
+    const quiet = await browser.newContext({ viewport: { width: 1280, height: 1000 }, reducedMotion: "reduce" });
+    const now = Math.floor(Date.now() / 1000);
+    const payload = { access_token: "tok-a", token_type: "bearer", expires_in: 31536000, expires_at: now + 31536000, refresh_token: "r-tok-a", user: { id: IDS.A, aud: "authenticated", role: "authenticated", email: "a@example.com", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" } };
+    await quiet.addInitScript(([k, v]) => { try { localStorage.setItem(k, v); } catch (e) {} }, ["zyntask-engage-session", JSON.stringify(payload)]);
+    const q = await quiet.newPage();
+    await q.goto(BASE + "/sentinel/kpi?workspace=" + IDS.alpha, { waitUntil: "domcontentloaded" });
+    await q.waitForSelector('figure[aria-label="Revenue by year"] svg path[fill="#B0652B"]', { timeout: 60000 });
+    const h = await q.locator('figure[aria-label="Revenue by year"] svg path[fill="#B0652B"]').last().evaluate((el) => el.getBBox().height);
+    assert.ok(h > 100, "the column should already be full height, got " + h);
+    await quiet.close();
+  });
 
   // ------------------------------------------------------------------------------- the project shell
   await check("Projects: A's projects first (with a New project card), then the reference companies, never B's", async () => {
@@ -288,15 +454,14 @@ async function ready(page, url, waitFor) {
     await a.getByRole("option", { name: /Show figures in lakh/i }).waitFor();
     await a.keyboard.press("Enter");
     await a.getByRole("radio", { name: "Lakh" }).and(a.locator('[aria-checked="true"]')).waitFor();
-    const tile = await a.locator("p", { hasText: /^Revenue \(latest FY, .*Lakh\)$/ }).first().locator("xpath=following-sibling::p[1]").textContent();
-    assert.equal(tile.trim(), "1,30,000");
+    assert.equal(await tileValue(a, "Revenue (latest FY, \u20b9 Lakh"), "1,30,000");
     await a.reload({ waitUntil: "domcontentloaded" });
     await a.getByRole("radio", { name: "Lakh" }).and(a.locator('[aria-checked="true"]')).waitFor();
   }, a);
 
   await check("Display unit: statements follow the switch, and 'As reported' puts them back", async () => {
     await ready(a, "/sentinel/statements?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
-    await a.waitForSelector("text=YoY % (FY26 vs FY25)");
+    await a.waitForSelector("text=FY26 vs FY25");
     const row = a.locator("tr", { hasText: "Revenue from Operations" }).first();
     assert.match(await row.textContent(), /1,30,000\.0/);
     assert.match(await a.locator("body").innerText(), /Lakh, converted for display/i);
@@ -543,8 +708,7 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="setup-checklist"]').innerText(), /4 of 6 done/); // year, balance sheet, cash flow, prior year
     await ready(a, "/sentinel/kpi?workspace=" + pyxis, 'select[aria-label="Company"]');
     await a.waitForSelector("text=Key figures");
-    const tile = await a.locator("p", { hasText: /^Revenue \(latest FY, .* crore\)$/ }).first().locator("xpath=following-sibling::p[1]").textContent();
-    assert.equal(tile.trim(), "1,000"); // 1,00,000 lakh shown as 1,000 crore
+    assert.equal(await tileValue(a, "Revenue (latest FY, \u20b9 crore"), "1,000"); // 1,00,000 lakh shown as 1,000 crore
   }, a);
 
   await check("Settings: converting lakh to crore rewrites the figures (1,00,000 -> 1,000) after showing the before and after", async () => {
