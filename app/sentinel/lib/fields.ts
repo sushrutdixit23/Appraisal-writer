@@ -14,7 +14,7 @@ export type NumericField = keyof Pick<
   | "tax_expense" | "profit_after_tax" | "total_assets" | "current_assets" | "cash_and_equivalents"
   | "trade_receivables" | "inventory" | "fixed_assets" | "total_liabilities" | "current_liabilities"
   | "trade_payables" | "total_debt" | "total_equity" | "cash_from_operations" | "cash_from_investing"
-  | "cash_from_financing" | "capex"
+  | "cash_from_financing" | "capex" | "retained_earnings" | "cost_of_goods_sold" | "sga_expense"
 >;
 
 export type FieldDef = {
@@ -36,6 +36,8 @@ export const FIELD_SECTIONS: FieldSection[] = [
       { key: "other_income", label: "Other income" },
       { key: "total_income", label: "Total income" },
       { key: "total_expenses", label: "Total expenses", hint: "As reported, including finance costs and depreciation" },
+      { key: "cost_of_goods_sold", label: "Cost of goods sold", hint: "Only where the filing prints one; leave blank otherwise" },
+      { key: "sga_expense", label: "Selling, general & administrative", hint: "Only where the filing prints one; leave blank otherwise" },
       { key: "ebitda", label: "EBITDA" },
       { key: "depreciation_amortisation", label: "Depreciation & amortisation" },
       { key: "finance_costs", label: "Finance costs" },
@@ -64,6 +66,7 @@ export const FIELD_SECTIONS: FieldSection[] = [
       { key: "trade_payables", label: "Trade payables" },
       { key: "total_debt", label: "Total debt", hint: "Current and non-current borrowings" },
       { key: "total_equity", label: "Total equity" },
+      { key: "retained_earnings", label: "Retained earnings", hint: "Often shown as part of other equity" },
     ],
   },
   {
@@ -77,6 +80,18 @@ export const FIELD_SECTIONS: FieldSection[] = [
     ],
   },
 ];
+
+/** Columns added after the first release. Until the database has them, sending a null for one fails the whole save
+ * ("could not find the column"), so a null is left out of a write unless the row already has the column. */
+export const OPTIONAL_COLUMNS: readonly NumericField[] = ["retained_earnings", "cost_of_goods_sold", "sga_expense"];
+
+export function withoutUnsetOptionalColumns<T extends object>(record: T, existing?: object | null): T {
+  const out = { ...record } as Record<string, unknown>;
+  for (const key of OPTIONAL_COLUMNS) {
+    if ((out[key] === null || out[key] === undefined) && !(existing && key in existing)) delete out[key];
+  }
+  return out as T;
+}
 
 export const ALL_FIELDS: FieldDef[] = FIELD_SECTIONS.flatMap((s) => s.fields);
 export const ALL_FIELD_KEYS: NumericField[] = ALL_FIELDS.map((f) => f.key);

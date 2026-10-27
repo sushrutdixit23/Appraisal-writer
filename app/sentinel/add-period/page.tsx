@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { sortWorkspaces } from "../lib/access";
-import { BASES, PERIOD_TYPES, statementToFormValues } from "../lib/fields";
+import { BASES, PERIOD_TYPES, statementToFormValues, withoutUnsetOptionalColumns } from "../lib/fields";
 import { AutofillUpload, type AutofillApplied } from "../lib/AutofillUpload";
 import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
 import { SERIF, T } from "../lib/theme";
@@ -233,7 +233,10 @@ export default function AddPeriodPage() {
       return;
     }
 
-    const record = { ...prepared.row, workspace_id: workspaceId, review_cycle_id: selectedReviewCycleId || null };
+    const record = withoutUnsetOptionalColumns(
+      { ...prepared.row, workspace_id: workspaceId, review_cycle_id: selectedReviewCycleId || null },
+      editingId ? statements.find((s) => s.id === editingId) : null
+    );
     setSaving(true);
     if (editingId) {
       const { error } = await supabase.from("sentinel_statements").update(record).eq("id", editingId);

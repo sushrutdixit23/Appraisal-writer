@@ -779,6 +779,33 @@ async function ready(page, url, waitFor) {
     assert.match(text, /Added/);
   }, a);
 
+  await check("Scores: Altman Z\u2033 and Beneish M are on the KPI page and say what they need when the lines are missing", async () => {
+    await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
+    await a.waitForSelector("text=Key figures");
+    assert.equal(await stat(a, "Altman Z\u2033"), "-");
+    assert.equal(await stat(a, "Beneish M score"), "-");
+    const tiles = await a.locator('[data-stat="Altman Z\u2033"]').innerText();
+    assert.match(tiles, /Needs retained earnings/);
+  }, a);
+
+  await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {
+    await ready(a, "/sentinel/projects/" + IDS.alpha, '[data-testid="operating-metrics"]');
+    await a.getByLabel("Period", { exact: true }).fill("Q3 FY26");
+    await a.getByLabel("Value", { exact: true }).fill("13.5");
+    await a.getByLabel("Source", { exact: true }).fill("Q3 investor deck, p.12");
+    await a.getByRole("button", { name: "Add metric" }).click();
+    await a.waitForSelector("text=Saved Attrition (last twelve months) for Q3 FY26.");
+    const text = await a.locator('[data-testid="operating-metrics"]').innerText();
+    assert.match(text, /Q3 FY26/);
+    assert.match(text, /13\.5%/);
+    assert.match(text, /Q3 investor deck, p\.12/);
+    const [row] = await db("sentinel_operating_metrics", "&workspace_id=eq." + IDS.alpha);
+    assert.equal(row.metric, "attrition_pct");
+    assert.equal(row.value, 13.5);
+    await ready(a, "/sentinel/projects/" + IDS.ref1, "h1");
+    assert.equal(await a.locator('[data-testid="operating-metrics"]').count(), 0);
+  }, a);
+
   // ------------------------------------------------------------------------------- console health
   await check("no uncaught page errors on any page visited", async () => {
     assert.deepEqual([...a.errors, ...b.errors], []);

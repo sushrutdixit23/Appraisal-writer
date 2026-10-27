@@ -13,7 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { getSectorConfig } from "../../../sentinel/lib/config";
-import { BASES } from "../../../sentinel/lib/fields";
+import { BASES, withoutUnsetOptionalColumns } from "../../../sentinel/lib/fields";
 import { diffStatement, readSources, recordChange, recordSources } from "../../../sentinel/lib/audit";
 import { authenticate, getAdmin, isFailure, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { normaliseUnit } from "../../../sentinel/lib/units";
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
     createdWorkspaceId = workspace.id;
   }
 
-  const record = { ...row, workspace_id: workspace.id };
+  const record = withoutUnsetOptionalColumns({ ...row, workspace_id: workspace.id }, existingRow);
   if (existingId) {
     const { error } = await admin.from("sentinel_statements").update(record).eq("id", existingId);
     if (error) return fail(error.message, 500);

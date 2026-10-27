@@ -114,3 +114,88 @@ test("the technology sector exists, resolves every ratio, and is offered for new
   assert.match(cfg.narrative_context, /utilisation|attrition/);
   near(computeRatios(now, before, "technology").interest_cover!, 7);
 });
+
+// --- Altman Z'' and Beneish M --------------------------------------------------------------------------
+
+import { altmanZ, beneishM, BENEISH_THRESHOLD } from "../../app/sentinel/lib/ratios";
+
+// Assets 2,000; current assets 800, current liabilities 500 (working capital 300); retained earnings 600;
+// EBIT 140 (PBT 120 + finance 20); equity 1,100; liabilities 900.
+// X1 = 0.15, X2 = 0.30, X3 = 0.07, X4 = 1,100 / 900.
+// Z'' = 6.56(0.15) + 3.26(0.30) + 6.72(0.07) + 1.05(1.2222) = 0.984 + 0.978 + 0.4704 + 1.28333 = 3.71573
+const solid = st("a", {
+  total_assets: 2000, current_assets: 800, current_liabilities: 500, retained_earnings: 600, finance_costs: 20,
+  profit_before_tax: 120, total_equity: 1100, total_liabilities: 900,
+});
+
+test("Altman Z'': hand-worked score 3.7157 is in the safe zone, with the four ratios shown", () => {
+  const z = altmanZ(solid)!;
+  near(z.score, 0.984 + 0.978 + 0.4704 + 1.05 * (1100 / 900));
+  assert.equal(z.zone, "safe");
+  near(z.parts.working_capital_to_assets, 0.15);
+  near(z.parts.equity_to_liabilities, 1100 / 900);
+});
+
+test("Altman Z'': the zone edges are 2.6 and 1.1, and a loss-making, over-borrowed company is in distress", () => {
+  // retained earnings 0, EBIT 0, equity 0: Z = 6.56 x 0.15 = 0.984 -> distress
+  const weak = st("a", { ...solid, retained_earnings: 0, profit_before_tax: -20, finance_costs: 20, total_equity: 0 });
+  assert.equal(altmanZ(weak)!.zone, "distress");
+  // add retained earnings 400 (X2 = 0.2 -> +0.652): 0.984 + 0.652 = 1.636 -> grey
+  assert.equal(altmanZ(st("a", { ...weak, retained_earnings: 400 }))!.zone, "grey");
+});
+
+test("Altman Z'' is blank when a needed line is missing, and for a quarter", () => {
+  assert.equal(altmanZ(st("a", { ...solid, retained_earnings: null })), null);
+  assert.equal(altmanZ(st("a", { ...solid, current_assets: null })), null);
+  assert.equal(altmanZ({ ...solid, period_type: "Q2" }), null);
+  assert.equal(altmanZ(st("a", { ...solid, total_liabilities: 0 })), null);
+});
+
+// Year t-1: revenue 1,000, COGS 600 (gross margin 0.4), SG&A 100, receivables 100, current assets 400, fixed assets 300,
+// assets 1,000, depreciation 50, liabilities 400. Year t: revenue 1,200, COGS 750 (0.375), SG&A 120, receivables 144,
+// current assets 480, fixed assets 360, assets 1,200, depreciation 60, liabilities 480, PAT 108, CFO 78.
+// DSRI 1.2, GMI 0.4/0.375 = 1.06667, AQI 1, SGI 1.2, DEPI 1, SGAI 1, LVGI 1, TATA (108-78)/1200 = 0.025.
+// M = -4.84 + 1.104 + 0.5632 + 0.404 + 1.0704 + 0.115 - 0.172 + 0.116975 - 0.327 = -1.965425
+const m0 = st("a", {
+  period_label: "FY25", period_end_date: "2025-03-31", revenue_from_operations: 1000, cost_of_goods_sold: 600, sga_expense: 100,
+  trade_receivables: 100, current_assets: 400, fixed_assets: 300, total_assets: 1000, depreciation_amortisation: 50, total_liabilities: 400,
+});
+const m1 = st("a", {
+  revenue_from_operations: 1200, cost_of_goods_sold: 750, sga_expense: 120, trade_receivables: 144, current_assets: 480,
+  fixed_assets: 360, total_assets: 1200, depreciation_amortisation: 60, total_liabilities: 480, profit_after_tax: 108, cash_from_operations: 78,
+});
+
+test("Beneish M: hand-worked indices and score -1.9654, below the -1.78 line so not flagged", () => {
+  const m = beneishM(m1, m0)!;
+  near(m.indices.dsri, 1.2);
+  near(m.indices.gmi, 0.4 / 0.375);
+  near(m.indices.aqi, 1);
+  near(m.indices.sgi, 1.2);
+  near(m.indices.depi, 1);
+  near(m.indices.sgai, 1);
+  near(m.indices.lvgi, 1);
+  near(m.indices.tata, 0.025);
+  near(m.score, -1.965425);
+  assert.equal(m.flagged, false);
+  assert.equal(BENEISH_THRESHOLD, -1.78);
+});
+
+test("Beneish M: profit far above cash flow pushes the score over the line", () => {
+  // TATA (108 - (-300)) / 1200 = 0.34 -> +4.679 x 0.315 more than before = about -0.49
+  const m = beneishM({ ...m1, cash_from_operations: -300 }, m0)!;
+  assert.equal(m.flagged, true);
+});
+
+test("Beneish M is blank without a prior year, without COGS or SG&A, or for a quarter", () => {
+  assert.equal(beneishM(m1, null), null);
+  assert.equal(beneishM({ ...m1, cost_of_goods_sold: null }, m0), null);
+  assert.equal(beneishM(m1, { ...m0, sga_expense: null }), null);
+  assert.equal(beneishM({ ...m1, period_type: "Q3" }, m0), null);
+});
+
+test("both scores are registered as ratios for every sector", () => {
+  const r = computeRatios({ ...solid }, null, "technology");
+  near(r.altman_z!, 3.715733333);
+  assert.equal(r.beneish_m, null);
+  near(computeRatios(m1, m0, "general").beneish_m!, -1.965425);
+});

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:sentinel": "node scripts/test-sentinel.mjs",
-    "score:extraction": "node scripts/score-extraction.mjs"
+    "score:extraction": "node scripts/score-extraction.mjs",
+    "test:migrations": "node scripts/test-migrations.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -31,6 +32,7 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

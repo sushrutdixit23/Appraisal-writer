@@ -250,7 +250,28 @@ In order of value for the effort:
 - **RLS** (`supabase/migrations/20261027000000_sentinel_rls_proposed.sql`): proposed policies written from the
   access rules, **not applied**; read the header before running them.
 
-Still open from the rating: measuring extraction accuracy on real filings (needs the files), exchange XBRL as
-a primary source, persisting per-field provenance and a change history (needs a schema change), and the
-Altman Z and Beneish M scores (need cost of goods sold, SG&A, retained earnings and market value of equity,
-which the schema does not hold).
+Still open from the rating: measuring extraction accuracy on real filings (needs the files) and exchange XBRL as
+a primary source. The three items below were added afterwards.
+
+## 13. Source and change history, score fields, operating metrics
+
+All three need a database step, none of which is applied; each migration is safe to run twice, and the app works
+before and after (it records nothing until the tables exist). `npm run test:migrations` runs them against an
+embedded Postgres, including the row-level-security rules and the audit trigger.
+
+- **Source and change history** (`20261028000000_sentinel_audit.sql`, `lib/audit.ts`): every save through the server
+  records who, when, and each field's old and new value; a deleted statement keeps its whole row. Figures keep their
+  source: typed, rules, AI or derived, with page and quote for AI-read ones. Writes made straight from the browser
+  (Manage Periods) are recorded by a trigger, which only fires when a person is signed in, so nothing is counted twice.
+  Shown as "Recent changes" on the Overview. Not built: a "confirmed by" sign-off per figure, restated-vs-as-filed versions.
+- **Altman Z\u2033 and Beneish M** (`20261029000000_sentinel_score_fields.sql`, `lib/ratios.ts`): new optional lines
+  retained earnings, cost of goods sold and SG&A. Z\u2033 is the non-manufacturer version (book equity, no sales term;
+  zones 2.6 and 1.1). Beneish uses the eight-variable model with a -1.78 line; leverage is total liabilities / assets and
+  accruals are (PAT - cash from operations) / assets, both noted on the tile. Both are screens, not verdicts, and full
+  years only. Beneish needs cost of goods sold and SG&A, which Indian filings (expenses by nature) mostly do not print,
+  so it will be blank for most. A null in one of the three new columns is left out of a save unless the row already
+  has the column, which is what lets saves work before the migration.
+- **Operating metrics** (`20261030000000_sentinel_operating_metrics.sql`, `lib/metrics.ts`, `/api/sentinel/metrics`):
+  attrition, utilisation, headcount, order book, deal wins, client concentration and similar, by company and period,
+  each with where it was read. Entered by hand on the project Overview. The narrative is given the recorded figures and
+  told every other operating measure is unknown. Not built: reading them with the AI, or comparing them across peers.

@@ -70,6 +70,11 @@ export type FinancialStatement = {
   trade_payables: number | null;
   total_debt: number | null;
   total_equity: number | null;
+  // Optional lines for the Altman Z'' and Beneish M scores. Optional in the type (and in the database until
+  // supabase/migrations/20261029000000_sentinel_score_fields.sql is applied), so a row without them is still valid.
+  retained_earnings?: number | null;
+  cost_of_goods_sold?: number | null;
+  sga_expense?: number | null;
 
   // Cash Flow — nullable, not yet extracted for the demo set
   cash_from_operations: number | null;

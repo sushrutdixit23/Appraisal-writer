@@ -12,6 +12,7 @@ import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
 import { authenticate, rateLimit, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
+import { operatingContext, type MetricRow } from "../../../sentinel/lib/metrics";
 import { formatMoney } from "../../../sentinel/lib/units";
 import type {
   AnomalyFlag,
@@ -231,6 +232,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Statement not found" }, { status: 404 });
   }
   const prior = findPriorYear(stmt, statements);
+  // Operating measures the person recorded (best effort: the table may not exist yet). Anything not listed is
+  // told to the model as unknown, so it does not invent an attrition or utilisation story.
+  const { data: opRows } = await supabase.from("sentinel_operating_metrics").select("period_label,metric,value,unit,source").eq("workspace_id", workspace.id);
+  const operating = operatingContext((opRows ?? []) as MetricRow[]);
   const sectorCfg = getSectorConfig(workspace.sector);
 
   const systemPrompt =
@@ -249,7 +254,7 @@ export async function POST(req: Request) {
 
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";

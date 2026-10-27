@@ -19,6 +19,8 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.json
       - name: Unit and route tests
         run: npm run test:sentinel
+      - name: Database migrations (embedded Postgres)
+        run: npm run test:migrations
       - name: Build
         run: npm run build
         env:

@@ -8,6 +8,8 @@
 
 import type { FinancialStatement } from "./types";
 import {
+  altmanZ,
+  beneishM,
   cashConversionToEbitda,
   cashConversionToPat,
   interestCover,
@@ -159,6 +161,8 @@ const DERIVED_RATIOS: RatioDef[] = [
   { id: "net_debt_to_ebitda", compute: (s) => netDebtToEbitda(s) },
   { id: "cfo_to_ebitda", compute: (s) => cashConversionToEbitda(s) },
   { id: "cfo_to_pat", compute: (s) => cashConversionToPat(s) },
+  { id: "altman_z", compute: (s) => altmanZ(s)?.score ?? null },
+  { id: "beneish_m", compute: (s, p) => beneishM(s, p)?.score ?? null },
 ];
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {

@@ -100,3 +100,89 @@ export function dupont(s: Stmt, prior: Stmt | null): DuPont | null {
     return_on_equity: margin * turnover * multiplier,
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Distress and earnings-quality screens. Both are screens that point to questions, not verdicts.
+// ---------------------------------------------------------------------------------------------------------
+
+export type AltmanZone = "safe" | "grey" | "distress";
+
+export type AltmanResult = {
+  score: number;
+  zone: AltmanZone;
+  /** The four ratios before weighting, so a reviewer can see what drove the score. */
+  parts: { working_capital_to_assets: number; retained_earnings_to_assets: number; ebit_to_assets: number; equity_to_liabilities: number };
+};
+
+export const altmanZone = (score: number): AltmanZone => (score > 2.6 ? "safe" : score >= 1.1 ? "grey" : "distress");
+
+/** Altman's Z'' (the version for non-manufacturers and emerging markets, which uses book equity and no sales
+ * term): 6.56 x working capital/assets + 3.26 x retained earnings/assets + 6.72 x EBIT/assets + 1.05 x book
+ * equity/total liabilities. Above 2.6 safe, 1.1 to 2.6 grey, below 1.1 distress. Full years only. */
+export function altmanZ(s: Stmt): AltmanResult | null {
+  if (!isYear(s)) return null;
+  const e = ebit(s);
+  if (e == null || s.current_assets == null || s.current_liabilities == null || s.retained_earnings == null || s.total_equity == null) return null;
+  const x1 = div(s.current_assets - s.current_liabilities, s.total_assets);
+  const x2 = div(s.retained_earnings, s.total_assets);
+  const x3 = div(e, s.total_assets);
+  const x4 = div(s.total_equity, s.total_liabilities);
+  if (x1 == null || x2 == null || x3 == null || x4 == null) return null;
+  const score = 6.56 * x1 + 3.26 * x2 + 6.72 * x3 + 1.05 * x4;
+  return {
+    score,
+    zone: altmanZone(score),
+    parts: { working_capital_to_assets: x1, retained_earnings_to_assets: x2, ebit_to_assets: x3, equity_to_liabilities: x4 },
+  };
+}
+
+export const BENEISH_THRESHOLD = -1.78;
+
+export type BeneishResult = {
+  score: number;
+  /** Above the threshold the pattern resembles companies that manipulated earnings; below it, it does not. */
+  flagged: boolean;
+  indices: { dsri: number; gmi: number; aqi: number; sgi: number; depi: number; sgai: number; lvgi: number; tata: number };
+};
+
+/** Beneish's eight-variable M score for a full year against the year before:
+ * -4.84 + 0.920 DSRI + 0.528 GMI + 0.404 AQI + 0.892 SGI + 0.115 DEPI - 0.172 SGAI + 4.679 TATA - 0.327 LVGI.
+ * Two substitutions, both stated: leverage uses total liabilities / total assets (the original adds current
+ * liabilities and long-term debt), and accruals are (profit after tax - cash from operations) / total assets.
+ * Needs cost of goods sold and SG&A, which many filings (Indian ones included) do not print: then it is blank. */
+export function beneishM(s: Stmt, prior: Stmt | null): BeneishResult | null {
+  if (!isYear(s) || !prior || !isYear(prior)) return null;
+  const need = [
+    s.revenue_from_operations, s.cost_of_goods_sold, s.sga_expense, s.trade_receivables, s.current_assets, s.fixed_assets,
+    s.total_assets, s.depreciation_amortisation, s.total_liabilities, s.cash_from_operations,
+    prior.revenue_from_operations, prior.cost_of_goods_sold, prior.sga_expense, prior.trade_receivables, prior.current_assets,
+    prior.fixed_assets, prior.total_assets, prior.depreciation_amortisation, prior.total_liabilities,
+  ];
+  if (need.some((v) => v == null)) return null;
+  const n = (v: number | null | undefined) => v as number;
+
+  const recShare = (x: Stmt) => div(n(x.trade_receivables), n(x.revenue_from_operations));
+  const grossMargin = (x: Stmt) => div(n(x.revenue_from_operations) - n(x.cost_of_goods_sold), n(x.revenue_from_operations), false);
+  const hardAssetShare = (x: Stmt) => {
+    const r = div(n(x.current_assets) + n(x.fixed_assets), n(x.total_assets));
+    return r == null ? null : 1 - r;
+  };
+  const depRate = (x: Stmt) => div(n(x.depreciation_amortisation), n(x.depreciation_amortisation) + n(x.fixed_assets));
+  const sgaShare = (x: Stmt) => div(n(x.sga_expense), n(x.revenue_from_operations));
+  const leverage = (x: Stmt) => div(n(x.total_liabilities), n(x.total_assets));
+  const ratio = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? null : a / b);
+
+  const dsri = ratio(recShare(s), recShare(prior));
+  const gmi = ratio(grossMargin(prior), grossMargin(s));
+  const aqi = ratio(hardAssetShare(s), hardAssetShare(prior));
+  const sgi = ratio(n(s.revenue_from_operations), n(prior.revenue_from_operations));
+  const depi = ratio(depRate(prior), depRate(s));
+  const sgai = ratio(sgaShare(s), sgaShare(prior));
+  const lvgi = ratio(leverage(s), leverage(prior));
+  const tata = div(n(s.profit_after_tax) - n(s.cash_from_operations), n(s.total_assets));
+  if ([dsri, gmi, aqi, sgi, depi, sgai, lvgi, tata].some((v) => v == null)) return null;
+
+  const i = { dsri: dsri!, gmi: gmi!, aqi: aqi!, sgi: sgi!, depi: depi!, sgai: sgai!, lvgi: lvgi!, tata: tata! };
+  const score = -4.84 + 0.92 * i.dsri + 0.528 * i.gmi + 0.404 * i.aqi + 0.892 * i.sgi + 0.115 * i.depi - 0.172 * i.sgai + 4.679 * i.tata - 0.327 * i.lvgi;
+  return { score, flagged: score > BENEISH_THRESHOLD, indices: i };
+}

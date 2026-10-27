@@ -49,6 +49,7 @@ import type { MetricKind } from "../lib/viz/format";
 import { VIZ } from "../lib/viz/tokens";
 import { buildPeerTable, buildTimeSeries, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
+import { altmanZone, BENEISH_THRESHOLD } from "../lib/ratios";
 import { computeHealthScore, type HealthCategory, type HealthScore, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
@@ -597,6 +598,22 @@ export default function KpiDashboardPage() {
       formula: "Cash from operations / PAT. Persistently below 1x means profit is not turning into cash",
       delta: makeDelta("multiple", "higher", ratioNow("cfo_to_pat"), ratioPrev("cfo_to_pat"), vs),
       spark: series("cfo_to_pat"),
+    },
+    {
+      label: "Altman Z\u2033",
+      value: ratioNow("altman_z") == null ? "-" : ratioNow("altman_z")!.toFixed(2),
+      note: ratioNow("altman_z") == null ? "Needs retained earnings, current assets and liabilities, total liabilities" : `${altmanZone(ratioNow("altman_z")!)} zone (above 2.6 safe, 1.1 to 2.6 grey, below 1.1 distress)`,
+      formula: "6.56 x working capital/assets + 3.26 x retained earnings/assets + 6.72 x EBIT/assets + 1.05 x book equity/total liabilities. The version for non-manufacturers; a screen, not a verdict. Full years only",
+      delta: makeDelta("multiple", "higher", ratioNow("altman_z"), ratioPrev("altman_z"), vs),
+      spark: series("altman_z"),
+    },
+    {
+      label: "Beneish M score",
+      value: ratioNow("beneish_m") == null ? "-" : ratioNow("beneish_m")!.toFixed(2),
+      note: ratioNow("beneish_m") == null ? "Needs cost of goods sold and SG&A for this and last year, which many filings do not print" : ratioNow("beneish_m")! > BENEISH_THRESHOLD ? `Above ${BENEISH_THRESHOLD}: the pattern resembles earnings manipulators - look closer` : `Below ${BENEISH_THRESHOLD}: the pattern does not resemble manipulators`,
+      formula: "Beneish's eight-variable model on receivables, gross margin, asset quality, sales growth, depreciation, SG&A, leverage and accruals, against last year. Leverage uses total liabilities / assets and accruals use (PAT - cash from operations) / assets. A screen, not a verdict",
+      delta: makeDelta("multiple", "lower", ratioNow("beneish_m"), ratioPrev("beneish_m"), vs),
+      spark: series("beneish_m"),
     },
   ];
 

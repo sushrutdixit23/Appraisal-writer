@@ -55,6 +55,8 @@ const R = (target: Target, statement: StatementKind | null, pattern: RegExp, wei
 
 export const RULES: Rule[] = [
   // ---- profit and loss -------------------------------------------------------------------------
+  R("cost_of_goods_sold", "pl", /^(cost of goods sold|cost of sales|cost of revenue|cost of services)$/, 4),
+  R("sga_expense", "pl", /^(selling general and administrative expenses?|selling and distribution expenses|sg and a expenses?)$/, 4),
   R("revenue_from_operations", "pl", /^total revenue from operations$/, 5),
   R("revenue_from_operations", "pl", /^revenue from operations$/, 4),
   R("revenue_from_operations", "pl", /^(total )?income from operations$/, 4),
@@ -91,6 +93,7 @@ export const RULES: Rule[] = [
   R("trade_receivables", "bs", /^trade receivables?$/, 4),
   R("trade_receivables", "bs", /^sundry debtors$/, 3),
   R("inventory", "bs", /^inventor(y|ies)$/, 4),
+  R("retained_earnings", "bs", /^(retained earnings|surplus in statement of profit and loss)$/, 3),
   R("fixed_assets", "bs", /^property plant and equipment$/, 4),
   R("fixed_assets", "bs", /^(net block|fixed assets|tangible assets)$/, 3),
   R("total_equity", "bs", /^total equity$/, 5),

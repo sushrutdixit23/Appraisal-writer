@@ -206,3 +206,21 @@ test("the unit check compares against this company's own earlier statements only
   // Bravo's FY25 (revenue 500) is never consulted for Alpha.
   assert.ok(!r.json.warnings.join(" ").includes("500"));
 });
+
+// --- optional columns added later (retained earnings, COGS, SG&A) ---------------------------------
+
+test("a save with none of the later-added lines never sends those columns, so it works before the migration", async () => {
+  const r = await call({ workspace_id: wsA, statement: stmt() });
+  assert.equal(r.status, 200);
+  const saved = statements(wsA)[0];
+  for (const key of ["retained_earnings", "cost_of_goods_sold", "sga_expense"]) assert.equal(key in saved, false, key);
+});
+
+test("when one of them is filled it is saved, and clearing it later saves a null because the column now exists", async () => {
+  const first = await call({ workspace_id: wsA, statement: stmt({ retained_earnings: 600 }) });
+  assert.equal(first.status, 200);
+  assert.equal(statements(wsA)[0].retained_earnings, 600);
+  const cleared = await call({ workspace_id: wsA, statement: stmt() });
+  assert.equal(cleared.json.status, "updated");
+  assert.equal(statements(wsA)[0].retained_earnings, null);
+});

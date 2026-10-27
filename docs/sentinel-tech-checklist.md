@@ -23,6 +23,15 @@ you saw (text or screenshot) and stop there until it is sorted.
 - [ ] C3. With two different logins (A and B): A creates a project; B cannot see it in the list or by pasting its address.
   A cannot edit a company B owns.
 
+## C2. Apply the three database steps (one at a time, in this order)
+Each is safe to run twice and the app works before and after. Run them in the Supabase SQL editor.
+- [ ] C2a. `supabase/migrations/20261028000000_sentinel_audit.sql`: change history and where each figure came from.
+  Then save one period and open the project Overview: "Recent changes" lists it.
+- [ ] C2b. `supabase/migrations/20261029000000_sentinel_score_fields.sql`: retained earnings, cost of goods sold and
+  SG&A. Then the Altman Z\u2033 tile can fill in for a company that has retained earnings entered.
+- [ ] C2c. `supabase/migrations/20261030000000_sentinel_operating_metrics.sql`: operating metrics. Then the
+  "Operating metrics" panel on a project Overview can save.
+
 ## D. Choose the companies
 - [ ] D1. Pick 5 to 6 listed technology companies of similar business (for example large Indian IT services firms).
   Peers are compared only inside one sector, so keep them alike: do not mix services with product or platform companies.
@@ -53,6 +62,18 @@ For each company, with the filing open next to the screen:
 - [ ] F4. Compare 3 companies' revenue and PAT to an independent source (Screener.in or the exchange). Differences
   you cannot explain (restatement, consolidated vs standalone) go to Claude.
 - [ ] F5. Switch the display unit (crore, lakh, million) from the command palette (Ctrl+K): figures change, ratios do not.
+
+## F2. The screens and measures that need extra data
+- [ ] F6. Enter retained earnings for one company's last two years. The **Altman Z\u2033** tile fills in; check it by hand:
+  6.56 x (current assets - current liabilities)/assets + 3.26 x retained earnings/assets + 6.72 x EBIT/assets +
+  1.05 x equity/total liabilities. Above 2.6 safe, 1.1 to 2.6 grey, below 1.1 distress.
+- [ ] F7. **Beneish M** stays "-" for most Indian filers, because it needs cost of goods sold and SG&A, which they
+  usually do not print. Do not invent them. If a company does print both, enter them for two years and check the score.
+- [ ] F8. Operating metrics: from one company's latest investor presentation enter attrition, utilisation and headcount
+  with the page you read them from. Generate a narrative: it may quote only those figures and must not mention
+  attrition or utilisation for a company where you entered none.
+- [ ] F9. Change one figure on an existing period and save. "Recent changes" on the Overview shows the old and new value.
+  Import a PDF: for an AI-read figure, hover or read its source line; it names the page and the quoted row.
 
 ## G. Check what Sentinel tells you
 - [ ] G1. KPIs: every tile has a value or a "-" you can explain; click the "i" on three tiles and confirm the formula
@@ -85,6 +106,6 @@ For each company, with the filing open next to the screen:
   measure of quality; send it to Claude to fix the cause rather than the single value.
 - [ ] J2. Ready to rely on it when: F is clean for every company, H shows no invented values, and C is verified.
 
-Not covered yet, by design: saved per-field source and change history, XBRL as the primary source, the Altman Z and
-Beneish M scores (need cost of goods sold, SG&A, retained earnings and market cap), and technology-specific measures
-such as attrition, utilisation and order book, which are not in the data model.
+Not covered yet, by design: XBRL as the primary source; per-figure "confirmed by" sign-off; a change history for
+operating metrics; comparing operating metrics across peers; and Beneish M for companies whose filings do not print
+cost of goods sold and SG&A.
