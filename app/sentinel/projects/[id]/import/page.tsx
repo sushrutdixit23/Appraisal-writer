@@ -16,7 +16,7 @@ import { planImport, summariseImport, type ExistingPeriod, type ImportFile, type
 import type { AutofillResult } from "../../../lib/autofill/types";
 import { useShell } from "../../../lib/shell/ShellData";
 import { SERIF, T } from "../../../lib/theme";
-import { sendFile, UploadError } from "../../../lib/uploadClient";
+import { sendFile, UploadError, type SendProgress } from "../../../lib/uploadClient";
 import { UNIT_OPTIONS, normaliseUnit, unitLabel, type CurrencyUnit } from "../../../lib/units";
 
 const card: React.CSSProperties = { background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.2rem 1.4rem", marginBottom: "1.2rem" };
@@ -42,6 +42,7 @@ export default function ImportPage() {
   const [reading, setReading] = useState(false);
   const [readingFile, setReadingFile] = useState<string | null>(null);
   const [readingSeconds, setReadingSeconds] = useState(0);
+  const [progress, setProgress] = useState<SendProgress | null>(null);
   const readAbort = useRef<AbortController | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -119,12 +120,13 @@ export default function ImportPage() {
           continue;
         }
         setReadingFile(f.name);
+        setProgress(null);
         try {
           const result = await sendFile<AutofillResult>(
             "/api/sentinel/autofill",
             f,
             { basis: workspace.comparison_basis, fy_start_month: String(workspace.fiscal_year_start_month) },
-            { signal: ctrl.signal }
+            { signal: ctrl.signal, onProgress: setProgress }
           );
           added.push({ name: f.name, result, unit: result.unit.unit });
         } catch (e) {
@@ -143,6 +145,7 @@ export default function ImportPage() {
       clearInterval(ticker);
       readAbort.current = null;
       setReadingFile(null);
+      setProgress(null);
       setReading(false);
     }
     setFiles((prev) => [...prev, ...added]);
@@ -234,19 +237,30 @@ export default function ImportPage() {
         />
         {reading && (
           <div role="status" style={{ marginTop: "0.5rem" }}>
-            <p style={{ ...small, color: T.accent, margin: 0 }}>
-              {readingFile ? `Reading ${readingFile}\u2026` : "Reading\u2026"} ({readingSeconds}s)
-            </p>
+            {progress?.phase === "uploading" ? (
+              <>
+                <p style={{ ...small, color: T.accent, margin: "0 0 0.3rem 0" }}>
+                  Uploading {readingFile} - {(progress.loaded / (1024 * 1024)).toFixed(1)} of {(progress.total / (1024 * 1024)).toFixed(1)} MB ({progress.percentage.toFixed(0)}%)
+                </p>
+                <div style={{ height: 4, background: T.rule, borderRadius: 2, overflow: "hidden", maxWidth: 320 }}>
+                  <div style={{ height: "100%", width: `${progress.percentage}%`, background: T.accent, transition: "width 150ms ease" }} />
+                </div>
+              </>
+            ) : (
+              <p style={{ ...small, color: T.accent, margin: 0 }}>
+                {readingFile ? `Reading ${readingFile}\u2026` : "Reading\u2026"} ({readingSeconds}s)
+              </p>
+            )}
             {readingSeconds >= 20 && readingSeconds < 90 && (
               <p style={{ ...small, margin: "0.2rem 0 0 0" }}>A full annual report can run to hundreds of pages - this can take a minute or two.</p>
             )}
             {readingSeconds >= 90 && (
               <p style={{ ...small, margin: "0.2rem 0 0 0" }}>
-                Still working. If this passes five minutes it will stop on its own; you can also{" "}
+                Still working. You can{" "}
                 <button type="button" onClick={cancelReading} style={{ ...small, color: T.accent, background: "none", border: "none", padding: 0, textDecoration: "underline", cursor: "pointer", font: "inherit" }}>
                   cancel
                 </button>{" "}
-                and try a smaller file.
+                and try a smaller file if it does not finish soon.
               </p>
             )}
           </div>

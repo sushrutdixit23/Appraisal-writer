@@ -13,7 +13,7 @@ import { ALL_FIELD_KEYS } from "./fields";
 import { applyExtractionResult, type ExtractionResult } from "./extraction";
 import { applyAutofillPeriod, countFields, defaultPeriod, type AppliedPeriod } from "./autofill/apply";
 import type { AutofillPeriod, AutofillResult } from "./autofill/types";
-import { sendFile, UploadError } from "./uploadClient";
+import { sendFile, UploadError, type SendProgress } from "./uploadClient";
 import { T } from "./theme";
 import { UNIT_OPTIONS, normaliseUnit, unitLabel, type CurrencyUnit } from "./units";
 import type { Basis } from "./types";
@@ -56,6 +56,7 @@ export function AutofillUpload({
   const [fileUnit, setFileUnit] = useState<CurrencyUnit | "">("");
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [blanks, setBlanks] = useState(0);
+  const [progress, setProgress] = useState<SendProgress | null>(null);
   useEffect(() => {
     if (!working) return;
     setWorkingSeconds(0);
@@ -77,11 +78,14 @@ export function AutofillUpload({
     setResult(null);
     setAiNote(null);
     setWorking("reading");
+    setProgress(null);
     try {
-      const r = await sendFile<AutofillResult>("/api/sentinel/autofill", f, {
-        basis,
-        ...(fyStartMonth ? { fy_start_month: String(fyStartMonth) } : {}),
-      });
+      const r = await sendFile<AutofillResult>(
+        "/api/sentinel/autofill",
+        f,
+        { basis, ...(fyStartMonth ? { fy_start_month: String(fyStartMonth) } : {}) },
+        { onProgress: setProgress }
+      );
       setFile(f);
       setResult(r);
       const first = defaultPeriod(r);
@@ -93,15 +97,17 @@ export function AutofillUpload({
       else onError(e instanceof Error ? e.message : "The file could not be read.");
     } finally {
       setWorking("");
+      setProgress(null);
     }
   }
 
   async function askAi() {
     if (!file) return;
     setWorking("ai");
+    setProgress(null);
     onError("");
     try {
-      const r = await sendFile<ExtractionResult>("/api/sentinel/extract", file, { basis });
+      const r = await sendFile<ExtractionResult>("/api/sentinel/extract", file, { basis }, { onProgress: setProgress });
       const { values, unitNote } = applyExtractionResult(r, workspaceUnit);
       const current = getValues();
       const filled: Record<string, string> = {};
@@ -127,6 +133,7 @@ export function AutofillUpload({
       else onError(e instanceof Error ? e.message : "The AI reading failed.");
     } finally {
       setWorking("");
+      setProgress(null);
     }
   }
 
@@ -153,11 +160,24 @@ export function AutofillUpload({
         style={{ fontSize: "0.85rem" }}
       />
       {working !== "" && (
-        <p role="status" style={{ ...small, color: T.accent }}>
-          {working === "reading" ? "Reading the file" : "Asking the AI model to read the blanks"}
-          {workingSeconds > 0 ? ` (${workingSeconds}s)` : "..."}
-          {workingSeconds >= 20 && " - a large filing can take a minute or two."}
-        </p>
+        <div role="status">
+          {progress?.phase === "uploading" ? (
+            <>
+              <p style={{ ...small, color: T.accent, margin: "0 0 0.3rem 0" }}>
+                Uploading - {(progress.loaded / (1024 * 1024)).toFixed(1)} of {(progress.total / (1024 * 1024)).toFixed(1)} MB ({progress.percentage.toFixed(0)}%)
+              </p>
+              <div style={{ height: 4, background: T.rule, borderRadius: 2, overflow: "hidden", maxWidth: 260 }}>
+                <div style={{ height: "100%", width: `${progress.percentage}%`, background: T.accent, transition: "width 150ms ease" }} />
+              </div>
+            </>
+          ) : (
+            <p style={{ ...small, color: T.accent, margin: 0 }}>
+              {working === "reading" ? "Reading the file" : "Asking the AI model to read the blanks"}
+              {workingSeconds > 0 ? ` (${workingSeconds}s)` : "..."}
+              {workingSeconds >= 20 && " - a large filing can take a minute or two."}
+            </p>
+          )}
+        </div>
       )}
 
       {result && working === "" && period && (
