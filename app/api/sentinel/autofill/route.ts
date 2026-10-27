@@ -6,6 +6,10 @@
 // review in the form or the import preview before anything is saved.
 
 import { NextResponse } from "next/server";
+// Must come before the "pdf-parse" import itself: its own Vercel/Next.js troubleshooting guide says this
+// resolves the worker-related crashes pdf-parse 2.x otherwise hits on serverless, since the worker script is
+// embedded in this module rather than loaded from a file path the deploy's function bundle may not carry.
+import "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 import { autofillFromPdfPages } from "../../../sentinel/lib/autofill/pdf";
 import { autofillFromSheet, parseCsv } from "../../../sentinel/lib/autofill/sheet";

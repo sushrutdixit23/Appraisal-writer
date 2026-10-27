@@ -24,6 +24,10 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+// Must come before the "pdf-parse" import itself: its own Vercel/Next.js troubleshooting guide says this
+// resolves the worker-related crashes pdf-parse 2.x otherwise hits on serverless, since the worker script is
+// embedded in this module rather than loaded from a file path the deploy's function bundle may not carry.
+import "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 import { ALL_FIELD_KEYS, ALL_FIELDS } from "../../../sentinel/lib/fields";
 import {
