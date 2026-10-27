@@ -426,9 +426,11 @@ export default function InvestigationQueuePage() {
     bySector.get(w.sector)!.push(w);
   }
   const allFlags: AnomalyFlag[] = [];
+  const checkedWorkspaceIds = new Set<string>();
   for (const [sector, sectorWs] of bySector) {
     if (sectorWs.length === 0) continue;
     const rows = buildPeerTable(sectorWs, statements, sectorWs[0].id, "FY");
+    for (const r of rows) checkedWorkspaceIds.add(r.workspace_id);
     allFlags.push(...runAllChecks(rows, sector));
   }
   const groups = groupFlagsByWorkspace(allFlags);
@@ -593,6 +595,38 @@ export default function InvestigationQueuePage() {
           </div>
         ))}
       </div>
+
+      {visibleGroups.length === 0 && (
+        <div style={{ background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.4rem 1.7rem", marginBottom: "1rem" }}>
+          {checkedWorkspaceIds.size === 0 ? (
+            <p style={{ fontSize: "0.9rem", color: T.inkSoft, lineHeight: 1.6, margin: 0 }}>
+              No company has a period on file yet to check. <a href="/sentinel/projects" style={{ color: T.accent }}>Import a filing</a> for one, and its
+              latest year is checked here automatically.
+            </p>
+          ) : groups.length === 0 ? (
+            <>
+              <p style={{ fontSize: "0.9rem", color: T.ink, lineHeight: 1.6, margin: "0 0 0.6rem 0" }}>
+                Nothing to investigate right now. The latest year on file for {checkedWorkspaceIds.size === 1 ? "your one company" : `all ${checkedWorkspaceIds.size} companies`} was
+                checked and nothing crossed a configured threshold.
+              </p>
+              <p style={{ fontSize: "0.8rem", color: T.inkSoft, lineHeight: 1.6, margin: 0 }}>
+                An investigation is drafted only where a figure moves past its threshold: a swing on the year before, a liquidity, leverage or working-capital
+                ratio past its sector line, an outsized exceptional item, or unbilled revenue outgrowing revenue. A healthy, unremarkable year produces none of
+                these - see each company&apos;s <a href="/sentinel/kpi" style={{ color: T.accent }}>KPI page</a> for the full picture, including a year-on-year
+                comparison once a prior period is on file.
+              </p>
+            </>
+          ) : (
+            <p style={{ fontSize: "0.9rem", color: T.inkSoft, lineHeight: 1.6, margin: 0 }}>
+              Every flagged item is archived.{" "}
+              <button type="button" onClick={() => setShowArchived(true)} style={{ color: T.accent, background: "none", border: "none", padding: 0, textDecoration: "underline", cursor: "pointer", font: "inherit" }}>
+                Show archived
+              </button>{" "}
+              to see them again.
+            </p>
+          )}
+        </div>
+      )}
 
       {visibleGroups.map((group) => {
         const workspaceId = group[0].workspace_id;
