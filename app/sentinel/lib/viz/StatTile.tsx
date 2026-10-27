@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { T, SERIF } from "../theme";
+import { SANS, SERIF, T } from "../theme";
 import { DeltaChip } from "./DeltaChip";
 import type { TileDelta } from "./delta";
 import { Sparkline } from "./Sparkline";
@@ -22,6 +22,7 @@ export function StatTile({
   spark,
   sparkTitle,
   index = 0,
+  ledger = false,
 }: {
   label: string;
   value: string;
@@ -31,6 +32,10 @@ export function StatTile({
   spark?: (number | null)[];
   sparkTitle?: string;
   index?: number;
+  /** The brand's "at a glance" ledger: no card background, a vertical rule between tiles
+   * instead of a boxed card, a bolder display figure. The tile is still the same component -
+   * only the frame changes - so every caller gets the figure, delta and sparkline for free. */
+  ledger?: boolean;
 }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
@@ -41,10 +46,14 @@ export function StatTile({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: reduce ? 0 : index * 0.04, duration: MOTION.base, ease: MOTION.ease }}
       whileHover={reduce ? undefined : { backgroundColor: VIZ.wash }}
-      style={{ background: T.card, padding: "1rem 1.1rem", display: "flex", flexDirection: "column", minHeight: 118 }}
+      style={
+        ledger
+          ? { padding: "0.9rem 1.15rem 1rem", borderLeft: index === 0 ? "none" : `1px solid ${T.rule}`, display: "flex", flexDirection: "column", minHeight: 118 }
+          : { background: T.card, padding: "1rem 1.1rem", display: "flex", flexDirection: "column", minHeight: 118 }
+      }
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.4rem" }}>
-        <p data-stat-label style={{ fontSize: "0.74rem", color: T.inkSoft, margin: "0 0 0.35rem 0" }}>{label}</p>
+        <p data-stat-label style={{ fontFamily: SANS, fontSize: "0.68rem", fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", color: T.inkSoft, margin: "0 0 0.4rem 0" }}>{label}</p>
         {formula && (
           <button
             type="button"
@@ -57,7 +66,7 @@ export function StatTile({
           </button>
         )}
       </div>
-      <p data-stat-value style={{ fontFamily: SERIF, fontSize: "1.55rem", fontWeight: 500, color: T.ink, margin: 0, lineHeight: 1.15 }}>{value}</p>
+      <p data-stat-value style={{ fontFamily: SERIF, fontSize: ledger ? "2.1rem" : "1.55rem", fontWeight: 700, color: T.ink, margin: 0, lineHeight: 1.1 }}>{value}</p>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "0.6rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", minWidth: 0 }}>
           {delta && <DeltaChip text={delta.text} change={delta.change} tone={delta.tone} vs={delta.vs} />}

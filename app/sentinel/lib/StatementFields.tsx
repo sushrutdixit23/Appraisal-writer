@@ -79,7 +79,7 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
     const doubted = verify.includes(f.key);
     const flagged = (issueFields.get(f.key) ?? []).some((i) => i.severity === "error");
     const id = `${uid}-${f.key}`;
-    const border = typedButInvalid || flagged ? "#B3261E" : doubted || issueFields.has(f.key) ? T.accent : T.rule;
+    const border = typedButInvalid || flagged ? T.oxblood : doubted || issueFields.has(f.key) ? T.accent : T.rule;
     return (
       <Field
         key={f.key}
@@ -102,7 +102,7 @@ export function StatementFields({ values, onChange, verify = [], issues = [], so
         {(f.hint || typedButInvalid) && (
           <p
             id={`${id}-hint`}
-            style={{ fontSize: "0.7rem", color: typedButInvalid ? "#B3261E" : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
+            style={{ fontSize: "0.7rem", color: typedButInvalid ? T.oxblood : T.inkSoft, margin: "0.25rem 0 0 0", lineHeight: 1.4 }}
           >
             {typedButInvalid ? "That is not a number." : f.hint}
           </p>

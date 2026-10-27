@@ -25,8 +25,8 @@ import type { FinancialStatement } from "../../lib/types";
 const card: React.CSSProperties = { background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.2rem 1.4rem" };
 const eyebrow: React.CSSProperties = { fontSize: "0.68rem", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, margin: 0 };
 const btn: React.CSSProperties = {
-  display: "inline-block", fontFamily: "inherit", fontSize: "0.85rem", fontWeight: 500, padding: "0.5rem 1.1rem", border: `1px solid ${T.ink}`, borderRadius: 3,
-  background: T.ink, color: T.background, textDecoration: "none", cursor: "pointer",
+  display: "inline-block", fontFamily: "inherit", fontSize: "0.85rem", fontWeight: 500, padding: "0.5rem 1.1rem", border: `1px solid ${T.accent}`, borderRadius: 3,
+  background: T.accent, color: T.background, textDecoration: "none", cursor: "pointer",
 };
 const btnGhost: React.CSSProperties = { ...btn, background: "transparent", color: T.ink };
 
@@ -174,11 +174,11 @@ export default function ProjectOverviewPage() {
             {latest ? `${latest.period_label} (${latest.basis}) - ${du.ownLabel(workspace.currency_unit)}` : "No annual statement yet"}
           </p>
           {latest ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 1, background: T.rule, border: `1px solid ${T.rule}` }}>
-              <StatTile index={0} label="Revenue" value={fmt(own(latest.revenue_from_operations))} delta={makeDelta("amount", "higher", latest.revenue_from_operations, prior?.revenue_from_operations ?? null, vs)} spark={sameBasis.map((st) => own(st.revenue_from_operations))} sparkTitle="Revenue across the years on file" />
-              <StatTile index={1} label="Profit after tax" value={fmt(own(latest.profit_after_tax))} note={ratios?.["pat_margin"] != null ? `${pct(ratios["pat_margin"])} of revenue` : null} delta={makeDelta("amount", "higher", latest.profit_after_tax, prior?.profit_after_tax ?? null, vs)} spark={sameBasis.map((st) => own(st.profit_after_tax))} sparkTitle="Profit after tax across the years on file" />
-              <StatTile index={2} label="EBITDA margin" value={pct(ratios?.["ebitda_margin"])} delta={makeDelta("percent", "higher", ratios?.["ebitda_margin"] ?? null, priorMargin, vs)} spark={sameBasis.map((st) => (st.ebitda != null && st.revenue_from_operations ? st.ebitda / st.revenue_from_operations : null))} sparkTitle="EBITDA margin across the years on file" />
-              <StatTile index={3} label="Health" value={h ? h.label : "No data"} note={h ? `${health!.categories.filter((c) => c.status !== "no_data").length} of ${health!.categories.length} checks have data` : null} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", borderTop: `1px solid ${T.ink}`, borderBottom: `1px solid ${T.rule}` }}>
+              <StatTile ledger index={0} label="Revenue" value={fmt(own(latest.revenue_from_operations))} delta={makeDelta("amount", "higher", latest.revenue_from_operations, prior?.revenue_from_operations ?? null, vs)} spark={sameBasis.map((st) => own(st.revenue_from_operations))} sparkTitle="Revenue across the years on file" />
+              <StatTile ledger index={1} label="Profit after tax" value={fmt(own(latest.profit_after_tax))} note={ratios?.["pat_margin"] != null ? `${pct(ratios["pat_margin"])} of revenue` : null} delta={makeDelta("amount", "higher", latest.profit_after_tax, prior?.profit_after_tax ?? null, vs)} spark={sameBasis.map((st) => own(st.profit_after_tax))} sparkTitle="Profit after tax across the years on file" />
+              <StatTile ledger index={2} label="EBITDA margin" value={pct(ratios?.["ebitda_margin"])} delta={makeDelta("percent", "higher", ratios?.["ebitda_margin"] ?? null, priorMargin, vs)} spark={sameBasis.map((st) => (st.ebitda != null && st.revenue_from_operations ? st.ebitda / st.revenue_from_operations : null))} sparkTitle="EBITDA margin across the years on file" />
+              <StatTile ledger index={3} label="Health" value={h ? h.label : "No data"} note={h ? `${health!.categories.filter((c) => c.status !== "no_data").length} of ${health!.categories.length} checks have data` : null} />
             </div>
           ) : (
             <p style={{ fontSize: "0.86rem", color: T.inkSoft }}>

@@ -101,7 +101,10 @@ export function RankChart({
                 style={{ display: "grid", gridTemplateColumns: `22px ${labelCol}px 1fr`, alignItems: "center", height: rowH, outlineOffset: -2, cursor: "default", opacity: dim, transition: "opacity 120ms" }}
               >
                 <span style={{ fontSize: "0.72rem", color: VIZ.textSoft, fontVariantNumeric: "tabular-nums" }} aria-hidden="true">{r.rank}</span>
-                <span title={r.label} style={{ fontSize: "0.82rem", fontWeight: isSubject ? 600 : 400, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 10 }}>{r.label}</span>
+                <span title={r.label} style={{ display: "flex", alignItems: "center", fontSize: "0.82rem", fontWeight: isSubject ? 600 : 400, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 10 }}>
+                  {isSubject && <span aria-hidden="true" style={{ width: 6, height: 6, background: T.gold, transform: "rotate(45deg)", marginRight: 8, flexShrink: 0 }} />}
+                  {r.label}
+                </span>
                 <span style={{ position: "relative", height: rowH, display: "block" }}>
                   <span style={{ position: "absolute", top: 0, bottom: 0, left: reserveLeft, right: reserveRight, display: "block" }}>
                     <motion.span

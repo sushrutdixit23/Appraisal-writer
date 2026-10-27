@@ -20,7 +20,7 @@ import { sendFile, UploadError } from "../../../lib/uploadClient";
 import { UNIT_OPTIONS, normaliseUnit, unitLabel, type CurrencyUnit } from "../../../lib/units";
 
 const card: React.CSSProperties = { background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.2rem 1.4rem", marginBottom: "1.2rem" };
-const btn: React.CSSProperties = { fontFamily: "inherit", fontSize: "0.86rem", fontWeight: 500, padding: "0.55rem 1.2rem", border: `1px solid ${T.ink}`, borderRadius: 3, background: T.ink, color: T.background, cursor: "pointer" };
+const btn: React.CSSProperties = { fontFamily: "inherit", fontSize: "0.86rem", fontWeight: 500, padding: "0.55rem 1.2rem", border: `1px solid ${T.accent}`, borderRadius: 3, background: T.accent, color: T.background, cursor: "pointer" };
 const btnGhost: React.CSSProperties = { ...btn, background: "transparent", color: T.ink };
 const small: React.CSSProperties = { fontSize: "0.78rem", color: T.inkSoft, margin: "0.4rem 0 0 0", lineHeight: 1.5 };
 const selectStyle: React.CSSProperties = { fontFamily: "inherit", fontSize: "0.8rem", padding: "0.3rem 0.5rem", border: `1px solid ${T.rule}`, borderRadius: 3, background: T.card, color: T.ink };

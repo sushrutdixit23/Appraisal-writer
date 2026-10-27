@@ -50,7 +50,7 @@ export function Segmented<V extends string>({
               <motion.span
                 layoutId={`seg-${id}`}
                 transition={MOTION.spring}
-                style={{ position: "absolute", inset: 0, background: T.ink, borderRadius: 2, zIndex: 0 }}
+                style={{ position: "absolute", inset: 0, background: T.accent, borderRadius: 2, zIndex: 0 }}
               />
             )}
             <span style={{ position: "relative", zIndex: 1 }}>{o.label}</span>

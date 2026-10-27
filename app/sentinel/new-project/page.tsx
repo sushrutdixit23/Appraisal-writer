@@ -23,7 +23,7 @@ import type { Basis, Workspace } from "../lib/types";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const btnPrimary: React.CSSProperties = {
-  fontFamily: "inherit", fontSize: "0.9rem", fontWeight: 500, padding: "0.65rem 1.5rem", border: `1px solid ${T.ink}`, borderRadius: 3, background: T.ink, color: T.background, cursor: "pointer",
+  fontFamily: "inherit", fontSize: "0.9rem", fontWeight: 500, padding: "0.65rem 1.5rem", border: `1px solid ${T.accent}`, borderRadius: 3, background: T.accent, color: T.background, cursor: "pointer",
 };
 
 export default function NewProjectPage() {

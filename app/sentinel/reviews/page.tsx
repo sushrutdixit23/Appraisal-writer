@@ -77,9 +77,9 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "0.88rem",
   fontWeight: 500,
   padding: "0.6rem 1.4rem",
-  border: `1px solid ${T.ink}`,
+  border: `1px solid ${T.accent}`,
   borderRadius: 3,
-  background: T.ink,
+  background: T.accent,
   color: T.background,
   cursor: "pointer",
 };
@@ -345,11 +345,9 @@ export default function ReviewCyclesPage() {
             <div
               key={cycle.id}
               style={{
-                background: T.card,
-                border: `1px solid ${T.rule}`,
-                borderRadius: 3,
-                padding: "1.2rem 1.5rem",
-                marginBottom: "0.9rem",
+                borderTop: `2px solid ${T.ink}`,
+                padding: "0.9rem 0 0.2rem 0",
+                marginBottom: "1.1rem",
                 maxWidth: 640,
                 display: "flex",
                 justifyContent: "space-between",

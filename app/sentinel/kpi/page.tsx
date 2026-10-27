@@ -165,10 +165,10 @@ const PEER_RANKING_METRICS: {
 ];
 
 const HEALTH_COLORS: Record<HealthStatus, { text: string; statusLabel: string }> = {
-  healthy: { text: "#2F5233", statusLabel: "Healthy" },
-  watch: { text: "#8A6416", statusLabel: "Watch" },
-  concern: { text: "#9A4A1F", statusLabel: "Concern" },
-  critical: { text: "#8C2A2A", statusLabel: "Critical" },
+  healthy: { text: T.green, statusLabel: "Healthy" },
+  watch: { text: T.ochre, statusLabel: "Watch" },
+  concern: { text: T.concern, statusLabel: "Concern" },
+  critical: { text: T.oxblood, statusLabel: "Critical" },
   no_data: { text: T.inkSoft, statusLabel: "No data" },
 };
 
@@ -632,13 +632,12 @@ export default function KpiDashboardPage() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-            gap: 1,
-            background: T.rule,
-            border: `1px solid ${T.rule}`,
+            borderTop: `1px solid ${T.ink}`,
+            borderBottom: `1px solid ${T.rule}`,
           }}
         >
           {tiles.map((t, i) => (
-            <StatTile key={t.label} index={i} label={t.label} value={t.value} note={t.note} formula={t.formula} delta={t.delta} spark={t.spark} sparkTitle={`${t.label} across the years on file`} />
+            <StatTile key={t.label} ledger index={i} label={t.label} value={t.value} note={t.note} formula={t.formula} delta={t.delta} spark={t.spark} sparkTitle={`${t.label} across the years on file`} />
           ))}
         </div>
       </Schedule>

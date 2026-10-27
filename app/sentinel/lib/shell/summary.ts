@@ -1,6 +1,7 @@
 // Sentinel shell - one project's card: how many periods, the latest year, its health, its open findings. Pure.
 
 import { findPriorYear } from "../engine";
+import { T } from "../theme";
 import { computeHealthScore, type HealthScore, type HealthStatus } from "../health";
 import type { FinancialStatement, Workspace } from "../types";
 
@@ -49,9 +50,9 @@ export function summarise(
 }
 
 export const HEALTH_STYLE: Record<HealthStatus, { color: string; label: string }> = {
-  healthy: { color: "#2F5233", label: "Healthy" },
-  watch: { color: "#8A6416", label: "Watch" },
-  concern: { color: "#9A4A1F", label: "Concern" },
-  critical: { color: "#8C2A2A", label: "Critical" },
-  no_data: { color: "#6B6660", label: "No data" },
+  healthy: { color: T.green, label: "Healthy" },
+  watch: { color: T.ochre, label: "Watch" },
+  concern: { color: T.concern, label: "Concern" },
+  critical: { color: T.oxblood, label: "Critical" },
+  no_data: { color: T.inkSoft, label: "No data" },
 };

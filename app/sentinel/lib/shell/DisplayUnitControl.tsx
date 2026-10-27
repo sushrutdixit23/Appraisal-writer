@@ -26,7 +26,7 @@ export function DisplayUnitControl() {
               padding: "0.32rem 0.6rem",
               border: "none",
               borderRight: `1px solid ${T.rule}`,
-              background: active ? T.ink : T.card,
+              background: active ? T.accent : T.card,
               color: active ? T.background : T.inkSoft,
               cursor: "pointer",
             }}

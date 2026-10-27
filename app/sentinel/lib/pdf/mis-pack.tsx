@@ -41,18 +41,18 @@ export type MisPackData = {
 };
 
 // Locked Sentinel palette (Black + Sandstone).
-const INK = "#161616";
-const INK_SOFT = "#5C5850";
-const RULE = "#DCD5C7";
-const CARD = "#FFFFFF";
-const BACKGROUND = "#F7F3EB";
-const ACCENT = "#A47551";
+const INK = "#1D1B16";
+const INK_SOFT = "#585245";
+const RULE = "#D2C9B2";
+const CARD = "#FBF8F1";
+const BACKGROUND = "#F5F0E4";
+const ACCENT = "#002147";
 
 const HEALTH_TEXT: Record<string, string> = {
-  healthy: "#2F5233",
-  watch: "#8A6416",
-  concern: "#9A4A1F",
-  critical: "#8C2A2A",
+  healthy: "#25593A",
+  watch: "#7A5200",
+  concern: "#A14A1E",
+  critical: "#7A1E2C",
   no_data: INK_SOFT,
 };
 const HEALTH_LABEL: Record<string, string> = {

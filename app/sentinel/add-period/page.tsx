@@ -31,9 +31,9 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "0.88rem",
   fontWeight: 500,
   padding: "0.6rem 1.4rem",
-  border: `1px solid ${T.ink}`,
+  border: `1px solid ${T.accent}`,
   borderRadius: 3,
-  background: T.ink,
+  background: T.accent,
   color: T.background,
   cursor: "pointer",
 };

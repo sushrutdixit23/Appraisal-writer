@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 import { groupFlagsByWorkspace, runAllChecks } from "./lib/anomaly";
 import { buildPeerTable } from "./lib/engine";
 import { parseVerdict } from "./lib/format";
-import { SERIF, T } from "./lib/theme";
+import { READING, SERIF, T } from "./lib/theme";
 import type { AnomalyFlag, FinancialStatement, Investigation, Recommendation, Workspace } from "./lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -44,10 +44,12 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function StatusPill({ status }: { status: string }) {
   const color =
     status === "approved" || status === "edited"
-      ? T.accent
-      : status === "rejected" || status === "archived"
-        ? T.ink
-        : T.inkSoft;
+      ? T.green
+      : status === "rejected"
+        ? T.oxblood
+        : status === "archived"
+          ? T.inkSoft
+          : T.ochre;
   return (
     <span
       style={{
@@ -85,31 +87,92 @@ function VerdictHeadline({ text }: { text: string }) {
   );
 }
 
-function FlagChip({ flag }: { flag: AnomalyFlag }) {
+// A finding, numbered like a footnote - the brand's pattern for "evidence, read closely",
+// ported from the Python prototype's .sn-findings. The ordinal is decoration (the flag type
+// label and the description carry the meaning), so it is aria-hidden.
+function FlagChip({ flag, n }: { flag: AnomalyFlag; n: number }) {
   return (
     <div
       style={{
-        background: T.accentSoft,
-        borderLeft: `2px solid ${T.accent}`,
-        padding: "0.6rem 0.9rem",
-        marginBottom: "0.45rem",
+        display: "grid",
+        gridTemplateColumns: "1.5rem minmax(120px, auto) 1fr",
+        gap: "0.6rem",
+        alignItems: "baseline",
+        padding: "0.55rem 0",
+        borderBottom: `1px solid ${T.rule}`,
         fontSize: "0.9rem",
       }}
     >
+      <span aria-hidden="true" style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 600, fontSize: "1.15rem", color: T.ochre, lineHeight: 1 }}>
+        {n}.
+      </span>
       <span
         style={{
           fontSize: "0.66rem",
           fontWeight: 600,
-          letterSpacing: "0.05em",
+          letterSpacing: "0.07em",
           textTransform: "uppercase",
-          color: T.accent,
-          marginRight: "0.55rem",
+          color: T.inkSoft,
         }}
       >
         {flag.flag_type}
       </span>
-      {flag.description}
+      <span>{flag.description}</span>
     </div>
+  );
+}
+
+function FindingsBlock({ flags }: { flags: AnomalyFlag[] }) {
+  return (
+    <div style={{ marginBottom: "0.4rem", borderTop: `1px solid ${T.rule}` }}>
+      <p
+        style={{
+          fontSize: "0.66rem",
+          fontWeight: 600,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: T.inkSoft,
+          margin: "0.5rem 0 0.1rem 0",
+        }}
+      >
+        Findings
+      </p>
+      {flags.map((f, i) => (
+        <FlagChip key={i} flag={f} n={i + 1} />
+      ))}
+    </div>
+  );
+}
+
+/** Approved text, signed. A pull-quote with a green rule and who/when it was signed off, per the
+ * brand: "approved text carrying a signature line". No reviewer name is stored, so the line
+ * states only the date - never a fabricated name. */
+function SignedQuote({ text, signedAt }: { text: string; signedAt: string }) {
+  return (
+    <blockquote
+      style={{
+        margin: "0.6rem 0 0 0",
+        padding: "0.7rem 1.1rem 0.6rem 1.2rem",
+        background: T.card,
+        borderLeft: `4px solid ${T.green}`,
+      }}
+    >
+      <p style={{ fontFamily: READING, fontStyle: "italic", fontSize: "0.97rem", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>
+      <p
+        style={{
+          margin: "0.6rem 0 0 0",
+          paddingTop: "0.5rem",
+          borderTop: `1px solid ${T.rule}`,
+          fontSize: "0.68rem",
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: T.green,
+        }}
+      >
+        Signed off · {new Date(signedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+      </p>
+    </blockquote>
   );
 }
 
@@ -191,11 +254,11 @@ const btnBase: React.CSSProperties = {
   color: T.ink,
   cursor: "pointer",
 };
-const btnPrimary: React.CSSProperties = { ...btnBase, background: T.ink, color: T.background };
+const btnPrimary: React.CSSProperties = { ...btnBase, border: `1px solid ${T.accent}`, background: T.accent, color: T.background };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  High: "#8C2A2A",
-  Medium: "#8A6416",
+  High: T.oxblood,
+  Medium: T.ochre,
   Low: T.inkSoft,
 };
 
@@ -524,7 +587,7 @@ export default function InvestigationQueuePage() {
             >
               {label}
             </p>
-            <p style={{ fontFamily: SERIF, fontSize: "1.7rem", fontWeight: 500, color: i === 2 ? T.accent : T.ink, margin: 0 }}>
+            <p style={{ fontFamily: SERIF, fontSize: "1.7rem", fontWeight: 500, color: i === 1 ? T.ochre : i === 2 ? T.green : i === 3 ? T.oxblood : T.ink, margin: 0 }}>
               {value}
             </p>
           </div>
@@ -566,9 +629,7 @@ export default function InvestigationQueuePage() {
               {inv && <StatusPill status={inv.status} />}
             </div>
 
-            {group.map((f, i) => (
-              <FlagChip key={i} flag={f} />
-            ))}
+            <FindingsBlock flags={group} />
 
             {!inv && (
               <div style={{ marginTop: "0.9rem" }}>
@@ -675,7 +736,7 @@ export default function InvestigationQueuePage() {
             {inv && (inv.status === "approved" || inv.status === "edited" || inv.status === "rejected") && (
               <div style={{ marginTop: "0.8rem" }}>
                 {inv.status === "rejected" ? (
-                  <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: 0 }}>
+                  <p style={{ fontSize: "0.85rem", color: T.inkSoft, margin: 0, padding: "0.6rem 0 0.6rem 1rem", borderLeft: `3px solid ${T.oxblood}` }}>
                     {inv.reviewer_notes ?? "No notes given."}
                   </p>
                 ) : (
@@ -686,7 +747,7 @@ export default function InvestigationQueuePage() {
                       return (
                         <>
                           {verdict && <VerdictHeadline text={verdict} />}
-                          <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{body}</p>
+                          <SignedQuote text={body} signedAt={inv.updated_at} />
                         </>
                       );
                     })()}

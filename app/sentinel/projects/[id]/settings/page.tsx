@@ -26,7 +26,7 @@ import type { Basis, FinancialStatement } from "../../../lib/types";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const card: React.CSSProperties = { background: T.card, border: `1px solid ${T.rule}`, borderRadius: 3, padding: "1.4rem 1.6rem", marginBottom: "1.4rem", maxWidth: 720 };
-const btn: React.CSSProperties = { fontFamily: "inherit", fontSize: "0.86rem", fontWeight: 500, padding: "0.55rem 1.2rem", border: `1px solid ${T.ink}`, borderRadius: 3, background: T.ink, color: T.background, cursor: "pointer" };
+const btn: React.CSSProperties = { fontFamily: "inherit", fontSize: "0.86rem", fontWeight: 500, padding: "0.55rem 1.2rem", border: `1px solid ${T.accent}`, borderRadius: 3, background: T.accent, color: T.background, cursor: "pointer" };
 const btnGhost: React.CSSProperties = { ...btn, background: "transparent", color: T.ink };
 const h2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 500, fontSize: "1.2rem", margin: "0 0 0.3rem 0" };
 const lead: React.CSSProperties = { fontSize: "0.82rem", color: T.inkSoft, margin: "0 0 1.1rem 0", lineHeight: 1.55 };

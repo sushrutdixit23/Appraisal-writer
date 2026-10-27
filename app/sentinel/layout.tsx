@@ -35,10 +35,14 @@ const PORTFOLIO_LABELS: Record<string, string> = {
 };
 
 const GLOBAL_CSS = `
-  @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&family=Source+Serif+4:opsz,ital,wght@8..60,0,400;8..60,0,600;8..60,1,400&family=Source+Sans+3:wght@400;500;600&display=swap");
+  /* Cormorant Garamond's default figures are oldstyle (uneven height, can read as letters at
+     display size - "100" looked like "lOO"). Lining, tabular numerals everywhere, matching the
+     brand spec, also keeps ledger columns aligned. */
+  .sn-root { font-variant-numeric: lining-nums tabular-nums; }
   .sn-root a:focus-visible, .sn-root button:focus-visible, .sn-root select:focus-visible, .sn-root input:focus-visible { outline: 2px solid ${T.accent}; outline-offset: 2px; }
   .sn-nav a { transition: background 120ms ease, color 120ms ease; }
-  .sn-nav a:hover { background: rgba(237,231,220,0.08); color: ${T.sidebarText}; }
+  .sn-nav a:hover { background: rgba(0,33,71,0.06); color: ${T.sidebarText}; }
   .sn-unit-btn:hover { background: ${T.accentSoft}; }
   .sn-switcher:hover, .sn-palette-btn:hover { background: ${T.accentSoft}; }
   .sn-skip { position: absolute; left: -9999px; top: 0; background: ${T.ink}; color: ${T.background}; padding: 0.6rem 1rem; z-index: 100; }
@@ -99,7 +103,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     fontWeight: active ? 600 : 400,
     color: active ? T.sidebarText : T.sidebarTextMuted,
     padding: "0.5rem 0.7rem",
-    background: active ? "rgba(164,117,81,0.22)" : "transparent",
+    background: active ? "rgba(0,33,71,0.09)" : "transparent",
     borderLeft: active ? `2px solid ${T.accent}` : "2px solid transparent",
   });
   const groupLabel: React.CSSProperties = {
@@ -111,19 +115,19 @@ function Shell({ children }: { children: React.ReactNode }) {
       <style>{GLOBAL_CSS}</style>
       <a href="#sentinel-main" className="sn-skip">Skip to content</a>
 
-      <aside aria-label="Sentinel navigation" style={{ width: 232, flexShrink: 0, background: T.sidebar, padding: "1.4rem 1.1rem", display: "flex", flexDirection: "column" }}>
-        <div style={{ paddingBottom: "0.9rem", borderBottom: "1px solid rgba(237,231,220,0.16)", marginBottom: "0.9rem" }}>
+      <aside aria-label="Sentinel navigation" style={{ width: 232, flexShrink: 0, background: T.sidebar, borderRight: `1px solid ${T.rule}`, padding: "1.4rem 1.1rem", display: "flex", flexDirection: "column" }}>
+        <div style={{ paddingBottom: "0.9rem", borderBottom: `1px solid ${T.rule}`, marginBottom: "0.9rem" }}>
           <Link href="/" style={{ textDecoration: "none" }}>
             <p style={{ fontSize: "0.62rem", fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: T.sidebarTextMuted, margin: "0 0 0.15rem 0" }}>Zyntask</p>
           </Link>
           <Link href="/sentinel/projects" style={{ textDecoration: "none" }}>
-            <p style={{ fontFamily: SERIF, fontSize: "1.35rem", fontWeight: 500, color: T.sidebarText, margin: 0 }}>Sentinel</p>
+            <p style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "1.5rem", color: T.accent, margin: 0, letterSpacing: "-0.01em" }}>Sentinel</p>
           </Link>
         </div>
 
         <Link
           href="/sentinel/new-project"
-          style={{ display: "block", textAlign: "center", textDecoration: "none", fontSize: "0.82rem", fontWeight: 600, color: T.sidebar, background: T.accent, padding: "0.55rem 0.7rem", borderRadius: 3, marginBottom: "0.7rem" }}
+          style={{ display: "block", textAlign: "center", textDecoration: "none", fontSize: "0.82rem", fontWeight: 600, color: T.background, background: T.accent, padding: "0.55rem 0.7rem", borderRadius: 3, marginBottom: "0.7rem" }}
         >
           + New project
         </Link>
@@ -136,7 +140,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         {project && (
           <>
-            <div style={{ margin: "1.1rem 0 0.2rem 0", padding: "0.7rem 0.7rem 0.6rem", borderTop: "1px solid rgba(237,231,220,0.16)" }} data-testid="project-block">
+            <div style={{ margin: "1.1rem 0 0.2rem 0", padding: "0.7rem 0.7rem 0.6rem", borderTop: `1px solid ${T.rule}` }} data-testid="project-block">
               <p style={{ fontFamily: SERIF, fontSize: "1.02rem", fontWeight: 500, color: T.sidebarText, margin: "0 0 0.25rem 0", lineHeight: 1.25 }}>{project.company_name}</p>
               <p style={{ fontSize: "0.7rem", color: T.sidebarTextMuted, margin: 0, lineHeight: 1.5 }}>
                 {canWrite ? "Your project" : "Reference company, read-only"}

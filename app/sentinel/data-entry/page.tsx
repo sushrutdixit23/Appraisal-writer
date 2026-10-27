@@ -29,9 +29,9 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "0.88rem",
   fontWeight: 500,
   padding: "0.6rem 1.4rem",
-  border: `1px solid ${T.ink}`,
+  border: `1px solid ${T.accent}`,
   borderRadius: 3,
-  background: T.ink,
+  background: T.accent,
   color: T.background,
   cursor: "pointer",
 };
@@ -297,7 +297,7 @@ export default function DataEntryPage() {
         </button>
 
         {messages.length > 0 && (
-          <div role={status === "error" ? "alert" : "status"} style={{ marginTop: "1rem", fontSize: "0.85rem", color: status === "error" ? "#B3261E" : "#2F5233" }}>
+          <div role={status === "error" ? "alert" : "status"} style={{ marginTop: "1rem", fontSize: "0.85rem", color: status === "error" ? T.oxblood : T.green }}>
             {messages.map((m, i) => (
               <p key={i} style={{ margin: "0.2rem 0" }}>{m}</p>
             ))}
