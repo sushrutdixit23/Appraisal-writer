@@ -150,11 +150,12 @@ export default function DataEntryPage() {
       mode === "new"
         ? { company_name: companyName.trim(), sector, industry: industry.trim() || null, comparison_basis: comparisonBasis, currency_unit: currencyUnit, statement }
         : { workspace_id: existingId, statement };
+    const withSources = { ...payload, sources };
     try {
       const res = await fetch("/api/sentinel/statement", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(withSources),
       });
       const json = await res.json();
       if (!res.ok) {

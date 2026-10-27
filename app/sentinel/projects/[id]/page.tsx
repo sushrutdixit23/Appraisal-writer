@@ -13,6 +13,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { useDisplayUnit } from "../../lib/displayUnit";
 import { computeRatios, findPriorYear } from "../../lib/engine";
+import { ChangeHistory } from "../../lib/shell/ChangeHistory";
 import { setupChecklist } from "../../lib/shell/nav";
 import { useShell } from "../../lib/shell/ShellData";
 import { HEALTH_STYLE, summarise } from "../../lib/shell/summary";
@@ -304,6 +305,8 @@ export default function ProjectOverviewPage() {
           {annual.length === 0 && <p style={{ fontSize: "0.78rem", color: T.inkSoft, marginTop: "0.5rem" }}>No annual (FY) statement yet, so the KPIs and peer comparison are empty.</p>}
         </section>
       )}
+
+      {canWrite && <ChangeHistory workspaceId={workspace.id} />}
 
       <section aria-label="Open" style={{ display: "flex", gap: "0.7rem", flexWrap: "wrap" }}>
         <Link href={`/sentinel/kpi${w}`} style={btnGhost}>KPIs</Link>

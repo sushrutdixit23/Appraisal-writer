@@ -158,7 +158,7 @@ export default function ImportPage() {
         const res = await fetch("/api/sentinel/statement", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ workspace_id: id, statement: r.statement }),
+          body: JSON.stringify({ workspace_id: id, statement: r.statement, sources: r.sources }),
         });
         const body = (await res.json().catch(() => ({}))) as { status?: string; error?: string; details?: string[]; warnings?: string[] };
         results[r.id] = res.ok

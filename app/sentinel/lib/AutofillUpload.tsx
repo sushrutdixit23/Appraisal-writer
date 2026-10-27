@@ -101,7 +101,10 @@ export function AutofillUpload({
       for (const k of ALL_FIELD_KEYS) {
         if ((current[k] ?? "").trim() === "" && values[k] !== undefined) {
           filled[k] = values[k];
-          sources[k] = "Read by an AI model, not by rules - check it against the filing";
+          const fs = r.field_sources?.[k as keyof typeof r.field_sources];
+          sources[k] = fs
+            ? `Read by an AI model${fs.page ? ` from p.${fs.page}` : ""}: "${fs.quote.replace(/\s+/g, " ")}" - check it against the filing`
+            : "Read by an AI model, not by rules - check it against the filing";
         }
       }
       setAiNote(

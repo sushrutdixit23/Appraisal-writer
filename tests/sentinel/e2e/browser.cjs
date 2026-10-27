@@ -767,6 +767,16 @@ async function ready(page, url, waitFor) {
     await a.waitForSelector("text=Saved (created).");
     const [row] = await db("sentinel_statements", "&period_label=eq.FY29&workspace_id=eq." + IDS.alpha);
     assert.equal(row.revenue_from_operations, 1700);
+    const history = await db("sentinel_statement_changes", "&workspace_id=eq." + IDS.alpha + "&period_label=eq.FY29");
+    assert.equal(history.length, 1, "the save through the server recorded who added the period");
+    assert.equal(history[0].action, "created");
+  }, a);
+
+  await check("History: the project Overview lists the recent change", async () => {
+    await ready(a, "/sentinel/projects/" + IDS.alpha, "[data-testid=change-history]");
+    const text = await a.locator("[data-testid=change-history]").innerText();
+    assert.match(text, /FY29/);
+    assert.match(text, /Added/);
   }, a);
 
   // ------------------------------------------------------------------------------- console health

@@ -355,6 +355,13 @@ export function checkGrounding(
   return out;
 }
 
+/** The page a quote sits on, so a figure can point back to where it was read. null when it is on none. */
+export function locateQuotePage(quote: string, pages: PdfPage[]): number | null {
+  const q = normaliseForMatch(quote);
+  if (!q) return null;
+  return pages.find((p) => normaliseForMatch(p.text).includes(q))?.num ?? null;
+}
+
 const GROUNDING_REASON: Record<GroundingFlag, string> = {
   no_quote: "no supporting line was returned for it",
   quote_not_on_page: "the line it cites could not be found in the text read",
@@ -455,6 +462,8 @@ export type ExtractionResult = {
   unit_source: "page" | "model" | "none";
   checks: string[];
   pages_used: number[];
+  /** Per figure, the row the model said it read and the page that row is on (null if not found on any page). */
+  field_sources?: Partial<Record<NumericField, { quote: string; page: number | null }>>;
   source_file: string;
 };
 

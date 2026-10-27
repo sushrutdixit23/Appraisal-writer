@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { BASES } from "../../../sentinel/lib/fields";
+import { diffStatement, readSources, recordChange, recordSources } from "../../../sentinel/lib/audit";
 import { authenticate, getAdmin, isFailure, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { normaliseUnit } from "../../../sentinel/lib/units";
 import { coerceStatement, validateStatement, type OtherStatement } from "../../../sentinel/lib/validate";
@@ -84,11 +85,12 @@ export async function POST(req: Request) {
 
   // What is already on file for this company (nothing, for a company about to be created).
   let existingId: string | null = null;
+  let existingRow: Record<string, unknown> | null = null;
   let others: OtherStatement[] = [];
   if (workspace) {
     const { data, error } = await admin
       .from("sentinel_statements")
-      .select("id, period_type, period_label, period_end_date, basis, revenue_from_operations")
+      .select("*")
       .eq("workspace_id", workspace.id);
     if (error) return fail(error.message, 500);
     const all = data ?? [];
@@ -103,6 +105,7 @@ export async function POST(req: Request) {
       );
     }
     existingId = same?.id ?? null;
+    existingRow = same ?? null;
     others = all.filter((s) => s.id !== existingId);
   }
 
@@ -124,7 +127,12 @@ export async function POST(req: Request) {
   if (existingId) {
     const { error } = await admin.from("sentinel_statements").update(record).eq("id", existingId);
     if (error) return fail(error.message, 500);
-    return NextResponse.json({ status: "updated", workspace_id: workspace.id, statement_id: existingId, warnings });
+    const history = await recordChange(admin, {
+      workspaceId: workspace.id, statementId: existingId, periodLabel: row.period_label, basis: row.basis, action: "updated", userId,
+      changes: existingRow ? diffStatement(existingRow, record) : {},
+    });
+    await recordSources(admin, workspace.id, existingId, readSources(body.sources, record));
+    return NextResponse.json({ status: "updated", workspace_id: workspace.id, statement_id: existingId, warnings, history_recorded: history });
   }
 
   const { data: inserted, error: insertError } = await admin.from("sentinel_statements").insert(record).select("id").single();
@@ -139,5 +147,9 @@ export async function POST(req: Request) {
       duplicate ? 409 : 500
     );
   }
-  return NextResponse.json({ status: "created", workspace_id: workspace.id, statement_id: inserted.id, warnings });
+  const history = await recordChange(admin, {
+    workspaceId: workspace.id, statementId: inserted.id, periodLabel: row.period_label, basis: row.basis, action: "created", userId, changes: {},
+  });
+  await recordSources(admin, workspace.id, inserted.id, readSources(body.sources, record));
+  return NextResponse.json({ status: "created", workspace_id: workspace.id, statement_id: inserted.id, warnings, history_recorded: history });
 }

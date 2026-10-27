@@ -218,6 +218,15 @@ test("a field with no cited quote at all is marked for review, even though its v
   assert.match(r.json.extraction_notes, /Other income: no supporting line was returned for it/);
 });
 
+test("each figure comes back with the row it was read from and the page that row is on, so the source can be kept", async () => {
+  backend.anthropicReply = () => ({ text: modelReply() });
+  const r = await call(annualReport, { basis: "consolidated" });
+  assert.equal(r.json.field_sources.revenue_from_operations.page, 5); // consolidated P&L
+  assert.match(r.json.field_sources.revenue_from_operations.quote, /Revenue from operations\s+1,000\.00/);
+  assert.equal(r.json.field_sources.total_assets.page, 4); // consolidated balance sheet
+  assert.equal("total_debt" in r.json.field_sources, false, "a figure the model could not quote has no source");
+});
+
 test("figures from the wrong basis are called out in the notes", async () => {
   backend.anthropicReply = () => ({ text: modelReply({ basis: "standalone" }) });
   const r = await call(annualReport, { basis: "consolidated" });

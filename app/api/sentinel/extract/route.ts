@@ -32,6 +32,7 @@ import {
   checkDraft,
   checkGrounding,
   groundingNotes,
+  locateQuotePage,
   parseModelDraft,
   resolveUnit,
   selectStatementPages,
@@ -149,7 +150,14 @@ export async function POST(req: Request) {
     notes.push(`The figures are ${draft.basis}, but this company is compared on a ${preferredBasis} basis.`);
   }
 
+  const fieldSources: Record<string, { quote: string; page: number | null }> = {};
+  for (const key of Object.keys(draft.fields)) {
+    const quote = draft.field_quotes[key as keyof typeof draft.field_quotes];
+    if (quote) fieldSources[key] = { quote: quote.slice(0, 200), page: locateQuotePage(quote, pages) };
+  }
+
   return NextResponse.json({
+    field_sources: fieldSources,
     period_type: draft.period_type,
     period_label: draft.period_label,
     period_end_date: draft.period_end_date,

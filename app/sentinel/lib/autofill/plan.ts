@@ -32,6 +32,8 @@ export type ExistingPeriod = {
 export type ImportStatus = "new" | "replace" | "blocked" | "duplicate";
 
 export type ImportRow = {
+  /** Where each figure came from, in the words the forms show; sent with the save so the source is kept. */
+  sources: Record<string, string>;
   id: string;
   file: string;
   period_type: PeriodType | null;
@@ -88,7 +90,7 @@ export function planImport(files: ImportFile[], workspace: Workspace, existing: 
       // A column whose type is unknown is never guessed to be a year.
       if (end && type === "FY" && !label) label = periodForEndDate(end, "year", workspace.fiscal_year_start_month).period_label;
 
-      const base = { id: `${fi}:${pi}`, file: file.name, period_type: type, period_label: label, period_end_date: end, basis, figures, notes, periodNotes, toVerify: applied.verify.length };
+      const base = { id: `${fi}:${pi}`, sources: applied.sources, file: file.name, period_type: type, period_label: label, period_end_date: end, basis, figures, notes, periodNotes, toVerify: applied.verify.length };
       const blocked = (errors: string[]): ImportRow => ({ ...base, status: "blocked", selectedByDefault: false, errors, warnings: [], statement: null });
 
       if (figures === 0) return rows.push(blocked(["No figures were read for this column."]));
