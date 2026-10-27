@@ -33,7 +33,7 @@ export default function NewProjectPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [companyName, setCompanyName] = useState("");
-  const [sector, setSector] = useState("general");
+  const [sector, setSector] = useState("technology");
   const [industry, setIndustry] = useState("");
   const [fyStartMonth, setFyStartMonth] = useState(4);
   const [currencyUnit, setCurrencyUnit] = useState("INR_CRORE");

@@ -187,6 +187,35 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       "common sources of apparent-but-not-real anomalies in this sector.",
     derived_ratios: DERIVED_RATIOS,
   },
+  technology: {
+    sector_id: "technology",
+    display_name: "Technology (IT services and software)",
+    anomaly_thresholds: {
+      peer_relative_zscore: 2.0,
+      yoy_swing_pct: 20.0,
+      exceptional_item_pct_of_pbt: 20.0,
+      // Asset-light: little inventory and little debt, so the balance-sheet lines are tighter than
+      // general, and receivables run longer than FMCG because services are billed in arrears.
+      // Starting assumptions, not calibrated against real filings.
+      current_ratio_min: 1.5,
+      debt_equity_max: 0.5,
+      inventory_days_max: 15,
+      receivable_days_max: 90,
+      roce_min: 0.2,
+    },
+    narrative_context:
+      "Technology companies (IT services, software, platforms) are asset-light and people-heavy: " +
+      "employee cost is the main expense, so margins move with utilisation, attrition, wage " +
+      "increases and the pyramid, not with raw materials. Many report most revenue in foreign " +
+      "currency, so rupee moves change reported revenue and margin without any change in the " +
+      "business; separate constant-currency growth from reported growth where the filing allows. " +
+      "Acquisitions drive step changes in revenue, goodwill and amortisation; share-based pay " +
+      "and capitalised development cost can flatter or depress profit. Do not assume a " +
+      "manufacturing-style working-capital story: inventory is small or absent and receivable " +
+      "days reflect billing terms and unbilled revenue. Reason from the numbers given, and say " +
+      "when an explanation (attrition, deal ramp, currency) is not evidenced in this company's own data.",
+    derived_ratios: DERIVED_RATIOS,
+  },
   fmcg: {
     sector_id: "fmcg",
     display_name: "FMCG / Consumer Staples",

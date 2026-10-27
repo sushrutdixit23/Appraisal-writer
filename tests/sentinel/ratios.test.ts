@@ -105,3 +105,12 @@ test("capital allocation is graded on ROCE against the sector floor (tyre 10%): 
   assert.equal(grade(st("a", { ...now, profit_before_tax: -300 })).status, "critical");
   assert.equal(grade(st("a", { ...now, total_assets: null })).status, "no_data");
 });
+
+test("the technology sector exists, resolves every ratio, and is offered for new projects", async () => {
+  const { getSectorConfig, SECTOR_CONFIGS } = await import("../../app/sentinel/lib/config");
+  assert.ok("technology" in SECTOR_CONFIGS);
+  const cfg = getSectorConfig("technology");
+  assert.equal(cfg.anomaly_thresholds.roce_min, 0.2);
+  assert.match(cfg.narrative_context, /utilisation|attrition/);
+  near(computeRatios(now, before, "technology").interest_cover!, 7);
+});
