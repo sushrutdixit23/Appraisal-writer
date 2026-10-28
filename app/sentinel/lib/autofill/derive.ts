@@ -65,6 +65,12 @@ export function deriveFields(raw: Raw): { fields: Partial<Record<NumericField, F
     f.trade_payables = derivedHit((a?.value ?? 0) + (b?.value ?? 0), [a?.source, b?.source].filter(Boolean) as string[], "dues to micro and small enterprises + dues to other creditors", a && b ? "medium" : "low");
   }
 
+  // Tax printed as a "Current tax" line and a "Deferred tax" line with no total: their sum (deferred is often a bracketed credit).
+  if (!f.tax_expense && raw["tax_current"] && raw["tax_deferred"]) {
+    const a = raw["tax_current"]!, b = raw["tax_deferred"]!;
+    f.tax_expense = derivedHit(Math.round((a.value + b.value) * 100) / 100, [a.source, b.source], "current tax + deferred tax", "medium");
+  }
+
   // Capex is entered as a positive amount; the cash-flow statement prints the outflow in brackets.
   if (f.capex && f.capex.value < 0) f.capex = { ...f.capex, value: Math.abs(f.capex.value), derived: "sign dropped: capex is entered as a positive amount" };
 
@@ -83,7 +89,7 @@ export function deriveFields(raw: Raw): { fields: Partial<Record<NumericField, F
   return { fields: f, notes };
 }
 
-const HELPER_KEYS = new Set(["pre_exceptional_pbt", "total_non_current_liabilities", "total_equity_and_liabilities", "borrowings", "payables_micro", "payables_other"]);
+const HELPER_KEYS = new Set(["pre_exceptional_pbt", "total_non_current_liabilities", "total_equity_and_liabilities", "borrowings", "payables_micro", "payables_other", "tax_current", "tax_deferred"]);
 
 /** Accounting checks over the filled values; every field involved in a failed check drops to low confidence. */
 export function checkAndDowngrade(fields: Partial<Record<NumericField, FieldHit>>): Issue[] {
