@@ -30,7 +30,7 @@ b.tables.sentinel_workspaces = [
   { id: IDS.bravo, owner_id: IDS.B, company_name: "Bravo Secret Tyres", is_public_reference: false, ...base },
   { id: IDS.ref2, owner_id: null, company_name: "Meridian Reference Tyres", is_public_reference: true, ...base },
   { id: IDS.lakh, owner_id: IDS.A, company_name: "Lakh Industries", is_public_reference: false, ...base, currency_unit: "INR_LAKH", bse_code: "532540" },
-  { id: IDS.alpha, owner_id: IDS.A, company_name: "Alpha Tyres", is_public_reference: false, ...base },
+  { id: IDS.alpha, owner_id: IDS.A, company_name: "Alpha Tyres", is_public_reference: false, ...base, ticker: null, bse_code: null },
 ];
 const fy = (ws, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
   id: randomUUID(), workspace_id: ws, review_cycle_id: null, period_type: "FY", period_label: label, period_end_date: end, basis: "consolidated",
