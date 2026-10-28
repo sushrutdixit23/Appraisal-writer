@@ -76,6 +76,8 @@ export function buildCommands(workspaces: Pick<Workspace, "id" | "company_name" 
     { id: "go-projects", label: "All projects", hint: "Go to", group: "Go to", run: { href: "/sentinel/projects" } },
     { id: "new-project", label: "New project", hint: "Create a company", group: "Actions", run: { href: "/sentinel/new-project" } },
     { id: "go-exec", label: "Executive dashboard", hint: "Go to", group: "Go to", run: { href: "/sentinel/executive" } },
+    { id: "go-digest", label: "Coverage digest", hint: "Go to", group: "Go to", keywords: "today attention todo morning", run: { href: "/sentinel/digest" } },
+    { id: "go-calibration", label: "Confidence calibration", hint: "Go to", group: "Go to", keywords: "accuracy trust score", run: { href: "/sentinel/calibration" } },
   ];
   if (current) {
     const ws = workspaces.find((w) => w.id === current);

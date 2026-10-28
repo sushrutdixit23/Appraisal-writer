@@ -10,6 +10,7 @@
     "test:sentinel": "node scripts/test-sentinel.mjs",
     "score:extraction": "node scripts/score-extraction.mjs",
     "score:confidence": "node scripts/score-confidence.mjs",
+    "seed:reference": "node scripts/seed-reference-universe.mjs",
     "test:migrations": "node scripts/test-migrations.mjs"
   },
   "dependencies": {

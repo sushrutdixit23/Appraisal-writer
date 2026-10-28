@@ -188,6 +188,25 @@ async function ready(page, url, waitFor) {
     assert.equal(await stat(a, "Awaiting review"), "1"); // the pending draft
   }, a);
 
+  await check("Digest: lists the draft waiting for a decision and the flagged company, only for the signed-in owner", async () => {
+    await ready(a, "/sentinel/digest", 'h1:has-text("Coverage digest")');
+    await a.waitForSelector('[data-testid="digest-summary"]');
+    assert.match(await a.locator('[data-testid="digest-summary"]').textContent(), /need attention|Nothing needs/);
+    // Alpha has a pending draft (seeded); Bravo belongs to someone else and must never appear.
+    const decide = await a.locator('[data-testid="digest-decide"]').textContent();
+    assert.match(decide, /Alpha Tyres/);
+    assert.ok(!/Bravo/.test(await a.locator("main, body").first().textContent()), "another person's company leaked into the digest");
+    // The sidebar links to it, and it links back to where the work is done.
+    assert.ok(await a.getByRole("link", { name: "Coverage digest" }).count() > 0);
+  }, a);
+
+  await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
+    await ready(a, "/sentinel/calibration", '[data-testid="calibration-summary"]');
+    assert.match(await a.locator('[data-testid="calibration-summary"]').textContent(), /decided investigations/);
+    assert.match(await a.locator('[data-testid="calibration-caveat"]').textContent(), /noise|warming up/);
+    assert.equal(await a.locator("tbody tr").count(), 4); // the four confidence buckets
+  }, a);
+
   await check("Export: the PDF download works from the dashboard and is a real PDF", async () => {
     await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
     await a.waitForSelector("text=Key figures");

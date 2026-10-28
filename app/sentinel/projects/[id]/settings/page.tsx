@@ -53,6 +53,9 @@ export default function ProjectSettingsPage() {
 
   const [marketPrice, setMarketPrice] = useState("");
   const [marketPriceAsOf, setMarketPriceAsOf] = useState("");
+  const [ticker, setTicker] = useState("");
+  const [bseCode, setBseCode] = useState("");
+  const [fetchingPrice, setFetchingPrice] = useState(false);
   const [savingPrice, setSavingPrice] = useState(false);
   const [savedPrice, setSavedPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -82,6 +85,8 @@ export default function ProjectSettingsPage() {
     setNewUnit((u) => u || (normaliseUnit(workspace.currency_unit) === "INR_LAKH" ? "INR_CRORE" : "INR_LAKH"));
     setMarketPrice(workspace.market_price != null ? String(workspace.market_price) : "");
     setMarketPriceAsOf(workspace.market_price_as_of ?? "");
+    setTicker(workspace.ticker ?? "");
+    setBseCode(workspace.bse_code ?? "");
   }, [workspace]);
 
   useEffect(() => {
@@ -174,6 +179,33 @@ export default function ProjectSettingsPage() {
     }
     await reload();
     setSavedPrice(true);
+  }
+
+  /** Ask the server for the latest closing price from the exchange's file; it is saved with its date and source. */
+  async function fetchLatestPrice(accept = false) {
+    setPriceError(null);
+    setSavedPrice(false);
+    setFetchingPrice(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { router.push("/login"); return; }
+      const res = await fetch("/api/sentinel/market/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workspace_id: id, ticker: ticker.trim() || null, bse_code: bseCode.trim() || null, accept }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; suspicious?: boolean };
+      if (res.status === 409 && body.suspicious) {
+        if (window.confirm(`${body.error}\n\nSave this price anyway?`)) await fetchLatestPrice(true);
+        return;
+      }
+      if (!res.ok) { setPriceError(body.error ?? "The price could not be fetched."); return; }
+      await reload();
+      setSavedPrice(true);
+    } finally {
+      setFetchingPrice(false);
+    }
   }
 
   async function changeUnit() {
@@ -315,8 +347,9 @@ export default function ProjectSettingsPage() {
       <form onSubmit={saveMarketPrice} style={card} aria-label="Market data">
         <h2 style={h2}>Market data</h2>
         <p style={lead}>
-          The current share price, for peer valuation (market cap, enterprise value, P/E, EV/EBITDA, EV/Sales). Sentinel has no live market feed - this is
-          your own entry, dated so a stale price is visible rather than assumed current. Leave it blank to leave valuation figures blank.
+          The current share price, for peer valuation (market cap, enterprise value, P/E, EV/EBITDA, EV/Sales). Enter the company&apos;s NSE symbol (or BSE
+          code) and fetch the latest closing price from the exchange&apos;s own end-of-day file, or type a price yourself. Either way it is dated, so a stale
+          price is visible rather than assumed current. Leave it blank to leave valuation figures blank.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
           <Field label="Share price" htmlFor="ps-price">
@@ -340,11 +373,23 @@ export default function ProjectSettingsPage() {
             />
           </Field>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
+          <Field label="NSE symbol" htmlFor="ps-ticker">
+            <input id="ps-ticker" style={inputStyle} value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="e.g. TCS" disabled={readOnly || fetchingPrice} />
+          </Field>
+          <Field label="BSE code (if not on NSE)" htmlFor="ps-bse">
+            <input id="ps-bse" style={inputStyle} value={bseCode} onChange={(e) => setBseCode(e.target.value)} placeholder="e.g. 532540" disabled={readOnly || fetchingPrice} />
+          </Field>
+        </div>
+        {workspace.market_price_source && workspace.market_price_as_of && (
+          <p style={{ ...lead, margin: "0 0 1rem 0" }}>Last fetched from {workspace.market_price_source}, closing {workspace.market_price_as_of}.</p>
+        )}
         {priceError && (
           <p role="alert" style={{ fontSize: "0.82rem", color: T.oxblood, margin: "0 0 1rem 0" }}>{priceError}</p>
         )}
         {!readOnly && (
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            <button type="button" style={btn} disabled={fetchingPrice || (!ticker.trim() && !bseCode.trim())} onClick={() => fetchLatestPrice()} data-testid="fetch-price">{fetchingPrice ? "Fetching..." : "Fetch latest price"}</button>
             <button type="submit" style={btn} disabled={savingPrice}>{savingPrice ? "Saving..." : "Save price"}</button>
             {savedPrice && <span role="status" style={{ fontSize: "0.82rem", color: T.inkSoft }}>Saved.</span>}
           </div>

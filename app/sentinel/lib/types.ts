@@ -28,6 +28,10 @@ export type Workspace = {
   // (and in the database until supabase/migrations/20261101000000_sentinel_market_data.sql is applied).
   market_price?: number | null;
   market_price_as_of?: string | null;
+  // For the automatic price refresh (lib/market.ts); optional until supabase/migrations/20261106000000_sentinel_market_feed.sql is applied.
+  ticker?: string | null;
+  bse_code?: string | null;
+  market_price_source?: string | null;
 };
 
 export type WorkspaceRole = "owner" | "analyst" | "viewer";
