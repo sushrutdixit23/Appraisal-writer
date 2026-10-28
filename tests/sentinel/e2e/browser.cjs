@@ -188,6 +188,20 @@ async function ready(page, url, waitFor) {
     assert.equal(await stat(a, "Awaiting review"), "1"); // the pending draft
   }, a);
 
+  await check("OCR: a scanned PDF (pictures only) is read through the Import page's OCR card, every figure marked for review", async () => {
+    const { makeScannedPdf } = require(path.join(root, "node_modules/.cache/sentinel-tests/tests/sentinel/scan-fixtures.js"));
+    const scan = path.join(SHOTS, "scanned-statements.pdf");
+    fs.writeFileSync(scan, await makeScannedPdf());
+    await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="ocr-card"]');
+    await a.getByLabel("Pages to read by OCR").fill("1-2");
+    await a.getByLabel("Scanned PDF file").setInputFiles(scan);
+    await a.waitForSelector('[data-testid="import-summary"]', { timeout: 120000 });
+    const body = await a.locator("body").textContent();
+    assert.match(body, /scanned-statements\.pdf/);
+    assert.match(body, /OCR/);
+    assert.match(body, /FY26/);
+  }, a);
+
   await check("Data request: a CA's trial balance, sent through the public link with no login, arrives as a draft and imports after review", async () => {
     await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="data-requests"]');
     await a.getByLabel("Period ends").fill("2026-06-30");

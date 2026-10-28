@@ -62,7 +62,7 @@ export async function readFileToResult(buffer: Buffer, filename: string, mimeTyp
       if (pages.reduce((n, p) => n + p.text.trim().length, 0) < 200) {
         throw new ReadFileError(
           "This looks like a scanned or image-based PDF with no text to read. Sentinel reads text PDFs, CSV and Excel files - " +
-            "use a text export of the filing, or enter the figures by hand.",
+            "use a text export of the filing, enter the figures by hand, or on the Import page use \"Scanned PDF? Read with OCR\" and name the statement pages.",
           422
         );
       }
