@@ -51,6 +51,12 @@ export async function enhanceForOcr(png: Uint8Array): Promise<Uint8Array> {
   return canvas.toBuffer("image/png");
 }
 
+/** Tesseract often reads the thousands comma as a full stop ("10,459" as "10.459", "1,48,819" as "148.819"). A statement in crore, lakh or
+ * million never prints three decimals, so a dot followed by exactly three digits is a mangled comma. Applied to OCR text only. */
+export function repairOcrNumbers(text: string): string {
+  return text.replace(/(?<![\d.])(\d{1,3})\.(\d{3})(?![\d.])/g, "$1,$2");
+}
+
 /** Recognise each page image and return its text. One worker is reused for every page and always shut down. */
 export async function ocrImages(images: { num: number; png: Uint8Array }[]): Promise<PdfPage[]> {
   const { createWorker } = await import("tesseract.js");
@@ -64,7 +70,7 @@ export async function ocrImages(images: { num: number; png: Uint8Array }[]): Pro
     const pages: PdfPage[] = [];
     for (const img of images) {
       const { data } = await worker.recognize(Buffer.from(await enhanceForOcr(img.png)));
-      pages.push({ num: img.num, text: data.text });
+      pages.push({ num: img.num, text: repairOcrNumbers(data.text) });
     }
     return pages;
   } finally {

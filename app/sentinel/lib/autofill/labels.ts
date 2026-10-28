@@ -21,7 +21,9 @@ export type HelperKey =
   | "total_equity_and_liabilities"
   | "borrowings"
   | "payables_micro"
-  | "payables_other";
+  | "payables_other"
+  | "tax_current"
+  | "tax_deferred";
 
 export type Target = NumericField | HelperKey;
 
@@ -44,6 +46,7 @@ export function normaliseLabel(raw: string): string {
   s = s.replace(/^\s*(?:\(?(?:[ivx]{1,4}|[a-f]|\d{1,2})\)|(?:[ivx]{1,4}|[a-f]|\d{1,2})\.)\s+/, "");
   s = s.replace(/\u2019|\u2018|`/g, "'");
   s = s.replace(/\([^)]*\)/g, " "); // (loss), (net), (refer note 35), (A)
+  s = s.replace(/(?:\s+\d{1,2}\.\d{1,2},?)+\s*$/, " "); // trailing dotted note references: "expenses 2.1, 2.3"
   s = s.replace(/\bnote\s*(no\.?)?\s*\d+[a-z]?\b/g, " ");
   s = s.replace(/&/g, " and ");
   s = s.replace(/amortization/g, "amortisation");
@@ -63,6 +66,7 @@ export const RULES: Rule[] = [
   R("revenue_from_operations", "pl", /^(net )?sales( and other operating income)?$/, 3),
   R("revenue_from_operations", "pl", /^(total )?revenue$/, 2),
   R("other_income", "pl", /^other income$/, 4),
+  R("other_income", "pl", /^other income,? net$/, 4), // "Other income, net" (Infosys)
   R("total_income", "pl", /^total income$/, 5),
   R("total_income", "pl", /^total revenue$/, 3),
   R("total_expenses", "pl", /^total expenses$/, 5),
@@ -80,6 +84,10 @@ export const RULES: Rule[] = [
   R("tax_expense", "pl", /^total tax expenses?$/, 5),
   R("tax_expense", "pl", /^(income )?tax expenses?$/, 4),
   R("tax_expense", "pl", /^provision for (income )?tax(ation)?$/, 3),
+  // Printed as a "Tax expense:" heading with no figures, then "Current tax" and "Deferred tax" lines (Infosys). Read as helpers and added
+  // together only when no total line exists (derive.ts), so a printed total is never double counted.
+  R("tax_current", "pl", /^current tax$/, 3),
+  R("tax_deferred", "pl", /^deferred tax$/, 3),
   R("profit_after_tax", "pl", /^profit for the (year|period)$/, 5),
   R("profit_after_tax", "pl", /^(net )?profit after tax( for the (year|period))?$/, 5),
   R("profit_after_tax", "pl", /^net profit for the (year|period)$/, 4),
@@ -109,8 +117,9 @@ export const RULES: Rule[] = [
   R("total_equity_and_liabilities", "bs", /^total (equity and liabilities|liabilities and equity)$/, 5),
   R("trade_payables", "bs", /^trade payables?$/, 4),
   R("trade_payables", "bs", /^sundry creditors$/, 3),
-  R("payables_micro", "bs", /^total outstanding dues of micro( and small)? enterprises( and small enterprises)?$/, 4),
-  R("payables_other", "bs", /^total outstanding dues of creditors other than micro( and small)? enterprises( and small enterprises)?$/, 4),
+  // The label often wraps AFTER the figures ("... micro enterprises and small" / "enterprises"), so a truncated label must match too.
+  R("payables_micro", "bs", /^total outstanding dues of micro( and small)?( enterprises)?( and small( enterprises)?)?$/, 4),
+  R("payables_other", "bs", /^total outstanding dues of creditors other than micro( and small)?( enterprises)?( and small( enterprises)?)?$/, 4),
   R("borrowings", "bs", /^(short term |long term )?borrowings$/, 3, true),
 
   // ---- cash flow -------------------------------------------------------------------------------
@@ -121,6 +130,7 @@ export const RULES: Rule[] = [
   R("capex", "cf", /^(purchase|purchases) of property plant and equipment/, 4),
   R("capex", "cf", /^(purchase|purchases) of (fixed|tangible) assets/, 4),
   R("capex", "cf", /^(payments? for|acquisition of) property plant and equipment/, 3),
+  R("capex", "cf", /^expenditure on property plant and equipment/, 3), // "Expenditure on property, plant and equipment and intangibles, net of sale proceeds" (Infosys)
   R("capex", "cf", /^(capital expenditure|additions to (fixed assets|property plant and equipment))/, 3),
 
   // ---- the looser names a spreadsheet uses (management accounts, Tally exports, analyst models) ----
@@ -185,7 +195,7 @@ export function matchFieldHeader(header: string): NumericField | null {
   return null;
 }
 
-const HELPERS = new Set<string>(["pre_exceptional_pbt", "total_non_current_liabilities", "total_equity_and_liabilities", "borrowings", "payables_micro", "payables_other"]);
+const HELPERS = new Set<string>(["pre_exceptional_pbt", "total_non_current_liabilities", "total_equity_and_liabilities", "borrowings", "payables_micro", "payables_other", "tax_current", "tax_deferred"]);
 export const isHelper = (t: Target): t is HelperKey => HELPERS.has(t);
 
 const KEY_ALIASES: Record<string, NumericField> = {
