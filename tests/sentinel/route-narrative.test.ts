@@ -135,3 +135,86 @@ test("no flags for the period is a 404 with no model call; a malformed body is a
   assert.equal((await call({ workspace_id: wsA })).status, 400);
   assert.equal((await call({ workspace_id: "nope", period_label: "FY26" })).status, 404);
 });
+
+// ---------------------------------------------------------------------------------------------
+// Round 2: cost measurement, the cheaper follow-up model, decision memory, sector patterns, and a
+// database that is missing the newest columns.
+// ---------------------------------------------------------------------------------------------
+
+test("the three turns are metered, the JSON follow-up runs on the cheapest model, and the cost is computed from real usage", async () => {
+  backend.anthropicReply = (body) => {
+    const usage = { input_tokens: 1000, output_tokens: 200 };
+    const n = body.messages.length;
+    if (n === 1) return { text: "Initial hypothesis: growth is company specific.", usage };
+    if (n === 3) return { text: "**Rules out sector-wide effect**\n\nAlpha grew faster than the peer set.", usage };
+    return { text: JSON.stringify({ questions: ["q?"], recommendations: [] }), usage };
+  };
+  const r = await call({ workspace_id: wsA, period_label: "FY26" });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.deepEqual(backend.anthropicCalls.map((c) => c.model), ["claude-sonnet-5", "claude-sonnet-5", "claude-haiku-5-5"]);
+  assert.deepEqual(r.json.usage.turns.map((t: any) => t.turn), ["hypothesis", "narrative", "follow_ups"]);
+  assert.equal(r.json.usage.total.input_tokens, 3000);
+  assert.equal(r.json.usage.total.output_tokens, 600);
+  // Two Sonnet turns at $2/$10 and one Haiku turn at $0.10/$0.50 per million tokens, worked by hand:
+  // 2 x (1000x2 + 200x10)/1e6 + (1000x0.1 + 200x0.5)/1e6 = 0.008 + 0.0002
+  assert.equal(r.json.usage.estimated_cost_usd, 0.0082);
+  assert.equal(backend.rowsOf("sentinel_investigations")[0].generation_usage.estimated_cost_usd, 0.0082);
+});
+
+test("if the cheap follow-up model fails, the same turn is retried on the main model and the follow-ups still arrive", async () => {
+  backend.anthropicReply = (body) => {
+    if (body.model === "claude-haiku-5-5") return { json: { type: "error", error: { type: "invalid_request_error", message: "nope" } }, status: 400 };
+    const n = body.messages.length;
+    if (n === 1) return { text: "Initial hypothesis." };
+    if (n === 3) return { text: "**Rules out sector-wide effect**\n\nCompany specific." };
+    return { text: JSON.stringify({ questions: ["Was it a one-off?"], recommendations: [] }) };
+  };
+  const r = await call({ workspace_id: wsA, period_label: "FY26" });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.deepEqual(backend.anthropicCalls.map((c) => c.model), ["claude-sonnet-5", "claude-sonnet-5", "claude-haiku-5-5", "claude-sonnet-5"]);
+  assert.deepEqual(backend.rowsOf("sentinel_investigations")[0].suggested_questions, ["Was it a one-off?"]);
+});
+
+test("decision memory: a reviewer's earlier decision and note on this company reach the prompt - and only that reviewer's", async () => {
+  backend.tables.sentinel_investigations = [
+    { id: randomUUID(), workspace_id: wsA, owner_id: A, period_label: "FY25", status: "rejected", updated_at: "2025-06-01T00:00:00Z",
+      observation: [{ flag_type: "yoy_swing", metric: "yoy_revenue_growth", description: "x" }],
+      reviewer_notes: "One-off export order, not repeatable.", final_narrative: null },
+    { id: randomUUID(), workspace_id: wsA, owner_id: B, period_label: "FY24", status: "approved", updated_at: "2024-06-01T00:00:00Z",
+      observation: [], reviewer_notes: "SECRET note from another reviewer", final_narrative: null },
+    { id: randomUUID(), workspace_id: wsA, owner_id: A, period_label: "FY23", status: "pending", updated_at: "2023-06-01T00:00:00Z",
+      observation: [], reviewer_notes: "an undecided draft", final_narrative: null },
+  ];
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  const first = backend.anthropicCalls[0].messages[0].content as string;
+  assert.match(first, /FY25: REJECTED by the reviewer/);
+  assert.match(first, /One-off export order, not repeatable\./);
+  assert.match(first, /The same flag recurs today: yoy_revenue_growth/);
+  assert.ok(!first.includes("SECRET"), "another reviewer's decision leaked");
+  assert.ok(!first.includes("an undecided draft"), "an undecided draft was treated as a decision");
+});
+
+test("sector patterns: the count of companies raising the same flag is computed and handed to the model as fact", async () => {
+  const base = { sector: "tyre", industry: null, fiscal_year_start_month: 4, currency: "INR", comparison_basis: "consolidated", owner_id: null, is_public_reference: true, currency_unit: "INR_CRORE" };
+  for (const name of ["Peer One", "Peer Two", "Peer Three"]) {
+    const id = randomUUID();
+    backend.tables.sentinel_workspaces.push({ id, company_name: name, ...base });
+    backend.tables.sentinel_statements.push(fy(id, "FY26", "2026-03-31", 13_000, 900), fy(id, "FY25", "2025-03-31", 10_000, 880));
+  }
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  const second = backend.anthropicCalls[1].messages[2].content as string;
+  assert.match(second, /yoy_revenue_growth \(yoy_swing\): raised by 4 of 5 companies with FY26 on file/);
+  assert.match(second, /SECTOR-WIDE pattern/);
+});
+
+test("a database missing the newest columns still saves the investigation, just without them", async () => {
+  backend.failNext = {
+    table: "sentinel_investigations", method: "POST", status: 400,
+    body: { code: "PGRST204", message: "Could not find the 'generation_usage' column of 'sentinel_investigations' in the schema cache" },
+  };
+  const r = await call({ workspace_id: wsA, period_label: "FY26" });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const [inv] = backend.rowsOf("sentinel_investigations");
+  assert.equal(inv.status, "pending");
+  assert.ok(!("generation_usage" in inv) && !("grounding_warnings" in inv), "the optional columns were not left in the retry");
+});

@@ -18,7 +18,7 @@ import type { AddressInfo } from "node:net";
 export type Row = Record<string, any>;
 export const SERVICE_TOKEN = "service-role-key";
 
-type Reply = { text: string } | { json: unknown; status?: number };
+type Reply = { text: string; usage?: Record<string, number> } | { json: unknown; status?: number };
 
 export class FakeBackend {
   tables: Record<string, Row[]> = {};
@@ -100,7 +100,7 @@ export class FakeBackend {
       if ("json" in reply) return this.send(res, reply.status ?? 200, reply.json);
       return this.send(res, 200, {
         id: "msg_test", type: "message", role: "assistant", model: body.model, stop_reason: "end_turn", stop_sequence: null,
-        content: [{ type: "text", text: reply.text }], usage: { input_tokens: 1, output_tokens: 1 },
+        content: [{ type: "text", text: reply.text }], usage: reply.usage ?? { input_tokens: 1, output_tokens: 1 },
       });
     }
 

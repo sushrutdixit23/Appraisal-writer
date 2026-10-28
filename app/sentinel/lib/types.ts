@@ -6,6 +6,8 @@
 // table columns exactly (snake_case), so rows come off supabase-js and
 // go straight into the engine with zero mapping.
 
+import type { UsageSummary } from "./aiUsage";
+
 export type PeriodType = "Q1" | "Q2" | "Q3" | "Q4" | "FY";
 export type Basis = "standalone" | "consolidated";
 
@@ -203,6 +205,9 @@ export type Investigation = {
   // supabase/migrations/20261103000000_sentinel_grounding_warnings.sql is applied), so an older
   // investigation generated before this check existed simply has none to show.
   grounding_warnings?: string[];
+  // Tokens and estimated cost of the model calls that produced this draft (see aiUsage.ts). Optional until
+  // supabase/migrations/20261104000000_sentinel_ai_usage.sql is applied.
+  generation_usage?: UsageSummary | null;
 };
 
 // Review Cycle — Phase 1's core object (see roadmap). Every recurring

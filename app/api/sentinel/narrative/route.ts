@@ -7,11 +7,15 @@
 // old sentinel_reviews table.
 
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { normaliseUsage, summariseUsage, type TurnUsage } from "../../../sentinel/lib/aiUsage";
 import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
 import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
+import { DECIDED_STATUSES, renderDecisionMemory, type PriorInvestigation } from "../../../sentinel/lib/decisionMemory";
+import { renderSectorPatterns, sectorPatterns } from "../../../sentinel/lib/sectorPatterns";
 import { authenticate, rateLimit, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { operatingContext, type MetricRow } from "../../../sentinel/lib/metrics";
 import { formatMoney } from "../../../sentinel/lib/units";
@@ -23,6 +27,11 @@ import type {
 } from "../../../sentinel/lib/types";
 
 const MODEL = "claude-sonnet-5";
+// The third turn only reformats an analysis that already exists into JSON (questions + structured
+// recommendations) - the cheapest model is enough, at a twentieth of the price per token. If it
+// ever fails, the same turn is retried once on MODEL, so a model-availability problem degrades
+// cost, not the feature.
+const FOLLOW_UP_MODEL = "claude-haiku-5-5";
 
 const inr = (v: number) =>
   `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cr`;
@@ -106,29 +115,30 @@ function peerContextForMetrics(
   return sections.join("\n\n");
 }
 
+type Turn = { role: "user" | "assistant"; content: string };
+
+// Investigation columns added after the first release; each has a hand-run migration, so a database
+// without one must still be able to save an investigation.
+const OPTIONAL_INVESTIGATION_COLUMNS = ["grounding_warnings", "generation_usage"] as const;
+const isMissingColumn = (e: { code?: string; message?: string } | null) =>
+  !!e && (e.code === "PGRST204" || /could not find the .* column|column .* does not exist/i.test(e.message ?? ""));
+
+/** One model call, with its token usage recorded on `meter` under `label`. Uses the official SDK
+ * (which also retries 429/5xx for us); ANTHROPIC_BASE_URL is honoured by the SDK itself. */
 async function callClaude(
   system: string,
-  messages: { role: "user" | "assistant"; content: string }[],
-  maxTokens: number
+  messages: Turn[],
+  maxTokens: number,
+  meter: TurnUsage[],
+  label: string,
+  model: string = MODEL
 ): Promise<string> {
-  const baseUrl = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "");
-  const res = await fetch(`${baseUrl}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, thinking: { type: "disabled" }, system, messages }),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Anthropic API error (${res.status}): ${errText.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const textBlock = (data.content ?? []).find((b: { type?: string }) => b.type === "text");
-  if (!textBlock) throw new Error("No text block in Anthropic response");
-  return textBlock.text as string;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const res = await client.messages.create({ model, max_tokens: maxTokens, thinking: { type: "disabled" }, system, messages });
+  meter.push({ turn: label, model, ...normaliseUsage(res.usage) });
+  const textBlock = res.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") throw new Error("No text block in Anthropic response");
+  return textBlock.text;
 }
 
 type RecommendationDraft = {
@@ -150,7 +160,8 @@ type RecommendationDraft = {
  * than saved with a missing priority or difficulty. */
 async function getSuggestedFollowUps(
   system: string,
-  priorMessages: { role: "user" | "assistant"; content: string }[]
+  priorMessages: Turn[],
+  meter: TurnUsage[]
 ): Promise<{ questions: string[]; recommendations: RecommendationDraft[] }> {
   const prompt =
     "Based on your analysis above, list 2-4 specific follow-up questions an analyst " +
@@ -161,11 +172,17 @@ async function getSuggestedFollowUps(
     "from the data given), owner (a plausible owner role, e.g. \"Finance Head\"), timeline (a " +
     "realistic window, e.g. \"0-2 weeks\"), and difficulty (exactly \"Easy\", \"Medium\", or \"Hard\"). " +
     "Respond with ONLY this JSON shape, no other text: " +
-    '{"questions": ["...",""..."], "recommendations": [{"title": "...", "priority": "...", ' +
+    '{"questions": ["...", "..."], "recommendations": [{"title": "...", "priority": "...", ' +
     '"business_value": "...", "financial_impact": "..." , "owner": "...", "timeline": "...", ' +
     '"difficulty": "..."}]}';
   try {
-    const raw = await callClaude(system, [...priorMessages, { role: "user", content: prompt }], 600);
+    const turns: Turn[] = [...priorMessages, { role: "user", content: prompt }];
+    let raw: string;
+    try {
+      raw = await callClaude(system, turns, 600, meter, "follow_ups", FOLLOW_UP_MODEL);
+    } catch {
+      raw = await callClaude(system, turns, 600, meter, "follow_ups_retry", MODEL);
+    }
     const cleaned = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     const questions = Array.isArray(parsed.questions)
@@ -275,15 +292,33 @@ export async function POST(req: Request) {
   const flagsBlock = flags.map((f) => `- ${f.description}`).join("\n");
   const plural = flags.length > 1 ? "flags were" : "flag was";
 
+  // What this reviewer already decided about this company in earlier periods (best effort: a failed read
+  // just means no memory, never a failed generation).
+  const { data: priorRows } = await supabase
+    .from("sentinel_investigations")
+    .select("period_label,status,observation,reviewer_notes,final_narrative,updated_at")
+    .eq("workspace_id", workspace.id)
+    .eq("owner_id", userId)
+    .in("status", [...DECIDED_STATUSES])
+    .neq("period_label", period_label)
+    .order("updated_at", { ascending: false })
+    .limit(8);
+  const memory = renderDecisionMemory((priorRows ?? []) as PriorInvestigation[], flags);
+
+  // Whether each flag is a sector story or a company story, counted from the flags themselves.
+  const patterns = sectorPatterns(allFlags, peerRows, workspace.id, period_label);
+  const patternBlock = renderSectorPatterns(patterns, period_label);
+
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}${keyAuditMattersBlock(stmt)}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}${keyAuditMattersBlock(stmt)}${memory}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";
 
+  const meter: TurnUsage[] = [];
   try {
-    const hypothesis = await callClaude(systemPrompt, [{ role: "user", content: turn1User }], 500);
+    const hypothesis = await callClaude(systemPrompt, [{ role: "user", content: turn1User }], 500, meter, "hypothesis");
 
     const metrics = flags.map((f) => f.metric);
     const peerContext = peerContextForMetrics(peerRows, metrics, workspace.id);
@@ -296,7 +331,7 @@ export async function POST(req: Request) {
       : "";
     const turn2User =
       `Here's how each flagged metric compares across the sector peer set for the same period:\n\n` +
-      `${peerContext}${closestPeerBlock}\n\n` +
+      `${peerContext}${closestPeerBlock}${patternBlock}\n\n` +
       "Does this peer context CONFIRM your hypothesis (a sector-wide effect), RULE IT OUT " +
       "(this looks company-specific), or point to something else? Start your reply with " +
       "exactly one short bolded verdict line using markdown (e.g. **Confirms sector-wide " +
@@ -309,12 +344,14 @@ export async function POST(req: Request) {
       { role: "assistant", content: hypothesis },
       { role: "user", content: turn2User },
     ];
-    const finalNarrative = await callClaude(systemPrompt, turn2Messages, 700);
+    const finalNarrative = await callClaude(systemPrompt, turn2Messages, 700, meter, "narrative");
 
-    const followUps = await getSuggestedFollowUps(systemPrompt, [
-      ...turn2Messages,
-      { role: "assistant", content: finalNarrative },
-    ]);
+    const followUps = await getSuggestedFollowUps(
+      systemPrompt,
+      [...turn2Messages, { role: "assistant", content: finalNarrative }],
+      meter
+    );
+    const usage = summariseUsage(meter);
 
     const confidence = computeConfidence(flags, peerRows.length);
 
@@ -328,44 +365,48 @@ export async function POST(req: Request) {
       ),
     ];
 
-    const { data: upsertData, error: upsertError } = await supabase
-      .from("sentinel_investigations")
-      .upsert(
-        {
-          workspace_id: workspace.id,
-          // Inherits whatever review cycle the underlying statement is
-          // already attached to (set via Add Period's "Review cycle"
-          // picker) - no new request parameter or caller change needed.
-          // A statement with no review cycle attached simply produces an
-          // unattached investigation, same as before this change.
-          review_cycle_id: stmt.review_cycle_id ?? null,
-          owner_id: userId,
-          period_label,
-          status: "pending",
-          observation: flags,
-          initial_hypothesis: hypothesis,
-          ai_narrative: finalNarrative,
-          confidence_score: confidence.score,
-          confidence_signals: confidence.signals,
-          grounding_warnings: groundingWarnings,
-          suggested_questions: followUps.questions,
-          // Recommendation Engine (Phase B): the old formatted-string
-          // actions column stops being written going forward - real
-          // recommendations now live in sentinel_recommendations
-          // instead. Existing investigations keep whatever they already
-          // have in this column; this only affects new/regenerated ones.
-          suggested_actions: [],
-          final_narrative: null,
-          reviewer_notes: null,
-          archived_at: null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "workspace_id,owner_id,period_label" }
-      )
-      .select("id")
-      .single();
-    if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    const row: Record<string, unknown> = {
+      workspace_id: workspace.id,
+      // Inherits whatever review cycle the underlying statement is
+      // already attached to (set via Add Period's "Review cycle"
+      // picker) - no new request parameter or caller change needed.
+      // A statement with no review cycle attached simply produces an
+      // unattached investigation, same as before this change.
+      review_cycle_id: stmt.review_cycle_id ?? null,
+      owner_id: userId,
+      period_label,
+      status: "pending",
+      observation: flags,
+      initial_hypothesis: hypothesis,
+      ai_narrative: finalNarrative,
+      confidence_score: confidence.score,
+      confidence_signals: confidence.signals,
+      grounding_warnings: groundingWarnings,
+      generation_usage: usage,
+      suggested_questions: followUps.questions,
+      // Recommendation Engine (Phase B): the old formatted-string
+      // actions column stops being written going forward - real
+      // recommendations now live in sentinel_recommendations
+      // instead. Existing investigations keep whatever they already
+      // have in this column; this only affects new/regenerated ones.
+      suggested_actions: [],
+      final_narrative: null,
+      reviewer_notes: null,
+      archived_at: null,
+      updated_at: new Date().toISOString(),
+    };
+    const save = (r: Record<string, unknown>) =>
+      supabase.from("sentinel_investigations").upsert(r, { onConflict: "workspace_id,owner_id,period_label" }).select("id").single();
+    let { data: upsertData, error: upsertError } = await save(row);
+    // The columns added after the first release may not exist yet (their migrations are run by hand): save the
+    // investigation without them rather than fail the whole generation over bookkeeping.
+    if (isMissingColumn(upsertError)) {
+      const slim = { ...row };
+      for (const k of OPTIONAL_INVESTIGATION_COLUMNS) delete slim[k];
+      ({ data: upsertData, error: upsertError } = await save(slim));
+    }
+    if (upsertError || !upsertData) {
+      return NextResponse.json({ error: upsertError?.message ?? "Could not save the investigation." }, { status: 500 });
     }
 
     // Recommendations are regenerated in full alongside the
@@ -409,7 +450,11 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ status: "drafted" });
+    console.info(
+      `Sentinel narrative ${workspace.id} ${period_label}: ${usage.total.input_tokens} in / ${usage.total.output_tokens} out tokens, ` +
+        `${usage.total.cache_read_input_tokens} cached, est. $${usage.estimated_cost_usd ?? "?"}`
+    );
+    return NextResponse.json({ status: "drafted", usage });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed" }, { status: 502 });
   }

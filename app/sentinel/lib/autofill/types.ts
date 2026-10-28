@@ -61,4 +61,6 @@ export type AutofillOptions = {
   periodType?: PeriodType | null;
   fyStartMonth?: number;
   sourceFile?: string;
+  /** A trial balance carries no period heading: the caller (a data request) says which period it is for. */
+  periodEndDate?: string | null;
 };
