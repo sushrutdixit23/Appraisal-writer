@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { buildDigest } from "../lib/digest";
+import { buildDigest, type DigestInput } from "../lib/digest";
 import { useShell } from "../lib/shell/ShellData";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, Investigation, Recommendation } from "../lib/types";
@@ -22,6 +22,8 @@ export default function DigestPage() {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [filings, setFilings] = useState<NonNullable<DigestInput["filings"]>>([]);
+  const [discussion, setDiscussion] = useState<NonNullable<DigestInput["discussion"]>>([]);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -45,14 +47,21 @@ export default function DigestPage() {
           own.map((w) => fetch(`/api/sentinel/requests?workspace_id=${w.id}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : { requests: [] })).catch(() => ({ requests: [] })))
         );
         setRequests(lists.flatMap((l, i) => ((l.requests ?? []) as Omit<RequestRow, "workspace_id">[]).map((r) => ({ ...r, workspace_id: own[i].id }))));
+        // New filings and unread reviewer comments are also server-held tables; each is absent until its migration is run.
+        const get = (url: string): Promise<Record<string, unknown>> => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+        const watched = own.filter((w) => w.bse_code);
+        const filingLists = await Promise.all(watched.map((w) => get(`/api/sentinel/filings?workspace_id=${w.id}`)));
+        setFilings(filingLists.flatMap((l) => (l.filings ?? []) as NonNullable<DigestInput["filings"]>));
+        const unread = await Promise.all(own.map((w) => get(`/api/sentinel/comments?workspace_id=${w.id}&summary=1`)));
+        setDiscussion(unread.flatMap((l, i) => ((l.unread ?? []) as { period_label: string; unread: number }[]).map((u) => ({ workspace_id: own[i].id, ...u }))));
       }
       setLoaded(true);
     })();
   }, [shellLoading, signedIn, workspaces, userId, router]);
 
   const digest = useMemo(
-    () => buildDigest({ workspaces, statements, investigations, recommendations, requests, userId, today: new Date().toISOString().slice(0, 10) }),
-    [workspaces, statements, investigations, recommendations, requests, userId]
+    () => buildDigest({ workspaces, statements, investigations, recommendations, requests, filings, discussion, userId, today: new Date().toISOString().slice(0, 10) }),
+    [workspaces, statements, investigations, recommendations, requests, filings, discussion, userId]
   );
 
   if (shellLoading || !loaded) return <p style={{ color: T.inkSoft }}>Building your digest...</p>;

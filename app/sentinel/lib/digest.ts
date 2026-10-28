@@ -16,7 +16,7 @@ export type DigestItem = {
   href: string;
 };
 
-export type DigestSection = { id: "decide" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
+export type DigestSection = { id: "filings" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
 
 export type Digest = { sections: DigestSection[]; total: number };
 
@@ -26,6 +26,10 @@ export type DigestInput = {
   investigations: Investigation[];
   recommendations: Recommendation[];
   requests?: (RequestLike & { workspace_id: string })[];
+  /** New (not yet dismissed) results / annual-report filings found by the filing watcher. */
+  filings?: { id: string; workspace_id: string; kind: "results" | "annual_report"; headline: string; filed_at: string; url: string | null }[];
+  /** Reviewer comments the owner has not read yet, one row per investigation. */
+  discussion?: { workspace_id: string; period_label: string; unread: number }[];
   userId: string;
   /** YYYY-MM-DD. */
   today: string;
@@ -44,6 +48,18 @@ export function buildDigest(input: DigestInput): Digest {
   const own = new Map(workspaces.filter((w) => w.owner_id === userId).map((w) => [w.id, w]));
   const name = (id: string) => workspaces.find((w) => w.id === id)?.company_name ?? "Unknown company";
 
+  // 0. Something new was filed: the highest-value item a push can carry, because the next step is to import it.
+  const filings = (input.filings ?? [])
+    .filter((f) => own.has(f.workspace_id))
+    .sort((a, b) => b.filed_at.localeCompare(a.filed_at))
+    .map<DigestItem>((f) => ({
+      workspace_id: f.workspace_id,
+      company_name: name(f.workspace_id),
+      title: `${name(f.workspace_id)} - ${f.kind === "annual_report" ? "annual report" : "results"} filed ${f.filed_at.slice(0, 10)}`,
+      detail: `${f.headline}${f.url ? ` Open on BSE: ${f.url}` : ""} Import the figures once you have the file.`,
+      href: `/sentinel/projects/${f.workspace_id}/import`,
+    }));
+
   // 1. Drafts waiting for a decision, the most confident first.
   const decide = investigations
     .filter((i) => i.status === "pending" && own.has(i.workspace_id))
@@ -61,6 +77,17 @@ export function buildDigest(input: DigestInput): Digest {
         href: "/sentinel",
       };
     });
+
+  // 1b. Someone commented on a shared investigation and the owner has not read it.
+  const discussion = (input.discussion ?? [])
+    .filter((d) => own.has(d.workspace_id) && d.unread > 0)
+    .map<DigestItem>((d) => ({
+      workspace_id: d.workspace_id,
+      company_name: name(d.workspace_id),
+      title: `${name(d.workspace_id)} - ${d.unread} new comment${d.unread > 1 ? "s" : ""} on ${d.period_label}`,
+      detail: "A reviewer replied on the shared investigation.",
+      href: "/sentinel",
+    }));
 
   // 2. Flags nobody has investigated yet, the furthest past their threshold first.
   const bySector = new Map<string, Workspace[]>();
@@ -129,7 +156,9 @@ export function buildDigest(input: DigestInput): Digest {
   }
 
   const sections: DigestSection[] = [
+    { id: "filings", title: "New filings", empty: "No new results or annual reports.", items: filings },
     { id: "decide", title: "Waiting for your decision", empty: "No drafts waiting.", items: decide },
+    { id: "discussion", title: "Reviewer comments", empty: "No unread comments.", items: discussion },
     { id: "investigate", title: "Flagged, not yet investigated", empty: "Every flag has been investigated.", items: investigate },
     { id: "recommendations", title: "Recommendations to act on", empty: "No pending recommendations.", items: recs },
     { id: "requests", title: "Figures not received", empty: "No data requests are overdue.", items: requests },
