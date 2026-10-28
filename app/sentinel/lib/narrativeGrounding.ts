@@ -38,7 +38,7 @@ function parseClaims(text: string): Claim[] {
 
 /** Equal for grounding purposes: within rounding of a formatted figure (1 dp for a percentage,
  * 2 sig. figs of relative error for a rupee amount), never an exact-float comparison. */
-const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.05, Math.abs(b) * 0.01);
+const close = (a: number, b: number, abs = 0.05) => Math.abs(a - b) <= Math.max(abs, Math.abs(b) * 0.01);
 
 /** Every pairwise sum and difference of the pool - a "7.3 percentage-point gap" between two
  * grounded percentages (15.2% - 7.9%) is exactly this, one step removed from the raw figures. */
@@ -59,17 +59,17 @@ function pairwiseSumsAndDifferences(pool: number[]): number[] {
  * show, e.g. "Revenue cr22.7cr x (15.2% - 7.9%) = cr1.66cr")? Checking every such pair against a
  * prompt's own (bounded) number set is cheap and exact about what counts as derivable, rather
  * than trying to parse the model's arithmetic expression itself. */
-function derivable(value: number, pool: number[]): boolean {
+function derivable(value: number, pool: number[], abs = 0.05): boolean {
   if (pool.length === 0) return false;
-  if (pool.some((a) => close(value, a) || close(value, -a))) return true;
+  if (pool.some((a) => close(value, a, abs) || close(value, -a, abs))) return true;
   const oneStep = pairwiseSumsAndDifferences(pool.slice(0, 120)); // bounded: a prompt's own figures, not user input
-  if (oneStep.some((a) => close(value, a))) return true;
+  if (oneStep.some((a) => close(value, a, abs))) return true;
   const combined = [...pool, ...oneStep];
   for (const a of pool) {
     for (const b of combined) {
-      if (close(value, (a / 100) * b) || close(value, (b / 100) * a)) return true;
-      if (b !== 0 && close(value, (a / b) * 100)) return true;
-      if (a !== 0 && close(value, (b / a) * 100)) return true;
+      if (close(value, (a / 100) * b, abs) || close(value, (b / 100) * a, abs)) return true;
+      if (b !== 0 && close(value, (a / b) * 100, abs)) return true;
+      if (a !== 0 && close(value, (b / a) * 100, abs)) return true;
     }
   }
   return false;
@@ -94,14 +94,29 @@ function daysGrounded(value: number, groundedText: string): boolean {
   return false;
 }
 
+/** The day-sized figures a prompt carries (a trend line's "88.17 in FY25 -> 94.46 in FY26", "94 days", a peer's days), so a
+ * percentage change between two of them - "+7%" for 88.17 to 94.46 - is recognised as derived, not invented. */
+function dayFigures(groundedText: string): number[] {
+  const stripped = groundedText.replace(/\u20b9\s*-?[\d,]+(?:\.\d+)?(?:\s*(?:cr|crore|lakh|million))?/gi, " ").replace(/\bFY\d{2,4}\b/gi, " ");
+  const out: number[] = [];
+  for (const m of stripped.matchAll(/(-?\d[\d,]*(?:\.\d+)?)\s*(?:in\s*)?(?:->|days?\b|-day\b)/gi)) out.push(Number(m[1].replace(/,/g, "")));
+  for (const m of stripped.matchAll(/->\s*(-?\d[\d,]*(?:\.\d+)?)/g)) out.push(Number(m[1].replace(/,/g, "")));
+  return out.filter((n) => Number.isFinite(n) && Math.abs(n) <= 1000);
+}
+
 export function checkNarrativeGrounding(narrative: string, groundedText: string): string[] {
   const pool = parseClaims(groundedText).map((c) => c.value);
+  const days = dayFigures(groundedText);
   const seen = new Set<string>();
   const ungrounded: string[] = [];
   for (const claim of parseClaims(narrative)) {
     if (seen.has(claim.raw)) continue;
     seen.add(claim.raw);
-    if (!derivable(claim.value, pool)) ungrounded.push(claim.raw);
+    // A percentage may also be the change between two day figures the prompt carried.
+    const candidates = claim.raw.includes("%") && days.length > 0 ? [...pool, ...days] : pool;
+    // A percentage printed without a decimal ("7%") is rounded to the nearest whole number, so half a point of slack either way.
+    const abs = claim.raw.includes("%") && !claim.raw.includes(".") ? 0.5 : 0.05;
+    if (!derivable(claim.value, candidates, abs)) ungrounded.push(claim.raw);
   }
   for (const m of narrative.matchAll(DAYS_NUMBER)) {
     const raw = m[0].trim();

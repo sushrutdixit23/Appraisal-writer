@@ -13,7 +13,7 @@ import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
-import { basisNote, formatMetricValue, receivablesDefinitionNote, trendBlock } from "../../../sentinel/lib/narrativeContext";
+import { basisNote, formatMetricValue, materialityNote, receivablesDefinitionNote, receivablesStandingCaveat, trendBlock } from "../../../sentinel/lib/narrativeContext";
 import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
 import { DECIDED_STATUSES, renderDecisionMemory, type PriorInvestigation } from "../../../sentinel/lib/decisionMemory";
 import { renderSectorPatterns, sectorPatterns } from "../../../sentinel/lib/sectorPatterns";
@@ -327,7 +327,14 @@ export async function POST(req: Request) {
         `subject directly against this named company rather than only citing a sector-wide ` +
         `average - a well-matched named peer is a stronger benchmark than a broad average.`
       : "";
-    const caveats = [basisNote(peerRows), flags.some((f) => f.metric === "receivable_days") ? receivablesDefinitionNote(peerRows) : null]
+    const receivablesInPlay = flags.some((f) => f.metric === "receivable_days" || f.metric === "cash_conversion_cycle");
+    const caveats = [
+      basisNote(peerRows),
+      // Specific evidence when some peers carry an unbilled line and others do not; otherwise the standing caveat, because the
+      // definition is unrecorded for most companies and a model left to itself will call a definition gap a collections finding.
+      receivablesInPlay ? receivablesDefinitionNote(peerRows) ?? receivablesStandingCaveat() : null,
+      flags.some((f) => f.flag_type === "working_capital") ? materialityNote(workspace.sector) : null,
+    ]
       .filter((c): c is string => !!c)
       .map((c) => `\n\nData caveat: ${c}`)
       .join("");

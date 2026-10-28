@@ -2,7 +2,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { basisNote, formatMetricValue, receivablesDefinitionNote, receivablesGrowthGap, trendBlock } from "../../app/sentinel/lib/narrativeContext";
+import { basisNote, formatMetricValue, materialityNote, receivablesDefinitionNote, receivablesGrowthGap, receivablesStandingCaveat, trendBlock } from "../../app/sentinel/lib/narrativeContext";
 import type { PeerRow } from "../../app/sentinel/lib/types";
 import { near, st } from "./helpers";
 
@@ -26,7 +26,7 @@ test("receivables growth gap: no prior year, or no receivables last year, is nul
 test("trend block: last year's receivable days beside this year's, and the growth gap", () => {
   const text = trendBlock(now, prior, null, "technology", ["receivable_days"]);
   assert.match(text, /receivable_days: 73\.00 in FY25 -> 99\.55 in FY26/);
-  assert.match(text, /Trade receivables \+50\.0% against revenue \+10\.0% year on year \(receivables ahead of revenue by 40\.0 points\)/);
+  assert.match(text, /Trade receivables \+50\.00% against revenue \+10\.00% year on year \(receivables ahead of revenue by 40\.00 points\)/);
 });
 
 test("trend block: nothing without a prior year, nothing for a metric that cannot be computed last year", () => {
@@ -69,4 +69,23 @@ test("basis note: lists each peer's basis when they differ, silent when they agr
   assert.match(note, /TCS \(standalone\), Wipro \(consolidated\)/);
   assert.match(note, /compare ratios, not absolute amounts/);
   assert.equal(basisNote([peer("A"), peer("B")]), null);
+});
+
+test("standing caveat: names the billed-versus-billed-plus-unbilled difference and forbids asserting matching definitions", () => {
+  const t = receivablesStandingCaveat();
+  assert.match(t, /^Receivable days may not be like-for-like across these companies/);
+  assert.match(t, /billed only, or billed plus unbilled/);
+  assert.match(t, /Do not state or imply that the definitions match/);
+});
+
+test("the specific note keeps the same lead phrase and the same instruction as the standing caveat", () => {
+  const note = receivablesDefinitionNote([peer("TCS", { unbilled_revenue_cr: 5000 }), peer("Infosys")])!;
+  assert.match(note, /^Receivable days may not be like-for-like across these companies/);
+  assert.match(note, /Do not state or imply that the definitions match/);
+});
+
+test("materiality note: says 3% and tells the model not to call a peer just over the line a breach", () => {
+  assert.match(materialityNote("technology"), /more than 3%/);
+  assert.match(materialityNote("technology"), /105\.16 against 105/); // an example just over this sector's own ceiling
+  assert.match(materialityNote("tyre"), /60\.09 against 60/);
 });

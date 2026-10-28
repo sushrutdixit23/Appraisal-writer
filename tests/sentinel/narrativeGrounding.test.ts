@@ -52,3 +52,9 @@ test("day counts: a figure the prompt carried, or the gap between two of them, i
 test("day counts: a rupee amount in the thousands cannot vouch for an invented day count", () => {
   assert.deepEqual(checkNarrativeGrounding("Receivables are about 365 days of sales.", "Revenue ₹365.0 cr"), ["365 days"]);
 });
+
+test("a percentage change between two day figures the prompt carried is grounded (88.17 to 94.46 days is +7.1%); an unrelated percentage is not", () => {
+  const g = "receivable_days: 88.17 in FY25 -> 94.46 in FY26\nTCS: 94.46 days";
+  assert.deepEqual(checkNarrativeGrounding("Receivable days rose about 7% over the year.", g), []);
+  assert.deepEqual(checkNarrativeGrounding("Receivable days rose 23% over the year.", g), ["23%"]);
+});

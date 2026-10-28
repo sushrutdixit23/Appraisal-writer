@@ -3,6 +3,8 @@
 // on, and whether the peers' receivables are even defined the same way. Pure: statements in, prompt text out.
 // Everything here is computed in code and handed to the model as fact, so it never has to guess a trend.
 
+import { WORKING_CAPITAL_MATERIALITY } from "./anomaly";
+import { getSectorConfig } from "./config";
 import { computeRatios } from "./engine";
 import type { FinancialStatement, PeerRow } from "./types";
 
@@ -15,7 +17,7 @@ export function formatMetricValue(metric: string, v: number): string {
     : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const pct = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
+const pct = (v: number, dp = 1) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(dp)}%`;
 
 /** Receivables growth against revenue growth, year on year. A rising receivable-days figure is only a collections
  * story when receivables outgrew the sales they came from; this is that comparison, stated outright.
@@ -52,8 +54,9 @@ export function trendBlock(
   const gap = metrics.includes("receivable_days") || metrics.includes("cash_conversion_cycle") ? receivablesGrowthGap(stmt, prior) : null;
   if (gap) {
     lines.push(
-      `  Trade receivables ${pct(gap.receivables)} against revenue ${pct(gap.revenue)} year on year ` +
-        `(receivables ${gap.gapPoints >= 0 ? "ahead of" : "behind"} revenue by ${Math.abs(gap.gapPoints).toFixed(1)} points)`
+      // Two decimals so the model's own subtraction of the two rates lands on the stated gap (10.16 - 2.83 = 7.33), not a rounding of it.
+      `  Trade receivables ${pct(gap.receivables, 2)} against revenue ${pct(gap.revenue, 2)} year on year ` +
+        `(receivables ${gap.gapPoints >= 0 ? "ahead of" : "behind"} revenue by ${Math.abs(gap.gapPoints).toFixed(2)} points)`
     );
   }
   if (lines.length === 0) return "";
@@ -72,10 +75,32 @@ export function receivablesDefinitionNote(rows: PeerRow[]): string | null {
   const without = withDays.filter((r) => r.unbilled_revenue_cr == null).map((r) => r.company_name);
   if (withUnbilled.length === 0 || without.length === 0) return null;
   return (
-    `Receivable days may not be like-for-like across these peers: an unbilled-revenue line is on file for ${withUnbilled.join(", ")} ` +
+    `${NOT_LIKE_FOR_LIKE}: an unbilled-revenue line is on file for ${withUnbilled.join(", ")} ` +
     `but not for ${without.join(", ")}. Some companies include unbilled revenue in trade receivables and some leave it out, so a ` +
-    `difference in receivable days between these companies can be a definition difference rather than slower collections.`
+    `difference in receivable days between these companies can be a definition difference rather than slower collections. ${NEVER_ASSERT}`
   );
+}
+
+const NOT_LIKE_FOR_LIKE = "Receivable days may not be like-for-like across these companies";
+const NEVER_ASSERT = "Do not state or imply that the definitions match (for example \"no basis mismatch\"); say that confirming the definition is a step before any gap is treated as a collections finding.";
+
+/** The standing caveat for any receivable-days comparison. Companies differ on whether "trade receivables" includes
+ * unbilled revenue, the filing rarely says so in the figure itself, and the difference is large for IT services (a
+ * company's receivable days can move by 30 days or more on that choice alone). Used when no specific evidence is on file. */
+export function receivablesStandingCaveat(): string {
+  return (
+    `${NOT_LIKE_FOR_LIKE}: whether each company's trade receivables include unbilled revenue is not recorded here, and filers differ ` +
+    `(billed only, or billed plus unbilled). A gap in receivable days between two companies can therefore be a definition difference ` +
+    `rather than slower collections. ${NEVER_ASSERT}`
+  );
+}
+
+/** Flags on days measures need to clear their ceiling by a margin, so a peer a hair over the line is not flagged. Said to
+ * the model so it does not call that peer a breach. */
+export function materialityNote(sector: string): string {
+  const ceiling = getSectorConfig(sector).anomaly_thresholds.receivable_days_max;
+  const example = `${(ceiling * (1 + WORKING_CAPITAL_MATERIALITY / 20)).toFixed(2)} against ${ceiling}`;
+  return `Working-capital flags are raised only when a figure exceeds its configured ceiling by more than ${(WORKING_CAPITAL_MATERIALITY * 100).toFixed(0)}% - a peer slightly above the line (for example ${example}) is deliberately not flagged, so do not describe such a peer as breaching it.`;
 }
 
 /** Every peer's basis, spelled out, with a plain instruction when they differ: absolute figures from a standalone row and
