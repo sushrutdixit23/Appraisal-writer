@@ -228,6 +228,11 @@ export function detectLeverageRisk(rows: PeerRow[], sector: string): AnomalyFlag
   return flags;
 }
 
+/** How far past its ceiling a days figure must be before it is flagged. The inputs are rounded to the crore and
+ * the days are a ratio of two of them, so a figure a hair over the line (90.1 against 90) is the same fact as one
+ * a hair under it; flagging it spends an analyst's attention on rounding. */
+export const WORKING_CAPITAL_MATERIALITY = 0.03;
+
 /** Inventory or receivable days past the sector's configured ceiling -
  * capital tied up in slow-moving stock or slow collections, the GDT/TSR
  * "excess WIP days" / "inventory explosion" style finding. Checked
@@ -241,7 +246,7 @@ export function detectWorkingCapitalStress(rows: PeerRow[], sector: string): Ano
 
   for (const row of rows) {
     const invDays = row.ratios["inventory_days"];
-    if (invDays != null && invDays > maxInvDays) {
+    if (invDays != null && invDays > maxInvDays * (1 + WORKING_CAPITAL_MATERIALITY)) {
       flags.push({
         workspace_id: row.workspace_id,
         company_name: row.company_name,
@@ -257,7 +262,7 @@ export function detectWorkingCapitalStress(rows: PeerRow[], sector: string): Ano
       });
     }
     const recDays = row.ratios["receivable_days"];
-    if (recDays != null && recDays > maxRecDays) {
+    if (recDays != null && recDays > maxRecDays * (1 + WORKING_CAPITAL_MATERIALITY)) {
       flags.push({
         workspace_id: row.workspace_id,
         company_name: row.company_name,

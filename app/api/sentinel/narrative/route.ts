@@ -13,6 +13,7 @@ import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
+import { basisNote, formatMetricValue, receivablesDefinitionNote, trendBlock } from "../../../sentinel/lib/narrativeContext";
 import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
 import { DECIDED_STATUSES, renderDecisionMemory, type PriorInvestigation } from "../../../sentinel/lib/decisionMemory";
 import { renderSectorPatterns, sectorPatterns } from "../../../sentinel/lib/sectorPatterns";
@@ -98,17 +99,12 @@ function peerContextForMetrics(
     seen.add(metric);
     // A flag on a figure with no peer ratio (negative equity) has nothing to compare against.
     if (!rows.some((r) => r.ratios[metric] != null)) continue;
-    const isRatio = metric.includes("yoy") || metric.includes("margin") || metric.includes("pct");
     const lines = rows
       .filter((r) => r.ratios[metric] != null)
       .sort((a, b) => (b.ratios[metric] ?? 0) - (a.ratios[metric] ?? 0))
       .map((r) => {
-        const v = r.ratios[metric] as number;
-        const formatted = isRatio
-          ? `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`
-          : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const marker = r.workspace_id === flaggedWorkspaceId ? " <- flagged company" : "";
-        return `  ${r.company_name}: ${formatted}${marker}`;
+        return `  ${r.company_name} (${r.basis}): ${formatMetricValue(metric, r.ratios[metric] as number)}${marker}`;
       });
     sections.push(`${metric}:\n${lines.join("\n")}`);
   }
@@ -309,9 +305,11 @@ export async function POST(req: Request) {
   const patterns = sectorPatterns(allFlags, peerRows, workspace.id, period_label);
   const patternBlock = renderSectorPatterns(patterns, period_label);
 
+  const trend = trendBlock(stmt, prior, prior ? findPriorYear(prior, statements) : null, workspace.sector, flags.map((f) => f.metric));
+
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}${keyAuditMattersBlock(stmt)}${memory}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${trend}${operating}${keyAuditMattersBlock(stmt)}${memory}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";
@@ -329,9 +327,13 @@ export async function POST(req: Request) {
         `subject directly against this named company rather than only citing a sector-wide ` +
         `average - a well-matched named peer is a stronger benchmark than a broad average.`
       : "";
+    const caveats = [basisNote(peerRows), flags.some((f) => f.metric === "receivable_days") ? receivablesDefinitionNote(peerRows) : null]
+      .filter((c): c is string => !!c)
+      .map((c) => `\n\nData caveat: ${c}`)
+      .join("");
     const turn2User =
       `Here's how each flagged metric compares across the sector peer set for the same period:\n\n` +
-      `${peerContext}${closestPeerBlock}${patternBlock}\n\n` +
+      `${peerContext}${caveats}${closestPeerBlock}${patternBlock}\n\n` +
       "Does this peer context CONFIRM your hypothesis (a sector-wide effect), RULE IT OUT " +
       "(this looks company-specific), or point to something else? Start your reply with " +
       "exactly one short bolded verdict line using markdown (e.g. **Confirms sector-wide " +
