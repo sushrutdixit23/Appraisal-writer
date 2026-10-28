@@ -12,6 +12,7 @@ import {
   detectWorkingCapitalStress,
   detectYoySwings,
   groupFlagsByWorkspace,
+  WORKING_CAPITAL_MATERIALITY,
   runAllChecks,
 } from "../../app/sentinel/lib/anomaly";
 import { buildPeerTable } from "../../app/sentinel/lib/engine";
@@ -157,6 +158,19 @@ test("working capital: 73 inventory days against 60 and 40 receivable days again
   assert.equal(flags.length, 1);
   assert.equal(flags[0].metric, "inventory_days");
   assert.ok(near(flags[0].severity, 73 / 60));
+});
+
+test("working capital: 90.14 receivable days against a 90-day ceiling is rounding, not a finding", () => {
+  assert.equal(detectWorkingCapitalStress([row("a", { ratios: { receivable_days: 90.14 } })], "technology").length, 0);
+  assert.equal(detectWorkingCapitalStress([row("a", { ratios: { inventory_days: 61 } })], "tyre").length, 0);
+});
+
+test("working capital: just past the margin flags - 3% over 90 is 92.7, so 92.8 flags and 92.6 does not", () => {
+  assert.ok(near(WORKING_CAPITAL_MATERIALITY, 0.03));
+  assert.equal(detectWorkingCapitalStress([row("a", { ratios: { receivable_days: 92.6 } })], "technology").length, 0);
+  const [flag] = detectWorkingCapitalStress([row("a", { ratios: { receivable_days: 92.8 } })], "technology");
+  assert.equal(flag.metric, "receivable_days");
+  assert.ok(near(flag.severity, 92.8 / 90)); // severity stays the raw ratio to the configured ceiling
 });
 
 // --- unbilled revenue growth ----------------------------------------------------------------

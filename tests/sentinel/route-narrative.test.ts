@@ -218,3 +218,32 @@ test("a database missing the newest columns still saves the investigation, just 
   assert.equal(inv.status, "pending");
   assert.ok(!("generation_usage" in inv) && !("grounding_warnings" in inv), "the optional columns were not left in the retry");
 });
+
+test("working-capital evidence: last year's days, the receivables-vs-revenue gap, each peer's basis and the definition caveat reach the prompt", async () => {
+  const base = { sector: "technology", industry: null, fiscal_year_start_month: 4, currency: "INR", comparison_basis: "consolidated", currency_unit: "INR_CRORE" };
+  const subject = randomUUID(), standalonePeer = randomUUID(), plainPeer = randomUUID();
+  backend.tables.sentinel_workspaces = [
+    { id: subject, owner_id: A, company_name: "Tech Subject", is_public_reference: false, ...base },
+    { id: standalonePeer, owner_id: null, company_name: "Standalone Peer", is_public_reference: true, ...base },
+    { id: plainPeer, owner_id: null, company_name: "Plain Peer", is_public_reference: true, ...base },
+  ];
+  backend.tables.sentinel_statements = [
+    // Days: FY25 200/900*365 = 81.11, FY26 300/1000*365 = 109.5; receivables +50%, revenue +11.1%.
+    fy(subject, "FY26", "2026-03-31", 1000, 100, { trade_receivables: 300 }),
+    fy(subject, "FY25", "2025-03-31", 900, 90, { trade_receivables: 200 }),
+    fy(standalonePeer, "FY26", "2026-03-31", 1000, 100, { basis: "standalone", trade_receivables: 200, unbilled_revenue: 80 }),
+    fy(standalonePeer, "FY25", "2025-03-31", 950, 95, { basis: "standalone", trade_receivables: 190, unbilled_revenue: 70 }),
+    fy(plainPeer, "FY26", "2026-03-31", 1000, 100, { trade_receivables: 200 }),
+    fy(plainPeer, "FY25", "2025-03-31", 950, 95, { trade_receivables: 190 }),
+  ];
+  const r = await call({ workspace_id: subject, period_label: "FY26" });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const first = backend.anthropicCalls[0].messages[0].content as string;
+  assert.match(first, /receivable_days: 81\.11 in FY25 -> 109\.50 in FY26/);
+  assert.match(first, /Trade receivables \+50\.0% against revenue \+11\.1% year on year/);
+  const second = backend.anthropicCalls[1].messages[2].content as string;
+  assert.match(second, /Standalone Peer \(standalone\): /);
+  assert.match(second, /Tech Subject \(consolidated\): 109\.50 <- flagged company/);
+  assert.match(second, /peers are not all on the same basis/);
+  assert.match(second, /unbilled-revenue line is on file for Standalone Peer but not for Tech Subject, Plain Peer/);
+});
