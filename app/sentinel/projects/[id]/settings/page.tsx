@@ -56,6 +56,8 @@ export default function ProjectSettingsPage() {
   const [ticker, setTicker] = useState("");
   const [bseCode, setBseCode] = useState("");
   const [fetchingPrice, setFetchingPrice] = useState(false);
+  const [checkingFilings, setCheckingFilings] = useState(false);
+  const [filingsMessage, setFilingsMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [savingPrice, setSavingPrice] = useState(false);
   const [savedPrice, setSavedPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -205,6 +207,23 @@ export default function ProjectSettingsPage() {
       setSavedPrice(true);
     } finally {
       setFetchingPrice(false);
+    }
+  }
+
+  async function checkFilings() {
+    setFilingsMessage(null);
+    setCheckingFilings(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { router.push("/login"); return; }
+      const res = await fetch("/api/sentinel/filings", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ workspace_id: id }) });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; stored?: number; failed?: string[] };
+      if (!res.ok) { setFilingsMessage({ text: body.error ?? "The check failed.", bad: true }); return; }
+      if (body.failed?.length) { setFilingsMessage({ text: body.failed[0].replace(/^[^:]+: /, ""), bad: true }); return; }
+      setFilingsMessage({ text: body.stored ? `Found ${body.stored} new filing${body.stored > 1 ? "s" : ""}. They are on the coverage digest.` : "BSE answered. No new results or annual reports in the last 10 days.", bad: false });
+    } finally {
+      setCheckingFilings(false);
     }
   }
 
@@ -387,10 +406,14 @@ export default function ProjectSettingsPage() {
         {priceError && (
           <p role="alert" style={{ fontSize: "0.82rem", color: T.oxblood, margin: "0 0 1rem 0" }}>{priceError}</p>
         )}
+        {filingsMessage && (
+          <p role={filingsMessage.bad ? "alert" : "status"} data-testid="filings-message" style={{ fontSize: "0.82rem", color: filingsMessage.bad ? T.oxblood : T.inkSoft, margin: "0 0 1rem 0" }}>{filingsMessage.text}</p>
+        )}
         {!readOnly && (
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
             <button type="button" style={btn} disabled={fetchingPrice || (!ticker.trim() && !bseCode.trim())} onClick={() => fetchLatestPrice()} data-testid="fetch-price">{fetchingPrice ? "Fetching..." : "Fetch latest price"}</button>
             <button type="submit" style={btn} disabled={savingPrice}>{savingPrice ? "Saving..." : "Save price"}</button>
+            <button type="button" style={btn} disabled={checkingFilings || !workspace.bse_code} title={workspace.bse_code ? undefined : "Save a BSE scrip code first"} onClick={checkFilings} data-testid="check-filings">{checkingFilings ? "Checking..." : "Check filings now"}</button>
             {savedPrice && <span role="status" style={{ fontSize: "0.82rem", color: T.inkSoft }}>Saved.</span>}
           </div>
         )}

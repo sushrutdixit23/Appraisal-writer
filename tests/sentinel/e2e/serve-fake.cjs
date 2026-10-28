@@ -29,7 +29,7 @@ b.tables.sentinel_workspaces = [
   { id: IDS.ref1, owner_id: null, company_name: "Apex Reference Tyres", is_public_reference: true, ...base },
   { id: IDS.bravo, owner_id: IDS.B, company_name: "Bravo Secret Tyres", is_public_reference: false, ...base },
   { id: IDS.ref2, owner_id: null, company_name: "Meridian Reference Tyres", is_public_reference: true, ...base },
-  { id: IDS.lakh, owner_id: IDS.A, company_name: "Lakh Industries", is_public_reference: false, ...base, currency_unit: "INR_LAKH" },
+  { id: IDS.lakh, owner_id: IDS.A, company_name: "Lakh Industries", is_public_reference: false, ...base, currency_unit: "INR_LAKH", bse_code: "532540" },
   { id: IDS.alpha, owner_id: IDS.A, company_name: "Alpha Tyres", is_public_reference: false, ...base },
 ];
 const fy = (ws, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
@@ -50,6 +50,10 @@ b.tables.sentinel_investigations = [
   { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY26", status: "approved", observation: [], ...invDefaults, ai_narrative: "**Company specific**\n\nDraft", final_narrative: "**Company specific**\n\nSigned off", confidence_score: 70, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
   { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY25", status: "pending", observation: [], ...invDefaults, ai_narrative: "Draft", final_narrative: null, confidence_score: 50, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
   { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, period_label: "FY24", status: "rejected", observation: [], ...invDefaults, ai_narrative: "Draft", final_narrative: null, confidence_score: 40, created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+];
+b.tables.sentinel_filings = [
+  { id: randomUUID(), workspace_id: IDS.lakh, source: "bse", external_id: "n1", kind: "results", headline: "Financial Results for the quarter ended September 30, 2026", filed_at: "2026-10-09T17:05:11", url: "https://www.bseindia.com/x", status: "new" },
+  { id: randomUUID(), workspace_id: IDS.bravo, source: "bse", external_id: "n2", kind: "results", headline: "Bravo results", filed_at: "2026-10-10T17:05:11", url: null, status: "new" },
 ];
 b.tables.sentinel_review_cycles = [];
 b.tables.sentinel_recommendations = [];

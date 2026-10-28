@@ -13,6 +13,7 @@ import { supabase } from "../lib/supabase";
 import { groupFlagsByWorkspace, runAllChecks } from "./lib/anomaly";
 import { buildPeerTable } from "./lib/engine";
 import { parseVerdict } from "./lib/format";
+import { Discussion } from "./lib/Discussion";
 import { READING, SERIF, T } from "./lib/theme";
 import type { AnomalyFlag, FinancialStatement, Investigation, Recommendation, Workspace } from "./lib/types";
 
@@ -711,6 +712,7 @@ export default function InvestigationQueuePage() {
                 })()}
 
                 <InvestigationExtras inv={inv} />
+                <Discussion investigationId={inv.id} />
 
                 {(recommendations.get(inv.id) ?? []).length > 0 && (
                   <>
@@ -808,6 +810,7 @@ export default function InvestigationQueuePage() {
                       );
                     })()}
                     <InvestigationExtras inv={inv} />
+                    <Discussion investigationId={inv.id} />
                     {(recommendations.get(inv.id) ?? []).length > 0 && (
                       <>
                         <Eyebrow>Recommendations</Eyebrow>

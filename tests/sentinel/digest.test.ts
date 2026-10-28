@@ -70,3 +70,26 @@ test("stale inputs: a missing year, no price, an old price - and a current one i
   assert.ok(!/FRESH/.test(titles));
   assert.equal(d.total, section(d, "data").items.length);
 });
+
+test("new filings lead the digest, newest first, own companies only, with the BSE link", () => {
+  const d = buildDigest({
+    ...base, workspaces: [mine("a"), mine("b"), ws("ref", { sector: "technology", owner_id: null })],
+    filings: [
+      { id: "1", workspace_id: "a", kind: "results", headline: "Financial Results Q2", filed_at: "2026-10-09T17:05:11", url: "https://www.bseindia.com/x" },
+      { id: "2", workspace_id: "b", kind: "annual_report", headline: "Annual Report FY26", filed_at: "2026-10-20T09:00:00", url: null },
+      { id: "3", workspace_id: "ref", kind: "results", headline: "not mine", filed_at: "2026-10-27T09:00:00", url: null },
+    ],
+  });
+  assert.equal(d.sections[0].id, "filings");
+  assert.deepEqual(section(d, "filings").items.map((i) => i.title), ["B - annual report filed 2026-10-20", "A - results filed 2026-10-09"]);
+  assert.match(section(d, "filings").items[1].detail, /Open on BSE: https:\/\/www\.bseindia\.com\/x/);
+  assert.equal(section(d, "filings").items[0].href, "/sentinel/projects/b/import");
+});
+
+test("unread reviewer comments are listed with a count; read ones and other people's are not", () => {
+  const d = buildDigest({
+    ...base, workspaces: [mine("a"), mine("b"), ws("x", { owner_id: "other" })],
+    discussion: [{ workspace_id: "a", period_label: "FY26", unread: 2 }, { workspace_id: "b", period_label: "FY26", unread: 0 }, { workspace_id: "x", period_label: "FY26", unread: 5 }],
+  });
+  assert.deepEqual(section(d, "discussion").items.map((i) => i.title), ["A - 2 new comments on FY26"]);
+});

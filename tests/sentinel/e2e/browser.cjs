@@ -248,6 +248,54 @@ async function ready(page, url, waitFor) {
     assert.ok(await a.getByRole("link", { name: "Coverage digest" }).count() > 0);
   }, a);
 
+  await check("Discussion: the analyst shares an investigation, a reviewer with no login reads it and comments, and the analyst sees the comment unread", async () => {
+    await ready(a, "/sentinel", "text=Investigation Queue");
+    await a.getByTestId("discussion-toggle").first().click();
+    await a.getByLabel("Add a comment").fill("Reviewer, please look at the receivable days.");
+    await a.getByTestId("post-comment").click();
+    await a.waitForSelector('[data-testid="comment"]');
+    await a.getByLabel("Reviewer name (optional)").fill("CA Rao");
+    await a.getByTestId("share-review").click();
+    await a.waitForSelector('[data-testid="review-link"]');
+    const link = (await a.locator('[data-testid="review-link"] strong').textContent()).trim();
+    assert.match(link, /\/sentinel-review\/[A-Za-z0-9_-]{32}$/);
+    // The reviewer: a fresh browser context with no session at all.
+    const guest = await browser.newContext();
+    const g = await guest.newPage();
+    await g.goto(link, { waitUntil: "domcontentloaded" });
+    await g.waitForSelector('[aria-label="Discussion"]', { timeout: 60000 });
+    const seen = await g.locator("body").textContent();
+    assert.match(seen, /Alpha Tyres - FY2[456]/);
+    assert.match(seen, /Reviewer, please look at the receivable days\./, "the analyst's comment is visible to the reviewer");
+    assert.ok(!/Hypothesis|Bravo/.test(seen), "private working or another company leaked into the review page");
+    assert.equal(await g.getByLabel("Your name").inputValue(), "CA Rao");
+    await g.getByLabel("Your comment").fill("Is the unbilled revenue in these receivables?");
+    await g.getByRole("button", { name: "Send comment" }).click();
+    await g.waitForSelector("text=Comment sent.");
+    await guest.close();
+    // Back with the analyst: one unread, and it clears once the thread is opened.
+    await ready(a, "/sentinel", "text=Investigation Queue");
+    assert.match(await a.getByTestId("discussion-toggle").first().textContent(), /unread/);
+    await a.getByTestId("discussion-toggle").first().click();
+    await a.waitForFunction(() => !/unread/.test(document.querySelector('[data-testid="discussion-toggle"]').textContent));
+    assert.match(await a.locator('[data-testid="discussion"]').first().textContent(), /Is the unbilled revenue in these receivables\?/);
+    // The link can be closed.
+    await a.getByRole("button", { name: "Close link" }).first().click();
+    const token = link.split("/sentinel-review/")[1];
+    for (let i = 0; i < 40; i++) { const r = await fetch(`${BASE}/api/sentinel/review/${token}`); if (r.status === 404) return; await a.waitForTimeout(500); }
+    assert.fail("the closed review link still opens");
+  }, a);
+
+  await check("Digest: a new filing for the signed-in owner's company is listed with its BSE link, and another person's is not", async () => {
+    await ready(a, "/sentinel/digest", '[data-testid="digest-filings"]');
+    await a.waitForFunction(() => /Lakh Industries - results filed 2026-10-09/.test(document.body.textContent), null, { timeout: 30000 });
+    const text = await a.locator('[data-testid="digest-filings"]').textContent();
+    assert.match(text, /Financial Results for the quarter ended September 30, 2026/);
+    assert.match(text, /https:\/\/www\.bseindia\.com\/x/);
+    assert.ok(!/Bravo/.test(await a.locator("body").textContent()), "another person's filing leaked");
+    assert.match(await a.locator('[data-testid="digest-discussion"]').textContent(), /Reviewer comments/);
+  }, a);
+
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
     await ready(a, "/sentinel/calibration", '[data-testid="calibration-summary"]');
     assert.match(await a.locator('[data-testid="calibration-summary"]').textContent(), /decided investigations/);

@@ -105,5 +105,55 @@ console.log("ok  score-fields and operating-metrics migrations");
 
 }
 
+async function filingsAndDiscussionMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  create table sentinel_investigations (id uuid primary key default gen_random_uuid(), workspace_id uuid, period_label text);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261107000000_sentinel_filings_and_discussion.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`); // Supabase grants new public tables by default; RLS must be what closes them
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const inv = (await db.query(`insert into sentinel_investigations (workspace_id, period_label) values ('${ws}','FY26') returning id`)).rows[0].id;
+
+// one row per announcement, however many times the watcher sees it
+const filing = `insert into sentinel_filings (workspace_id, external_id, kind, headline, filed_at) values ('${ws}','n1','results','Financial Results','2026-10-09T17:05:11')`;
+await db.query(filing);
+await assert.rejects(db.query(filing), /duplicate key/);
+await assert.rejects(db.query(`insert into sentinel_filings (workspace_id, external_id, kind, headline, filed_at) values ('${ws}','n2','dividend','x','2026-10-09')`), /check constraint/);
+assert.equal((await db.query(`select status from sentinel_filings`)).rows[0].status, "new");
+
+// comments: only the two author kinds; a review link needs an expiry and a unique token hash
+await db.query(`insert into sentinel_comments (investigation_id, workspace_id, author_kind, author_label, body) values ('${inv}','${ws}','reviewer','CA Rao','Please check unbilled revenue.')`);
+await assert.rejects(db.query(`insert into sentinel_comments (investigation_id, workspace_id, author_kind, author_label, body) values ('${inv}','${ws}','stranger','x','y')`), /check constraint/);
+const link = `insert into sentinel_review_links (investigation_id, workspace_id, owner_id, token_hash, expires_at) values ('${inv}','${ws}','${U1}','h1', now() + interval '7 days')`;
+await db.query(link);
+await assert.rejects(db.query(link), /duplicate key/);
+
+// closed to a signed-in browser: RLS is on and no policy exists, so a direct read sees nothing
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+for (const t of ["sentinel_filings", "sentinel_review_links", "sentinel_comments"]) {
+  assert.equal((await db.query(`select * from ${t}`)).rows.length, 0, `${t} is closed to browser reads`);
+}
+await assert.rejects(db.query(`insert into sentinel_comments (investigation_id, workspace_id, author_kind, author_label, body) values ('${inv}','${ws}','owner','me','x')`), /row-level security/);
+await db.exec(`reset role`);
+
+// deleting the investigation takes its thread and links with it
+await db.query(`delete from sentinel_investigations where id = '${inv}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_comments`)).rows[0].n, 0);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_review_links`)).rows[0].n, 0);
+console.log("ok  filings and discussion migration");
+}
+
 await auditMigration();
 await otherMigrations();
+await filingsAndDiscussionMigration();

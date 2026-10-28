@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/sentinel/cron/market", "schedule": "30 13 * * 1-5" },
+    { "path": "/api/sentinel/cron/filings", "schedule": "0 3 * * 1-5" },
     { "path": "/api/sentinel/cron/digest", "schedule": "30 3 * * 1-5" }
   ]
 }
