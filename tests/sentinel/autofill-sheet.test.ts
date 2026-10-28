@@ -289,3 +289,38 @@ test("route: a PDF with no statement pages says so", async () => {
   assert.equal(r.status, 422);
   assert.match(r.json.error, /No page of this file looks like a financial statement/);
 });
+
+// ---- a unit column ------------------------------------------------------------------------------------------
+const UNIT_CSV = (unit: string) =>
+  `period,period end date,period type,basis,revenue from operations,profit before tax,profit after tax,unit\nFY26,2026-03-31,FY,standalone,489270,40000,30000,${unit}\nFY25,2025-03-31,FY,standalone,470000,38000,28000,${unit}\n`;
+
+test("a 'unit' column states the unit, so a million-rupee file is not mistaken for crore", () => {
+  const r = read(UNIT_CSV("million"));
+  assert.equal(r.unit.unit, "INR_MILLION");
+  assert.equal(r.unit.source, "sheet");
+  assert.match(r.unit.evidence ?? "", /unit column says "million"/);
+  assert.equal(r.unit.ambiguous, false);
+  assert.equal(val(r.periods[0], "revenue_from_operations"), 489_270); // the figures themselves are untouched: conversion happens on import
+});
+
+test("the unit column accepts crore, lakh and the rupee-sign and INR_ spellings; an unknown word is ignored with a note", () => {
+  for (const [v, want] of [["crore", "INR_CRORE"], ["₹ crore", "INR_CRORE"], ["lakh", "INR_LAKH"], ["INR_MILLION", "INR_MILLION"], ["Rs million", "INR_MILLION"]] as const) {
+    assert.equal(read(UNIT_CSV(v)).unit.unit, want, v);
+  }
+  const bad = read(UNIT_CSV("furlongs"));
+  assert.equal(bad.unit.unit, null);
+  assert.match(bad.notes.join(" "), /unit column says "furlongs"/);
+});
+
+test("a million-rupee file with a unit column imported into a crore project is converted: 489,270 million is 48,927 crore", async () => {
+  const { applyAutofillPeriod } = await import("../../app/sentinel/lib/autofill/apply");
+  const r = read(UNIT_CSV("million"));
+  const applied = applyAutofillPeriod(r.periods[0], r.unit.unit, "INR_CRORE");
+  assert.equal(Number(applied.values.revenue_from_operations), 48_927);
+});
+
+test("a file with no unit column and no unit in its text still reports 'not stated', as before", () => {
+  const r = read(UNIT_CSV("").replace(",unit", "").replace(/,\n/g, "\n"));
+  assert.equal(r.unit.unit, null);
+  assert.equal(r.unit.source, "none");
+});
