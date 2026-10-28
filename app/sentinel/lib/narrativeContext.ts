@@ -4,6 +4,7 @@
 // Everything here is computed in code and handed to the model as fact, so it never has to guess a trend.
 
 import { WORKING_CAPITAL_MATERIALITY } from "./anomaly";
+import { getSectorConfig } from "./config";
 import { computeRatios } from "./engine";
 import type { FinancialStatement, PeerRow } from "./types";
 
@@ -96,8 +97,10 @@ export function receivablesStandingCaveat(): string {
 
 /** Flags on days measures need to clear their ceiling by a margin, so a peer a hair over the line is not flagged. Said to
  * the model so it does not call that peer a breach. */
-export function materialityNote(): string {
-  return `Working-capital flags are raised only when a figure exceeds its configured ceiling by more than ${(WORKING_CAPITAL_MATERIALITY * 100).toFixed(0)}% - a peer slightly above the line (for example 90.14 against 90) is deliberately not flagged, so do not describe such a peer as breaching it.`;
+export function materialityNote(sector: string): string {
+  const ceiling = getSectorConfig(sector).anomaly_thresholds.receivable_days_max;
+  const example = `${(ceiling * (1 + WORKING_CAPITAL_MATERIALITY / 20)).toFixed(2)} against ${ceiling}`;
+  return `Working-capital flags are raised only when a figure exceeds its configured ceiling by more than ${(WORKING_CAPITAL_MATERIALITY * 100).toFixed(0)}% - a peer slightly above the line (for example ${example}) is deliberately not flagged, so do not describe such a peer as breaching it.`;
 }
 
 /** Every peer's basis, spelled out, with a plain instruction when they differ: absolute figures from a standalone row and

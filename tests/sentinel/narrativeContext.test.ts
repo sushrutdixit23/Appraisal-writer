@@ -85,6 +85,7 @@ test("the specific note keeps the same lead phrase and the same instruction as t
 });
 
 test("materiality note: says 3% and tells the model not to call a peer just over the line a breach", () => {
-  assert.match(materialityNote(), /more than 3%/);
-  assert.match(materialityNote(), /90\.14 against 90/);
+  assert.match(materialityNote("technology"), /more than 3%/);
+  assert.match(materialityNote("technology"), /105\.16 against 105/); // an example just over this sector's own ceiling
+  assert.match(materialityNote("tyre"), /60\.09 against 60/);
 });

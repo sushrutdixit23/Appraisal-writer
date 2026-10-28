@@ -247,3 +247,24 @@ test("working-capital evidence: last year's days, the receivables-vs-revenue gap
   assert.match(second, /peers are not all on the same basis/);
   assert.match(second, /unbilled-revenue line is on file for Standalone Peer but not for Tech Subject, Plain Peer/);
 });
+
+test("with no unbilled line on file anywhere, the standing receivables-definition caveat and the materiality note still reach the prompt", async () => {
+  const base = { sector: "technology", industry: null, fiscal_year_start_month: 4, currency: "INR", comparison_basis: "consolidated", currency_unit: "INR_CRORE" };
+  const subject = randomUUID(), peer = randomUUID();
+  backend.tables.sentinel_workspaces = [
+    { id: subject, owner_id: A, company_name: "Tech Subject", is_public_reference: false, ...base },
+    { id: peer, owner_id: null, company_name: "Plain Peer", is_public_reference: true, ...base },
+  ];
+  backend.tables.sentinel_statements = [
+    fy(subject, "FY26", "2026-03-31", 1000, 100, { trade_receivables: 300 }), // 109.5 days, above 105 x 1.03 = 108.15
+    fy(subject, "FY25", "2025-03-31", 900, 90, { trade_receivables: 200 }),
+    fy(peer, "FY26", "2026-03-31", 1000, 100, { trade_receivables: 250 }),
+    fy(peer, "FY25", "2025-03-31", 950, 95, { trade_receivables: 240 }),
+  ];
+  const r = await call({ workspace_id: subject, period_label: "FY26" });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const second = backend.anthropicCalls[1].messages[2].content as string;
+  assert.match(second, /Receivable days may not be like-for-like across these companies: whether each company's trade receivables include unbilled revenue is not recorded here/);
+  assert.match(second, /Do not state or imply that the definitions match/);
+  assert.match(second, /more than 3% - a peer slightly above the line \(for example 105\.16 against 105\)/);
+});

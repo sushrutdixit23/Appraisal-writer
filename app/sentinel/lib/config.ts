@@ -212,7 +212,11 @@ export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
       current_ratio_min: 1.5,
       debt_equity_max: 0.5,
       inventory_days_max: 15,
-      receivable_days_max: 90,
+      // Receivables here are billed PLUS unbilled revenue (how TCS, Wipro, HCLTech and Tech Mahindra print them; Infosys
+      // prints unbilled separately and is added in). On that basis the large IT-services names ran about 87-108 days in
+      // FY26 (TCS 94, Infosys 108 standalone), so a ceiling of 90 flagged ordinary companies; 105 sits above the group.
+      // A billed-only measure would run about 30 days lower and need a ceiling nearer 75.
+      receivable_days_max: 105,
       roce_min: 0.2,
       // Tighter than the other sectors: unbilled revenue is a routine, named line for IT services (work
       // done, not yet invoiced against a milestone), so a real gap here is the most diagnostic in this sector.

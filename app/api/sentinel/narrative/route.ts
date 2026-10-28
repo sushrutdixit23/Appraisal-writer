@@ -333,7 +333,7 @@ export async function POST(req: Request) {
       // Specific evidence when some peers carry an unbilled line and others do not; otherwise the standing caveat, because the
       // definition is unrecorded for most companies and a model left to itself will call a definition gap a collections finding.
       receivablesInPlay ? receivablesDefinitionNote(peerRows) ?? receivablesStandingCaveat() : null,
-      flags.some((f) => f.flag_type === "working_capital") ? materialityNote() : null,
+      flags.some((f) => f.flag_type === "working_capital") ? materialityNote(workspace.sector) : null,
     ]
       .filter((c): c is string => !!c)
       .map((c) => `\n\nData caveat: ${c}`)
