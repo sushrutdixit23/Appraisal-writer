@@ -188,6 +188,40 @@ async function ready(page, url, waitFor) {
     assert.equal(await stat(a, "Awaiting review"), "1"); // the pending draft
   }, a);
 
+  await check("Data request: a CA's trial balance, sent through the public link with no login, arrives as a draft and imports after review", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="data-requests"]');
+    await a.getByLabel("Period ends").fill("2026-06-30");
+    await a.getByRole("button", { name: "Create upload link" }).click();
+    await a.waitForSelector('[data-testid="request-link"]');
+    const link = await a.locator('[data-testid="request-link"] code').textContent();
+    const token = link.split("/submit/")[1];
+    assert.match(token, /^[A-Za-z0-9_-]{32}$/);
+    // The CA side: no session, just the link's token.
+    const tb = ["Trial Balance", "Particulars,Debit,Credit", "Sales,,50000000", "Salaries,20000000,", "Sundry Debtors,15000000,", "Share Capital,,5000000", "HDFC Bank,32000000,", "Sundry Creditors,,12000000"].join("\n");
+    const form = new FormData();
+    form.append("file", new Blob([tb], { type: "text/csv" }), "acme-tb-jun.csv");
+    const sent = await fetch(`${BASE}/api/sentinel/submit/${token}`, { method: "POST", body: form });
+    assert.equal(sent.status, 200, await sent.clone().text());
+    const summary = await sent.json();
+    assert.equal(summary.ok, true);
+    assert.ok(!JSON.stringify(summary).includes("50000000"), "figures echoed to an unauthenticated caller");
+    // The analyst's side: the draft is listed, and adding it puts it in the preview - nothing is saved yet.
+    await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="drafts"]');
+    await a.getByRole("button", { name: "Add to this import" }).click();
+    await a.waitForSelector('[data-testid="import-summary"]');
+    // 20M salaries + 15M debtors + 32M bank = 67M of debits = 50M sales + 5M capital + 12M creditors, so it balances and imports.
+    assert.match(await a.locator('[data-testid="import-summary"]').textContent(), /1 new/);
+    const drafts = await db("sentinel_ingest_drafts");
+    assert.equal(drafts.length, 1);
+    const stmts = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_end_date=eq.2026-06-30`);
+    assert.equal(stmts.length, 0, "a draft must not become a statement until it is imported");
+    // The link stops working once closed.
+    await a.getByRole("button", { name: "Close link" }).click();
+    for (let i = 0; i < 40 && (await db("sentinel_data_requests")).every((r) => r.status !== "closed"); i++) await a.waitForTimeout(500);
+    const again = await fetch(`${BASE}/api/sentinel/submit/${token}`, { method: "POST", body: form });
+    assert.equal(again.status, 404);
+  }, a);
+
   await check("Digest: lists the draft waiting for a decision and the flagged company, only for the signed-in owner", async () => {
     await ready(a, "/sentinel/digest", 'h1:has-text("Coverage digest")');
     await a.waitForSelector('[data-testid="digest-summary"]');

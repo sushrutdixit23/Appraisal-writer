@@ -14,6 +14,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import { planImport, summariseImport, type ExistingPeriod, type ImportFile, type ImportRow } from "../../../lib/autofill/plan";
 import type { AutofillResult } from "../../../lib/autofill/types";
+import { DataRequests } from "../../../lib/DataRequests";
 import { useShell } from "../../../lib/shell/ShellData";
 import { SERIF, T } from "../../../lib/theme";
 import { sendFile, UploadError, type SendProgress } from "../../../lib/uploadClient";
@@ -299,6 +300,15 @@ export default function ImportPage() {
           </ul>
         )}
       </section>
+
+      <DataRequests
+        workspaceId={id}
+        onAddDraft={(f) => {
+          setFiles((prev) => (prev.some((x) => x.name === f.name) ? prev : [...prev, { name: f.name, result: f.result, unit: f.unit }]));
+          seen.current.clear();
+          setSelected(new Set());
+        }}
+      />
 
       {rows.length > 0 && (
         <section aria-label="Periods found" style={{ ...card, padding: 0, overflowX: "auto" }}>
