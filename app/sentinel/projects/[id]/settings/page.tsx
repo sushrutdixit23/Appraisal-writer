@@ -166,6 +166,11 @@ export default function ProjectSettingsPage() {
       setPriceError("A share price has to be a positive number.");
       return;
     }
+    const symbolOk = (v: string) => v === "" || /^[A-Za-z0-9&._-]{1,20}$/.test(v);
+    if (!symbolOk(ticker.trim()) || !symbolOk(bseCode.trim())) {
+      setPriceError("Exchange symbols use letters, digits and & . _ - only, with no spaces.");
+      return;
+    }
     setSavingPrice(true);
     // Not sent at all when the migration that adds these two columns has not been applied yet and the price
     // is being cleared - same "don't reference a column the database might not have" rule as
@@ -173,6 +178,10 @@ export default function ProjectSettingsPage() {
     const payload: Record<string, unknown> = {};
     if (parsed.value != null || "market_price" in workspace) payload.market_price = parsed.value;
     if (parsed.value != null || "market_price_as_of" in workspace) payload.market_price_as_of = parsed.value == null ? null : marketPriceAsOf || new Date().toISOString().slice(0, 10);
+    // The exchange symbols are saved here too, not only by a successful price fetch: the filing watcher needs the BSE code
+    // even when the price feed is unreachable.
+    if ("ticker" in workspace) payload.ticker = ticker.trim() || null;
+    if ("bse_code" in workspace) payload.bse_code = bseCode.trim() || null;
     const { error: updateError } = await supabase.from("sentinel_workspaces").update(payload).eq("id", id);
     setSavingPrice(false);
     if (updateError) {
@@ -394,9 +403,9 @@ export default function ProjectSettingsPage() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.2rem" }}>
           <Field label="NSE symbol" htmlFor="ps-ticker">
-            <input id="ps-ticker" style={inputStyle} value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="e.g. TCS" disabled={readOnly || fetchingPrice} />
+            <input id="ps-ticker" style={inputStyle} value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="e.g. TCS" disabled={readOnly || fetchingPrice || savingPrice} />
           </Field>
-          <Field label="BSE code (if not on NSE)" htmlFor="ps-bse">
+          <Field label="BSE code (also used to watch for new filings)" htmlFor="ps-bse">
             <input id="ps-bse" style={inputStyle} value={bseCode} onChange={(e) => setBseCode(e.target.value)} placeholder="e.g. 532540" disabled={readOnly || fetchingPrice} />
           </Field>
         </div>

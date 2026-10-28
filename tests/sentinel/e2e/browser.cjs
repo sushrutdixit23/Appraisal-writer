@@ -966,6 +966,19 @@ async function ready(page, url, waitFor) {
     const [row] = await db("sentinel_workspaces", "&id=eq." + IDS.alpha);
     assert.equal(row.market_price, 1000);
 
+    // The exchange symbols save with Save price, so the filing watcher does not depend on the price feed answering.
+    assert.equal(await a.getByTestId("check-filings").isDisabled(), true, "no BSE code saved yet");
+    await a.locator("#ps-bse").fill("532 540");
+    await a.getByRole("button", { name: "Save price" }).click();
+    await a.waitForSelector('[role="alert"]:has-text("letters, digits")');
+    await a.locator("#ps-bse").fill("532540");
+    await a.locator("#ps-ticker").fill("ALPHA");
+    await a.getByRole("button", { name: "Save price" }).click();
+    for (let i = 0; i < 40 && (await db("sentinel_workspaces", "&id=eq." + IDS.alpha))[0].bse_code !== "532540"; i++) await a.waitForTimeout(250);
+    const [saved] = await db("sentinel_workspaces", "&id=eq." + IDS.alpha);
+    assert.deepEqual([saved.bse_code, saved.ticker], ["532540", "ALPHA"]);
+    await a.waitForFunction(() => !document.querySelector('[data-testid="check-filings"]').disabled);
+
     // Market cap = price 1,000 x 10,000,000 shares / 1e7 = 1,000 cr. P/E = 1,000 / PAT 190 = 5.263...x.
     await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
     assert.equal(await tileValue(a, "Market cap (₹ crore"), "1,000");
