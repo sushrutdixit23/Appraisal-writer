@@ -11,6 +11,7 @@ import { computeConfidence, runAllChecks } from "../../../sentinel/lib/anomaly";
 import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
+import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
 import { authenticate, rateLimit, getAdmin, isFailure, loadPeerContext, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { operatingContext, type MetricRow } from "../../../sentinel/lib/metrics";
 import { formatMoney } from "../../../sentinel/lib/units";
@@ -52,6 +53,28 @@ function companyContext(
     );
   }
   return lines.join("\n");
+}
+
+// Cut further than the already-truncated stored text (extractKeyAuditMattersText caps at 4000):
+// this is one block inside a prompt that also carries peer context and follow-up turns, and the
+// auditor's own wording rarely needs more than this to be useful as a lead, not a full re-read.
+const KAM_PROMPT_CHARS = 1500;
+
+/** The auditor's own words, if captured for this statement (see extraction.ts
+ * extractKeyAuditMattersText) - real red flags often show up in this prose before they ever
+ * become a number the ratio checks can catch. Null when nothing was captured (an older
+ * statement, a filing with no machine-readable Key Audit Matters section, or a manually entered
+ * row), so the prompt says nothing about it rather than describing an absence. */
+function keyAuditMattersBlock(stmt: FinancialStatement): string {
+  const text = stmt.key_audit_matters_text;
+  if (!text) return "";
+  const cut = text.length > KAM_PROMPT_CHARS ? `${text.slice(0, KAM_PROMPT_CHARS).trim()}...` : text;
+  return (
+    `\n\nThe auditor's own Key Audit Matters for this filing (verbatim, from the annual report):\n"""\n${cut}\n"""\n` +
+    "Use this only where it actually bears on the flag(s) above - a Key Audit Matter naming the " +
+    "same account or process as a flag is worth citing by name; one about an unrelated area is " +
+    "not worth forcing in."
+  );
 }
 
 function peerContextForMetrics(
@@ -254,7 +277,7 @@ export async function POST(req: Request) {
 
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${operating}${keyAuditMattersBlock(stmt)}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";
@@ -295,6 +318,16 @@ export async function POST(req: Request) {
 
     const confidence = computeConfidence(flags, peerRows.length);
 
+    // Does every rupee/% figure the model stated actually trace to the data it was given? Checked
+    // in code, after the fact - never asked of the model itself. The hypothesis only ever saw
+    // turn1User; the final narrative also saw the peer context from turn2User.
+    const groundingWarnings = [
+      ...checkNarrativeGrounding(hypothesis, turn1User).map((f) => `Initial hypothesis cites ${f}, not traceable to the company data given.`),
+      ...checkNarrativeGrounding(finalNarrative, `${turn1User}\n\n${turn2User}`).map(
+        (f) => `Final narrative cites ${f}, not traceable to the company or peer data given.`
+      ),
+    ];
+
     const { data: upsertData, error: upsertError } = await supabase
       .from("sentinel_investigations")
       .upsert(
@@ -314,6 +347,7 @@ export async function POST(req: Request) {
           ai_narrative: finalNarrative,
           confidence_score: confidence.score,
           confidence_signals: confidence.signals,
+          grounding_warnings: groundingWarnings,
           suggested_questions: followUps.questions,
           // Recommendation Engine (Phase B): the old formatted-string
           // actions column stops being written going forward - real

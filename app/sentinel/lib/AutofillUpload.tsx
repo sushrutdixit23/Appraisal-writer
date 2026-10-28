@@ -42,7 +42,7 @@ export function AutofillUpload({
   /** The form's current values, so the AI option knows which fields are still blank. */
   getValues: () => Record<string, string>;
   onApply: (a: AutofillApplied) => void;
-  onAiFill: (filled: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) => void;
+  onAiFill: (filled: { values: Record<string, string>; sources: Record<string, string>; notes: string | null; keyAuditMattersText: string | null }) => void;
   onError: (message: string) => void;
   onUnauthenticated: () => void;
   /** Shown when the file holds more than one period, e.g. a link to the Import page. */
@@ -126,7 +126,12 @@ export function AutofillUpload({
           ? "The AI model found nothing more to fill."
           : `The AI model filled ${Object.keys(filled).length} blank field(s); they are marked "verify".`
       );
-      onAiFill({ values: filled, sources, notes: [r.extraction_notes, unitNote].filter(Boolean).join(" ") || null });
+      onAiFill({
+        values: filled,
+        sources,
+        notes: [r.extraction_notes, unitNote].filter(Boolean).join(" ") || null,
+        keyAuditMattersText: r.key_audit_matters_text,
+      });
       setBlanks((b) => Math.max(0, b - Object.keys(filled).length));
     } catch (e) {
       if (e instanceof UploadError && e.unauthenticated) onUnauthenticated();

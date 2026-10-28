@@ -101,6 +101,12 @@ export type FinancialStatement = {
   source_file: string;
   source_page: string | null;
   extraction_notes: string | null;
+  // The auditor's own Key Audit Matters paragraph(s), verbatim, captured at extraction time -
+  // real red flags often show up here before they ever become a number (see extraction.ts
+  // extractKeyAuditMattersText). Optional in the type (and in the database until
+  // supabase/migrations/20261102000000_sentinel_kam_text.sql is applied), same rule as the other
+  // fields added after the first release.
+  key_audit_matters_text?: string | null;
 };
 
 export type AnomalyFlag = {
@@ -190,6 +196,13 @@ export type Investigation = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  // Rupee/percentage figures the AI narrative stated that checkNarrativeGrounding (see
+  // narrativeGrounding.ts) could not trace to the data the model was actually given, computed
+  // deterministically, never asked of Claude - same rule as confidence_score. An empty array
+  // means every figure checked out; optional in the type (and in the database until
+  // supabase/migrations/20261103000000_sentinel_grounding_warnings.sql is applied), so an older
+  // investigation generated before this check existed simply has none to show.
+  grounding_warnings?: string[];
 };
 
 // Review Cycle — Phase 1's core object (see roadmap). Every recurring

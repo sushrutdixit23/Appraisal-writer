@@ -135,6 +135,7 @@ export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kin
     pages_used: [],
     layout,
     source_file: opts.sourceFile ?? (opts.kind === "csv" ? "uploaded.csv" : "uploaded.xlsx"),
+    key_audit_matters_text: null,
   };
 }
 

@@ -216,6 +216,28 @@ export function findKeyAuditMattersPages(pages: PdfPage[]): number[] {
   return found;
 }
 
+/** The auditor's own words for the pages findKeyAuditMattersPages found, so a downstream
+ * consumer (the investigation narrative) can cite the real paragraph instead of being told only
+ * a page number and having to trust a summary of it. Capped well under what one prompt turn
+ * should carry - a cap this low on purpose, not a token-count tuning exercise - and cut at a
+ * paragraph boundary where possible rather than mid-sentence. Returns null when there is nothing
+ * to show (no KAM pages found), never an empty string. */
+export function extractKeyAuditMattersText(pages: PdfPage[], kamPages: number[], maxChars = 4000): string | null {
+  if (kamPages.length === 0) return null;
+  const wanted = new Set(kamPages);
+  const text = [...pages]
+    .filter((p) => wanted.has(p.num))
+    .sort((a, b) => a.num - b.num)
+    .map((p) => p.text.trim())
+    .join("\n\n")
+    .trim();
+  if (!text) return null;
+  if (text.length <= maxChars) return text;
+  const cut = text.lastIndexOf("\n\n", maxChars);
+  const truncated = text.slice(0, cut > maxChars * 0.5 ? cut : maxChars).trim();
+  return `${truncated}\n\n[... truncated; see the original filing for the rest]`;
+}
+
 // ---------------------------------------------------------------------------------------------
 // 3. Grounding: is this number actually on the page?
 // ---------------------------------------------------------------------------------------------
@@ -503,6 +525,7 @@ export type ExtractionResult = {
   /** Per figure, the row the model said it read and the page that row is on (null if not found on any page). */
   field_sources?: Partial<Record<NumericField, { quote: string; page: number | null }>>;
   source_file: string;
+  key_audit_matters_text: string | null;
 };
 
 /** The draft's figures as form text, converted from the filing's unit to the company's reporting unit

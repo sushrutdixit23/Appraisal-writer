@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "incremental": false,
+    "plugins": [],
+    "rootDir": "..",
+    "outDir": "../node_modules/.cache/score-confidence",
+    "types": ["node"]
+  },
+  "include": ["./score-confidence.ts"],
+  "exclude": ["../node_modules"]
+}

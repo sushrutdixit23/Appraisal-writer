@@ -35,6 +35,7 @@ import {
   buildExtractionUserPrompt,
   checkDraft,
   checkGrounding,
+  extractKeyAuditMattersText,
   findKeyAuditMattersPages,
   groundingNotes,
   locateQuotePage,
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
   // Never read into a field - it is prose, not a figure - but worth a pointer: real red flags often show up
   // here before they ever become a number, and nothing else in this pipeline looks at the audit report at all.
   const kamPages = findKeyAuditMattersPages(pages);
+  const keyAuditMattersText = extractKeyAuditMattersText(pages, kamPages);
   if (kamPages.length > 0) {
     notes.push(`The auditor's Key Audit Matters are on p.${kamPages.join(", ")} - worth reading before relying on this period.`);
   }
@@ -185,5 +187,6 @@ export async function POST(req: Request) {
     checks: issues.map((i) => i.message),
     pages_used: selection?.pages ?? [],
     source_file: filename,
+    key_audit_matters_text: keyAuditMattersText,
   });
 }

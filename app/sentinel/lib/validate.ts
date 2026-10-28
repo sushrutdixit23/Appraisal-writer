@@ -29,6 +29,7 @@ export type StatementRow = {
   source_file: string;
   source_page: string | null;
   extraction_notes: string | null;
+  key_audit_matters_text: string | null;
 } & Record<NumericField, number | null>;
 
 /** One finding, with the fields it is about so a form can highlight them. */
@@ -114,6 +115,7 @@ export function coerceStatement(raw: unknown): { row: StatementRow | null; error
   const sourceFile = text("source_file", 200) ?? "manual-entry";
   const sourcePage = text("source_page", 50);
   const notes = text("extraction_notes", 4000);
+  const kamText = text("key_audit_matters_text", 8000);
 
   if (errors.length > 0) return { row: null, errors };
   return {
@@ -125,6 +127,7 @@ export function coerceStatement(raw: unknown): { row: StatementRow | null; error
       source_file: sourceFile,
       source_page: sourcePage,
       extraction_notes: notes,
+      key_audit_matters_text: kamText,
       ...numbers,
     },
     errors: [],
@@ -304,6 +307,7 @@ export type FormInput = {
   values: Record<string, string>;
   sourceFile: string;
   extractionNotes: string | null;
+  keyAuditMattersText?: string | null;
 };
 
 export type Prepared = {
@@ -332,6 +336,7 @@ export function prepareFromForm(form: FormInput, others: OtherStatement[]): Prep
     basis: form.basis,
     source_file: form.sourceFile,
     extraction_notes: form.extractionNotes,
+    key_audit_matters_text: form.keyAuditMattersText ?? null,
     ...numbers,
   });
   if (!row) {
