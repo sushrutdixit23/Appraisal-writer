@@ -40,3 +40,15 @@ test("no claims in the narrative is a clean pass, not an error", () => {
 test("the same ungrounded figure repeated is only reported once", () => {
   assert.deepEqual(checkNarrativeGrounding("It fell to 42.0%. Later, still 42.0%.", grounded), ["42.0%"]);
 });
+
+const wc = "receivable days of 110 exceed the configured 90-day threshold\n  receivable_days: 81.11 in FY25 -> 109.50 in FY26\n  Wipro (consolidated): 85.00";
+
+test("day counts: a figure the prompt carried, or the gap between two of them, is grounded; an invented one is flagged", () => {
+  assert.deepEqual(checkNarrativeGrounding("Collections now take 109.5 days, up from 81 days.", wc), []);
+  assert.deepEqual(checkNarrativeGrounding("That is 28 days longer than last year.", wc), []); // 109.50 - 81.11 = 28.39
+  assert.deepEqual(checkNarrativeGrounding("Peers collect in 62 days on average.", wc), ["62 days"]);
+});
+
+test("day counts: a rupee amount in the thousands cannot vouch for an invented day count", () => {
+  assert.deepEqual(checkNarrativeGrounding("Receivables are about 365 days of sales.", "Revenue ₹365.0 cr"), ["365 days"]);
+});

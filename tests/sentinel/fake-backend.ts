@@ -27,6 +27,8 @@ export class FakeBackend {
   rls = false;
   anthropicCalls: any[] = [];
   anthropicReply: (body: any) => Reply = () => ({ text: "{}" });
+  /** When set, answers instead of anthropicReply (may be async) - used to point an opt-in evaluation at the real API. */
+  anthropicForward: ((body: any) => Promise<Reply>) | null = null;
   failNext: { table: string; method: string; status: number; body: unknown } | null = null;
   requestLog: { method: string; path: string }[] = [];
   private server!: http.Server;
@@ -96,7 +98,7 @@ export class FakeBackend {
     if (url.pathname === "/v1/messages" && req.method === "POST") {
       const body = JSON.parse(raw || "{}");
       this.anthropicCalls.push(body);
-      const reply = this.anthropicReply(body);
+      const reply = this.anthropicForward ? await this.anthropicForward(body) : this.anthropicReply(body);
       if ("json" in reply) return this.send(res, reply.status ?? 200, reply.json);
       return this.send(res, 200, {
         id: "msg_test", type: "message", role: "assistant", model: body.model, stop_reason: "end_turn", stop_sequence: null,
