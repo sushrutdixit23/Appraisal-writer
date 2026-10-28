@@ -9,7 +9,7 @@
 // wording ("(Rs. in lakhs)"); anything it cannot place is left blank and named, never guessed.
 
 import { parseNumberInput } from "../fields";
-import { detectUnitInText } from "../units";
+import { detectUnitInText, normaliseUnit, type CurrencyUnit } from "../units";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchFieldHeader, matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
 import { findDates, parsePeriodHeader, periodForEndDate, type ParsedPeriodHeader } from "./periods";
@@ -89,6 +89,24 @@ type PeriodSlot = {
 
 const source = (row: number, label: string, text: string) => `row ${row} | ${label} | ${text}`;
 
+/** The unit named in a "unit" / "reporting unit" column, read from the first data row that fills it. Null when there is no such column;
+ * a value that is not a unit adds a note and is ignored, so a typo never decides the scale of a statement. */
+function unitFromColumn(rows: string[][], notes: string[]): { unit: CurrencyUnit; evidence: string; ambiguous: boolean } | null {
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const col = rows[i].findIndex((c) => /^(reporting[\s_-]*|currency[\s_-]*)?unit$/i.test(c.trim()));
+    if (col < 0) continue;
+    for (const r of rows.slice(i + 1)) {
+      const v = (r[col] ?? "").trim();
+      if (!v) continue;
+      const unit = normaliseUnit(v);
+      if (unit) return { unit, evidence: `the file's unit column says "${v}"`, ambiguous: false };
+      notes.push(`The unit column says "${v}", which is not a unit Sentinel knows (crore, lakh, million, thousand, billion); the unit was not read from it.`);
+      return null;
+    }
+  }
+  return null;
+}
+
 export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kind: "csv" | "xlsx" }): AutofillResult {
   const fyStart = opts.fyStartMonth ?? 4;
   const rows = tidy(input);
@@ -101,7 +119,10 @@ export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kin
   const tbLayout = findTrialBalanceLayout(rows);
   if (tbLayout) return readAsTrialBalance(rows, tbLayout, fyStart, opts, notes);
 
-  const unit = detectUnitInText(rows.slice(0, 40).map((r) => r.join(" ")).join("\n"));
+  // A "unit" column ("crore", "million", "INR_MILLION") states the unit outright. A table with one row per period has nowhere else to say
+  // it, and without it the figures were silently taken to be in the project's own unit (a million-rupee file read as crore is 10x out).
+  const columnUnit = unitFromColumn(rows, notes);
+  const unit = columnUnit ?? detectUnitInText(rows.slice(0, 40).map((r) => r.join(" ")).join("\n"));
   const topText = rows.slice(0, 8).map((r) => r.join(" ")).join(" ").toLowerCase();
   const sheetBasis: Basis | null = /consolidated/.test(topText) ? "consolidated" : /standalone|stand-alone/.test(topText) ? "standalone" : null;
 
