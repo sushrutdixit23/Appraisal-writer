@@ -103,7 +103,7 @@ export default function DataEntryPage() {
     setMessages([]);
   }
 
-  function applyAiFill({ values: filled, sources: more }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) {
+  function applyAiFill({ values: filled, sources: more }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null; keyAuditMattersText: string | null }) {
     setValues((prev) => {
       const next = { ...prev };
       for (const [k, v] of Object.entries(filled)) if ((next[k] ?? "").trim() === "") next[k] = v;

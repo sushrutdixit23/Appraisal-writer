@@ -24,7 +24,7 @@ import { SANS, SERIF, T } from "./lib/theme";
 import { unitLabel } from "./lib/units";
 import { setSelectedWorkspace, useSelectedWorkspace } from "./lib/useSelectedWorkspace";
 
-const PORTFOLIO_PATHS = ["/sentinel/projects", "/sentinel/new-project", "/sentinel/executive", "/sentinel/home"];
+const PORTFOLIO_PATHS = ["/sentinel/projects", "/sentinel/new-project", "/sentinel/executive", "/sentinel/home", "/sentinel/digest", "/sentinel/calibration"];
 const UUID_IN_PATH = /^\/sentinel\/projects\/([0-9a-f-]{36})(?:\/|$)/i;
 
 const PORTFOLIO_LABELS: Record<string, string> = {
@@ -32,6 +32,8 @@ const PORTFOLIO_LABELS: Record<string, string> = {
   "/sentinel/home": "All projects",
   "/sentinel/new-project": "New project",
   "/sentinel/executive": "Executive dashboard",
+  "/sentinel/digest": "Coverage digest",
+  "/sentinel/calibration": "Confidence calibration",
 };
 
 const GLOBAL_CSS = `
@@ -223,6 +225,12 @@ function Shell({ children }: { children: React.ReactNode }) {
           <p style={groupLabel}>Portfolio</p>
           <Link href="/sentinel/executive" style={linkStyle(pathname === "/sentinel/executive")} aria-current={pathname === "/sentinel/executive" ? "page" : undefined}>
             Executive dashboard
+          </Link>
+          <Link href="/sentinel/digest" style={linkStyle(pathname === "/sentinel/digest")} aria-current={pathname === "/sentinel/digest" ? "page" : undefined}>
+            Coverage digest
+          </Link>
+          <Link href="/sentinel/calibration" style={linkStyle(pathname === "/sentinel/calibration")} aria-current={pathname === "/sentinel/calibration" ? "page" : undefined}>
+            Confidence calibration
           </Link>
         </nav>
 

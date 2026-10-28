@@ -210,6 +210,26 @@ function ConfidenceBar({ score, signals }: { score: number; signals: Record<stri
   );
 }
 
+/** Figures the narrative stated that checkNarrativeGrounding (lib/narrativeGrounding.ts) could
+ * not trace back to the data the model was actually given - computed when the narrative was
+ * generated, shown here so a reviewer sees it before approving, not buried in a log. Nothing to
+ * show, nothing rendered - most investigations have none. */
+function GroundingWarning({ warnings }: { warnings: string[] | null | undefined }) {
+  if (!warnings || warnings.length === 0) return null;
+  return (
+    <div style={{ margin: "0.7rem 0", padding: "0.5rem 0.8rem", borderLeft: `3px solid ${T.oxblood}`, background: T.card }}>
+      <p style={{ fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T.oxblood, margin: "0 0 0.3rem 0" }}>
+        Unverified figure{warnings.length > 1 ? "s" : ""} in this narrative
+      </p>
+      <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.8rem", lineHeight: 1.55, color: T.inkSoft }}>
+        {warnings.map((w, i) => (
+          <li key={i}>{w}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // Investigation Engine V2 - named_peer/possible_causes/financial_impact
 // are all optional (null/[] on investigations generated before this was
 // added), so each section only renders when present. Shared between the
@@ -676,6 +696,7 @@ export default function InvestigationQueuePage() {
             {inv && inv.status === "pending" && (
               <div>
                 {inv.confidence_score != null && <ConfidenceBar score={inv.confidence_score} signals={inv.confidence_signals} />}
+                <GroundingWarning warnings={inv.grounding_warnings} />
                 <Eyebrow>Turn 1 — hypothesis, from the company&apos;s own data</Eyebrow>
                 <p style={{ fontSize: "0.93rem", lineHeight: 1.65, margin: 0 }}>{inv.initial_hypothesis}</p>
                 <Eyebrow>Turn 2 — draft narrative, checked against peers</Eyebrow>
@@ -776,6 +797,7 @@ export default function InvestigationQueuePage() {
                 ) : (
                   <>
                     {inv.confidence_score != null && <ConfidenceBar score={inv.confidence_score} signals={inv.confidence_signals} />}
+                    <GroundingWarning warnings={inv.grounding_warnings} />
                     {(() => {
                       const { verdict, body } = parseVerdict(inv.final_narrative);
                       return (

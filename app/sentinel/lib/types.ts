@@ -6,6 +6,8 @@
 // table columns exactly (snake_case), so rows come off supabase-js and
 // go straight into the engine with zero mapping.
 
+import type { UsageSummary } from "./aiUsage";
+
 export type PeriodType = "Q1" | "Q2" | "Q3" | "Q4" | "FY";
 export type Basis = "standalone" | "consolidated";
 
@@ -26,6 +28,10 @@ export type Workspace = {
   // (and in the database until supabase/migrations/20261101000000_sentinel_market_data.sql is applied).
   market_price?: number | null;
   market_price_as_of?: string | null;
+  // For the automatic price refresh (lib/market.ts); optional until supabase/migrations/20261106000000_sentinel_market_feed.sql is applied.
+  ticker?: string | null;
+  bse_code?: string | null;
+  market_price_source?: string | null;
 };
 
 export type WorkspaceRole = "owner" | "analyst" | "viewer";
@@ -101,6 +107,12 @@ export type FinancialStatement = {
   source_file: string;
   source_page: string | null;
   extraction_notes: string | null;
+  // The auditor's own Key Audit Matters paragraph(s), verbatim, captured at extraction time -
+  // real red flags often show up here before they ever become a number (see extraction.ts
+  // extractKeyAuditMattersText). Optional in the type (and in the database until
+  // supabase/migrations/20261102000000_sentinel_kam_text.sql is applied), same rule as the other
+  // fields added after the first release.
+  key_audit_matters_text?: string | null;
 };
 
 export type AnomalyFlag = {
@@ -190,6 +202,16 @@ export type Investigation = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  // Rupee/percentage figures the AI narrative stated that checkNarrativeGrounding (see
+  // narrativeGrounding.ts) could not trace to the data the model was actually given, computed
+  // deterministically, never asked of Claude - same rule as confidence_score. An empty array
+  // means every figure checked out; optional in the type (and in the database until
+  // supabase/migrations/20261103000000_sentinel_grounding_warnings.sql is applied), so an older
+  // investigation generated before this check existed simply has none to show.
+  grounding_warnings?: string[];
+  // Tokens and estimated cost of the model calls that produced this draft (see aiUsage.ts). Optional until
+  // supabase/migrations/20261104000000_sentinel_ai_usage.sql is applied.
+  generation_usage?: UsageSummary | null;
 };
 
 // Review Cycle — Phase 1's core object (see roadmap). Every recurring

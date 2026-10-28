@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "incremental": false,
+    "plugins": [],
+    "rootDir": "..",
+    "outDir": "../node_modules/.cache/seed-reference-universe",
+    "types": ["node"]
+  },
+  "include": ["./seed-reference-universe.ts"],
+  "exclude": ["../node_modules"]
+}

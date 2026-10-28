@@ -13,7 +13,7 @@
 // figures (marked "derived"), or empty.
 
 import { parseNumberInput } from "../fields";
-import { findKeyAuditMattersPages, selectStatementPages, type PdfPage } from "../extraction";
+import { extractKeyAuditMattersText, findKeyAuditMattersPages, selectStatementPages, type PdfPage } from "../extraction";
 import { detectUnitInText } from "../units";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
@@ -255,6 +255,7 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
   // show up here before they ever become a number, and nothing else in this pipeline looks at the
   // audit report at all.
   const kamPages = findKeyAuditMattersPages(pages);
+  const keyAuditMattersText = extractKeyAuditMattersText(pages, kamPages);
   if (kamPages.length > 0) {
     notes.push(`The auditor's Key Audit Matters are on p.${kamPages.join(", ")} - worth reading before relying on this period.`);
   }
@@ -361,6 +362,7 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
     pages_used: selection.pages,
     layout: null,
     source_file: opts.sourceFile ?? "uploaded.pdf",
+    key_audit_matters_text: keyAuditMattersText,
   };
 }
 

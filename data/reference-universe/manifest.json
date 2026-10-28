@@ -1,0 +1,10 @@
+[
+  { "company_name": "TCS", "sector": "technology", "industry": "IT services", "unit": "INR_CRORE", "basis": "consolidated", "csv": "tcs-consolidated.csv",
+    "source": "Tata Consultancy Services, Integrated Annual Report 2025-26: consolidated balance sheet, profit and loss and cash flow (pp. 196-203). Hand-verified; balance sheet balances." },
+  { "company_name": "Tech Mahindra", "sector": "technology", "industry": "IT services", "unit": "INR_MILLION", "basis": "consolidated", "csv": "tech-mahindra-consolidated.csv",
+    "source": "Tech Mahindra, Integrated Annual Report 2025-26: consolidated statements (pp. 552-555). Total liabilities includes the 12,304 million suspense account the filing balances with. Hand-verified." },
+  { "company_name": "Wipro", "sector": "technology", "industry": "IT services", "unit": "INR_MILLION", "basis": "consolidated", "csv": "wipro-consolidated.csv",
+    "source": "Wipro, Integrated Annual Report 2025-26: consolidated statements (pp. 308-317). Hand-verified; cash flow ties to the stated change in cash." },
+  { "company_name": "HCLTech", "sector": "technology", "industry": "IT services", "unit": "INR_CRORE", "basis": "consolidated", "csv": "hcltech-consolidated.csv",
+    "source": "HCL Technologies, Integrated Annual Report 2025-26: consolidated statements (pp. 370-376). Hand-verified; cash flow ties to the stated change in cash." }
+]

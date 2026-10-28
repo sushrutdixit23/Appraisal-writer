@@ -47,6 +47,10 @@ export type AutofillResult = {
   /** How a spreadsheet was read: "line items down, periods across" or "one row per period". */
   layout: string | null;
   source_file: string;
+  /** The auditor's own Key Audit Matters paragraph(s), verbatim - PDFs only; null for a sheet,
+   * and null for a PDF with no such section found. Carried through to the saved statement so the
+   * investigation narrative can cite the real text instead of only a page pointer. */
+  key_audit_matters_text: string | null;
 };
 
 export class AutofillError extends Error {}
@@ -57,4 +61,6 @@ export type AutofillOptions = {
   periodType?: PeriodType | null;
   fyStartMonth?: number;
   sourceFile?: string;
+  /** A trial balance carries no period heading: the caller (a data request) says which period it is for. */
+  periodEndDate?: string | null;
 };

@@ -74,6 +74,7 @@ export default function AddPeriodPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [sourceFile, setSourceFile] = useState("manual entry");
   const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
+  const [keyAuditMattersText, setKeyAuditMattersText] = useState<string | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
   const [sources, setSources] = useState<Record<string, string>>({});
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -181,6 +182,7 @@ export default function AddPeriodPage() {
       setValues({});
       setSourceFile("manual entry");
       setExtractionNotes(null);
+      setKeyAuditMattersText(null);
       setSelectedReviewCycleId("");
       return;
     }
@@ -193,6 +195,7 @@ export default function AddPeriodPage() {
     setValues(statementToFormValues(stmt as unknown as Record<string, unknown>));
     setSourceFile(stmt.source_file);
     setExtractionNotes(stmt.extraction_notes);
+    setKeyAuditMattersText(stmt.key_audit_matters_text ?? null);
     setSelectedReviewCycleId(stmt.review_cycle_id ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatementId, statements, selectedWs?.id]);
@@ -209,6 +212,7 @@ export default function AddPeriodPage() {
     setExtractionNotes(
       [`Filled from ${result.source_file} by rules (no AI).`, applied.unitNote, ...result.notes, ...period.notes].filter(Boolean).join(" ") || null
     );
+    setKeyAuditMattersText(result.key_audit_matters_text);
     setIssues([]);
     setAutofillPeriodKey(period.key);
   }
@@ -231,7 +235,12 @@ export default function AddPeriodPage() {
     setDone(false);
   }
 
-  function applyAiFill({ values: filled, sources: more, notes }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null }) {
+  function applyAiFill({
+    values: filled,
+    sources: more,
+    notes,
+    keyAuditMattersText: aiKam,
+  }: { values: Record<string, string>; sources: Record<string, string>; notes: string | null; keyAuditMattersText: string | null }) {
     setValues((prev) => {
       const next = { ...prev };
       for (const [k, v] of Object.entries(filled)) if ((next[k] ?? "").trim() === "") next[k] = v;
@@ -240,6 +249,7 @@ export default function AddPeriodPage() {
     setVerify((prev) => [...new Set([...prev, ...Object.keys(filled)])]);
     setSources((prev) => ({ ...prev, ...more }));
     if (notes) setExtractionNotes((prev) => [prev, `AI reading: ${notes}`].filter(Boolean).join(" "));
+    if (aiKam) setKeyAuditMattersText((prev) => prev ?? aiKam);
   }
 
   async function saveStatement() {
@@ -262,7 +272,7 @@ export default function AddPeriodPage() {
     }
 
     const prepared = prepareFromForm(
-      { periodType, periodLabel: label, periodEndDate, basis, values, sourceFile, extractionNotes },
+      { periodType, periodLabel: label, periodEndDate, basis, values, sourceFile, extractionNotes, keyAuditMattersText },
       others
     );
     setIssues([...prepared.issues]);

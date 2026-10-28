@@ -14,6 +14,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import { planImport, summariseImport, type ExistingPeriod, type ImportFile, type ImportRow } from "../../../lib/autofill/plan";
 import type { AutofillResult } from "../../../lib/autofill/types";
+import { DataRequests } from "../../../lib/DataRequests";
 import { useShell } from "../../../lib/shell/ShellData";
 import { SERIF, T } from "../../../lib/theme";
 import { sendFile, UploadError, type SendProgress } from "../../../lib/uploadClient";
@@ -48,6 +49,8 @@ export default function ImportPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const seen = useRef<Set<string>>(new Set());
+  const [ocrPages, setOcrPages] = useState("");
+  const [ocrBusy, setOcrBusy] = useState(false);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -150,6 +153,32 @@ export default function ImportPage() {
     }
     setFiles((prev) => [...prev, ...added]);
     setErrors(problems);
+  }
+
+  /** A scanned PDF has no text: the named pages are recognised by OCR on the server and come back like any other file. */
+  async function readWithOcr(file: File | null) {
+    if (!file || !workspace) return;
+    setErrors([]);
+    setOutcomes({});
+    setOcrBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { router.push("/login"); return; }
+      const form = new FormData();
+      form.append("file", file);
+      form.append("pages", ocrPages);
+      form.append("basis", workspace.comparison_basis);
+      form.append("fy_start_month", String(workspace.fiscal_year_start_month));
+      const res = await fetch("/api/sentinel/ocr", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+      const body = (await res.json().catch(() => ({}))) as AutofillResult & { error?: string };
+      if (!res.ok) { setErrors([`${file.name}: ${body.error ?? "could not be read."}`]); return; }
+      setFiles((prev) => (prev.some((x) => x.name === file.name) ? prev : [...prev, { name: file.name, result: body, unit: body.unit.unit }]));
+    } catch {
+      setErrors(["The OCR request failed. Check your connection."]);
+    } finally {
+      setOcrBusy(false);
+    }
   }
 
   function cancelReading() {
@@ -299,6 +328,30 @@ export default function ImportPage() {
           </ul>
         )}
       </section>
+
+      <section aria-label="Scanned PDF" data-testid="ocr-card" style={card}>
+        <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.3rem 0" }}>Scanned PDF? Read with OCR</h2>
+        <p style={{ ...small, margin: "0 0 0.7rem 0" }}>
+          A scan is pictures of pages, with no text to read. Name just the pages that hold the statements (for example 140-160, at most 25) and they are
+          recognised on the server. OCR can misread a digit, so every figure comes back marked for review.
+        </p>
+        <div style={{ display: "flex", gap: "0.7rem", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ fontSize: "0.78rem", color: T.inkSoft }}>Pages{" "}
+            <input value={ocrPages} onChange={(e) => setOcrPages(e.target.value)} placeholder="140-160" aria-label="Pages to read by OCR" style={{ ...selectStyle, width: 110 }} disabled={ocrBusy} />
+          </label>
+          <input type="file" accept=".pdf,application/pdf" aria-label="Scanned PDF file" disabled={ocrBusy || ocrPages.trim() === ""} onChange={(e) => { readWithOcr(e.target.files?.[0] ?? null); e.target.value = ""; }} style={{ fontSize: "0.85rem" }} />
+          {ocrBusy && <span role="status" style={{ ...small, margin: 0, color: T.accent }}>Recognising pages...</span>}
+        </div>
+      </section>
+
+      <DataRequests
+        workspaceId={id}
+        onAddDraft={(f) => {
+          setFiles((prev) => (prev.some((x) => x.name === f.name) ? prev : [...prev, { name: f.name, result: f.result, unit: f.unit }]));
+          seen.current.clear();
+          setSelected(new Set());
+        }}
+      />
 
       {rows.length > 0 && (
         <section aria-label="Periods found" style={{ ...card, padding: 0, overflowX: "auto" }}>

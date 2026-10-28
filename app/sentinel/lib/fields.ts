@@ -90,9 +90,13 @@ export const OPTIONAL_COLUMNS: readonly NumericField[] = [
   "retained_earnings", "cost_of_goods_sold", "sga_expense", "shares_outstanding", "unbilled_revenue",
 ];
 
+/** Non-numeric columns added after the first release, under the same "don't send a null for a
+ * column the database might not have yet" rule as OPTIONAL_COLUMNS. */
+export const OPTIONAL_TEXT_COLUMNS: readonly string[] = ["key_audit_matters_text"];
+
 export function withoutUnsetOptionalColumns<T extends object>(record: T, existing?: object | null): T {
   const out = { ...record } as Record<string, unknown>;
-  for (const key of OPTIONAL_COLUMNS) {
+  for (const key of [...OPTIONAL_COLUMNS, ...OPTIONAL_TEXT_COLUMNS]) {
     if ((out[key] === null || out[key] === undefined) && !(existing && key in existing)) delete out[key];
   }
   return out as T;

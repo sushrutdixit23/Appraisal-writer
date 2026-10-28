@@ -12,7 +12,8 @@ import { parseNumberInput } from "../fields";
 import { detectUnitInText } from "../units";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchFieldHeader, matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
-import { parsePeriodHeader, type ParsedPeriodHeader } from "./periods";
+import { findDates, parsePeriodHeader, periodForEndDate, type ParsedPeriodHeader } from "./periods";
+import { findTrialBalanceLayout, readTrialBalance, trialBalanceRows } from "./trialBalance";
 import { AutofillError, type AutofillOptions, type AutofillPeriod, type AutofillResult, type Confidence } from "./types";
 import type { Basis } from "../types";
 
@@ -96,6 +97,10 @@ export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kin
   }
   const notes: string[] = [];
 
+  // A trial balance (ledger + debit/credit) is not a statement at all: read it into statement figures.
+  const tbLayout = findTrialBalanceLayout(rows);
+  if (tbLayout) return readAsTrialBalance(rows, tbLayout, fyStart, opts, notes);
+
   const unit = detectUnitInText(rows.slice(0, 40).map((r) => r.join(" ")).join("\n"));
   const topText = rows.slice(0, 8).map((r) => r.join(" ")).join(" ").toLowerCase();
   const sheetBasis: Basis | null = /consolidated/.test(topText) ? "consolidated" : /standalone|stand-alone/.test(topText) ? "standalone" : null;
@@ -135,6 +140,7 @@ export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kin
     pages_used: [],
     layout,
     source_file: opts.sourceFile ?? (opts.kind === "csv" ? "uploaded.csv" : "uploaded.xlsx"),
+    key_audit_matters_text: null,
   };
 }
 
@@ -281,3 +287,43 @@ function readRowsAsPeriods(rows: Cell[][], headerRow: number, fyStart: number, s
   return out;
 }
 
+
+// ---- trial balance ------------------------------------------------------------------------------
+
+function readAsTrialBalance(rows: Cell[][], layout: NonNullable<ReturnType<typeof findTrialBalanceLayout>>, fyStart: number, opts: AutofillOptions & { kind: "csv" | "xlsx" }, notes: string[]): AutofillResult {
+  const tb = readTrialBalance(trialBalanceRows(rows, layout));
+  if (Object.keys(tb.fields).length === 0) {
+    throw new AutofillError("This looks like a trial balance, but no ledger could be placed in a statement line. Check that it lists ledger names with debit and credit balances.");
+  }
+  // The period is not in the ledgers: take the "as on" date printed above the table, or the one the caller knows.
+  const above = rows.slice(0, layout.headerRow).map((r) => r.join(" ")).join(" ");
+  const iso = opts.periodEndDate ?? findDates(above).at(-1)?.iso ?? null;
+  const derived = iso ? periodForEndDate(iso, opts.periodType && opts.periodType !== "FY" ? "quarter" : "year", fyStart) : null;
+  const pnotes = [...tb.notes];
+  if (!derived) pnotes.push("The trial balance's date could not be read; set the period label and end date yourself.");
+  const unit = detectUnitInText(above);
+  notes.push("Read as a trial balance (ledger, debit, credit).");
+  const { fields } = deriveFields(tb.fields as Raw);
+  const issues = checkAndDowngrade(fields);
+  return {
+    kind: opts.kind,
+    unit: unit
+      ? { unit: unit.unit, source: "sheet", evidence: unit.evidence, ambiguous: unit.ambiguous }
+      : { unit: "INR", source: "sheet", evidence: "Trial balances are kept in plain rupees (assumed - say so if this one is in lakh or crore)", ambiguous: true },
+    periods: [{
+      key: iso ?? "tb",
+      period_type: derived?.period_type ?? null,
+      period_label: derived?.period_label ?? null,
+      period_end_date: derived?.period_end_date ?? null,
+      basis: opts.preferredBasis ?? null,
+      fields,
+      notes: pnotes,
+      issues,
+    }],
+    notes,
+    pages_used: [],
+    layout: "trial balance",
+    source_file: opts.sourceFile ?? (opts.kind === "csv" ? "uploaded.csv" : "uploaded.xlsx"),
+    key_audit_matters_text: null,
+  };
+}

@@ -24,7 +24,7 @@ function period(over: Partial<AutofillPeriod> & { fields?: Record<string, FieldH
 const file = (name: string, periods: AutofillPeriod[], unit: ImportFile["unit"] = "INR_CRORE"): ImportFile => ({
   name,
   unit,
-  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name } as AutofillResult,
+  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name, key_audit_matters_text: null } as AutofillResult,
 });
 
 const ws = { currency_unit: "INR_CRORE", comparison_basis: "consolidated" as const, fiscal_year_start_month: 4 };
