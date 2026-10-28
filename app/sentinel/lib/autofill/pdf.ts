@@ -183,13 +183,21 @@ function readPage(page: PdfPage, previous: StatementKind | null, fyStart: number
   // A note-number column ("Revenue from operations  24  1,000.00  900.00") shows up as one extra small
   // integer in front of the figures. With the header giving the column count it is exact; without, it is
   // inferred from how many rows carry that extra integer.
-  const small = (t: string) => /^\d{1,3}$/.test(t);
+  // A note reference is a small integer ("24") or a dotted one ("2.18", used by Infosys). A dotted figure is only ever read as a note
+  // when its row has one token more than the columns, or the page's other rows show the pattern, so a genuine "12.50" amount is safe.
+  const small = (t: string) => /^\d{1,3}$/.test(t) || /^\d{1,2}\.\d{1,2}$/.test(t) || /^\d{1,2},\d{1,2}$/.test(t); // the last: "2.1, 2.3" read by OCR as "21,23" - not a valid amount
   let noteColumn = false;
   const expected = columns.length;
   if (expected > 0) {
     const withExtra = rows.filter((r) => r.tokens.length === expected + 1 && small(r.tokens[0])).length;
     const exact = rows.filter((r) => r.tokens.length === expected).length;
     noteColumn = withExtra > 0 && withExtra >= exact * 0.4;
+    // "As at March 31," over a bare "2026  2025" reads as ONE date, yet the rows carry a note number and two years of figures.
+    if (!noteColumn && expected === 1) {
+      const noteAndTwo = rows.filter((r) => r.tokens.length === 3 && small(r.tokens[0])).length;
+      const two = rows.filter((r) => r.tokens.length === 2).length;
+      noteColumn = noteAndTwo > 0 && noteAndTwo >= two * 0.4;
+    }
   } else {
     const wide = rows.filter((r) => r.tokens.length >= 3);
     noteColumn = wide.length >= 3 && wide.filter((r) => small(r.tokens[0])).length / wide.length >= 0.6;

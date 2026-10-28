@@ -28,6 +28,29 @@ export function parsePageRange(spec: string, max = MAX_OCR_PAGES): number[] | { 
   return [...pages].sort((a, b) => a - b);
 }
 
+/** Pixels lighter than this become white, darker become black. Annual reports often print the current-year column and its
+ * header in light grey; Tesseract drops that print entirely (a "2026 2025" header came back as "om 200"), and the rules
+ * reader then cannot tell which column is which year. Forcing every pixel to black or white keeps the grey. */
+const BLACK_BELOW = 215;
+
+/** Convert a page image to pure black and white before recognition. */
+export async function enhanceForOcr(png: Uint8Array): Promise<Uint8Array> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  const img = await loadImage(Buffer.from(png));
+  const canvas = createCanvas(img.width, img.height);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const frame = ctx.getImageData(0, 0, img.width, img.height);
+  const d = frame.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < BLACK_BELOW ? 0 : 255;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(frame, 0, 0);
+  return canvas.toBuffer("image/png");
+}
+
 /** Recognise each page image and return its text. One worker is reused for every page and always shut down. */
 export async function ocrImages(images: { num: number; png: Uint8Array }[]): Promise<PdfPage[]> {
   const { createWorker } = await import("tesseract.js");
@@ -35,9 +58,12 @@ export async function ocrImages(images: { num: number; png: Uint8Array }[]): Pro
   const langPath = path.join(process.cwd(), "node_modules", "@tesseract.js-data", "eng", "4.0.0_best_int");
   const worker = await createWorker("eng", 1, { langPath, gzip: true, cachePath: os.tmpdir() });
   try {
+    // Keep the gaps between words: a statement is columns, and the rules reader tells the year columns and the note column
+    // apart by where the numbers sit, which is lost if Tesseract collapses the spaces.
+    await worker.setParameters({ preserve_interword_spaces: "1" });
     const pages: PdfPage[] = [];
     for (const img of images) {
-      const { data } = await worker.recognize(Buffer.from(img.png));
+      const { data } = await worker.recognize(Buffer.from(await enhanceForOcr(img.png)));
       pages.push({ num: img.num, text: data.text });
     }
     return pages;
