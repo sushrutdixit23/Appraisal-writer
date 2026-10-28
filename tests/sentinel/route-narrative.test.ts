@@ -240,7 +240,7 @@ test("working-capital evidence: last year's days, the receivables-vs-revenue gap
   assert.equal(r.status, 200, JSON.stringify(r.json));
   const first = backend.anthropicCalls[0].messages[0].content as string;
   assert.match(first, /receivable_days: 81\.11 in FY25 -> 109\.50 in FY26/);
-  assert.match(first, /Trade receivables \+50\.0% against revenue \+11\.1% year on year/);
+  assert.match(first, /Trade receivables \+50\.00% against revenue \+11\.11% year on year/);
   const second = backend.anthropicCalls[1].messages[2].content as string;
   assert.match(second, /Standalone Peer \(standalone\): /);
   assert.match(second, /Tech Subject \(consolidated\): 109\.50 <- flagged company/);

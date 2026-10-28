@@ -28,7 +28,7 @@ const GOOD =
 test("scorer: a narrative that uses the trend, names the basis, hedges the definition and cites only given figures passes", () => {
   const s = scoreNarrative(GOOD, PROMPT);
   assert.equal(s.passed, true, JSON.stringify(s.checks.filter((c) => !c.ok)));
-  assert.deepEqual(s.checks.map((c) => c.id), ["verdict", "length", "grounded", "uses_trend", "names_basis", "hedges_definition"]);
+  assert.deepEqual(s.checks.map((c) => c.id), ["verdict", "length", "grounded", "uses_trend", "names_basis", "hedges_definition", "no_false_equivalence"]);
 });
 
 test("scorer: each failure is named - no verdict, an invented figure, trend ignored, basis unnamed, definition gap treated as settled", () => {
@@ -124,4 +124,19 @@ test("live evaluation: the real model's narrative on the mixed-basis working-cap
   const s = scoreNarrative(narrative, prompt);
   console.log(`# live narrative:\n${narrative}\n# scorecard: ${s.checks.map((c) => `${c.ok ? "PASS" : "FAIL"} ${c.id} (${c.detail})`).join(" | ")}`);
   assert.equal(s.passed, true, JSON.stringify(s.checks.filter((c) => !c.ok)));
+});
+
+test("scorer: the exact false-equivalence sentence from a real draft is caught, and a narrative that hedges the definition is not", () => {
+  const prompt = "Receivable days may not be like-for-like across these companies: whether each company's trade receivables include unbilled revenue is not recorded here.";
+  const wrong = "**Rules out sector-wide effect**\n\nTCS's collection cycle is 20 days longer than its closest peer, with no basis mismatch to explain it away. This looks company specific.";
+  const failed = scoreNarrative(wrong, prompt).checks.filter((c) => !c.ok).map((c) => c.id).sort();
+  assert.deepEqual(failed, ["grounded", "hedges_definition", "no_false_equivalence"]);
+  const right = "**Points to something else**\n\nThe gap to Infosys may be a definition difference: one counts billed receivables only and the other adds unbilled revenue. Confirm the definition before treating it as slower collections.";
+  assert.equal(scoreNarrative(right, prompt).passed, true, JSON.stringify(scoreNarrative(right, prompt).checks));
+});
+
+test("scorer: 'unbilled revenue conversion' mentioned as a cause is not a hedge about definitions", () => {
+  const prompt = "Receivable days may not be like-for-like across these companies";
+  const s = scoreNarrative("**Points to something else**\n\nThis may reflect unbilled revenue conversion at TCS. Raise it with management.", prompt);
+  assert.equal(s.checks.find((c) => c.id === "hedges_definition")!.ok, false);
 });

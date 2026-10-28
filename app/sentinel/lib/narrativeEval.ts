@@ -34,8 +34,11 @@ export function scoreNarrative(narrative: string, prompt: string): EvalScore {
     add("names_basis", named, named ? "names a basis" : "the peers are on mixed bases and the narrative never says which basis a figure is on");
   }
   if (/Receivable days may not be like-for-like/.test(prompt)) {
-    const hedged = /\b(unbilled|definition|like-for-like|not comparable|comparab)/i.test(body);
+    const hedged = /\b(definition|definitional|like-for-like|not comparable|comparab\w*|billed (only|plus)|(includ|exclud)\w* unbilled)/i.test(body);
     add("hedges_definition", hedged, hedged ? "mentions the definition issue" : "receivable days may be defined differently across peers and the narrative treats the gap as settled");
+    // The specific failure seen in practice: asserting that nothing differs between companies whose definitions are unrecorded.
+    const denied = /\bno (basis|definition|definitional|accounting) (mismatch|difference)\b|\b(same|identical|consistent) (basis|definition)\b|\bwithout (any )?(basis|definition)al? (mismatch|difference)/i.test(body);
+    add("no_false_equivalence", !denied, denied ? "the narrative asserts the companies' receivables are defined alike, which the data does not show" : "does not assert matching definitions");
   }
   return { passed: checks.every((c) => c.ok), checks };
 }

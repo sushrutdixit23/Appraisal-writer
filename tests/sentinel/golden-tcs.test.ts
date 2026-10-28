@@ -77,9 +77,14 @@ test("the prompt the model sees carries the filing-derived trend, the gap, and e
   const first = backend.anthropicCalls[0].messages[0].content as string;
   const second = backend.anthropicCalls[1].messages[2].content as string;
   assert.match(first, /receivable_days: 88\.17 in FY25 -> 94\.46 in FY26/);
-  assert.match(first, /Trade receivables \+10\.2% against revenue \+2\.8% year on year \(receivables ahead of revenue by 7\.3 points\)/);
+  assert.match(first, /Trade receivables \+10\.16% against revenue \+2\.83% year on year \(receivables ahead of revenue by 7\.33 points\)/);
   assert.match(second, /TCS \(standalone\): 94\.46 <- flagged company/);
   assert.match(second, /Wipro \(consolidated\): /);
   assert.match(second, /HCLTech \(consolidated\): 90\.14/);
   assert.match(second, /peers are not all on the same basis/);
+  // Nothing on file says whether each company's receivables include unbilled revenue, so the model is told not to assume they match.
+  assert.match(second, /Receivable days may not be like-for-like across these companies/);
+  assert.match(second, /Do not state or imply that the definitions match/);
+  // And that HCLTech at 90.14 is deliberately not flagged.
+  assert.match(second, /deliberately not flagged/);
 });
