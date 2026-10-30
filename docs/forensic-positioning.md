@@ -20,7 +20,7 @@
 | Coverage digest | **Keep** | The morning view: what needs attention across your companies. |
 | Peers and trends, peer benchmarking, sector pattern detection | **Keep as supporting evidence** | "This flag is up across the sector" is forensic context. Demote from the main nav. |
 | Covenant tracker | **Keep for the lender persona** | A credit analyst's tool; irrelevant to an equity reader. Show it only for projects marked as a loan. |
-| Filing watcher (BSE) | **Keep, for the portfolio view** | Tells you when a new report lands. Unverified against the live feed. |
+| Filing watcher (BSE) | **Keep, for the portfolio view** | Tells you when a new report lands, and the Import page can now fetch it. Both unverified against the live feed. |
 | Results brief (quarterly), results calendar | **Hide behind "More"** | Results-day tooling for equity analysts. Good, but it is a different product from the forensic reader. |
 | Estimates and variance | **Hide** | Needs a consensus feed Sentinel does not have; a typed number is not a street estimate. |
 | Concall / transcript reader | **Hide** | A model reads it (checked by quote), so it is the one place the philosophy bends. Useful, unverified on real calls, and not forensic of statements. |
@@ -45,10 +45,12 @@
 
 ## Will Sentinel highlight your portfolio?
 
-**Partly, and not the way you probably mean.** Today:
+**Yes, for the companies you have set up as projects, and it now says how big each one is.** What exists (migration `20261113000000_sentinel_holdings.sql`, Portfolio in the sidebar):
 
-- It can show, for the companies you have set up as projects, which ones have something that needs attention: the coverage digest ranks flags, notes findings, overdue filings and covenant problems across your own companies.
-- It cannot take a list of holdings with quantities and prices, rank findings by position size, or watch the whole market for you. There is no holdings table, no price history, and the filing watcher is unverified against the live BSE feed.
-- Every company still needs its annual report put in by hand (or by a CA through the upload link).
+- **A holdings list**, private to you: quantity and average cost per company, added by hand or from a broker CSV (Symbol, Company or BSE code; Quantity; Average cost or Invested value). Rows are matched by BSE code, then symbol, then company name, preferring your own project over a reference copy. A row that matches nothing, or matches two of your projects, is listed with the reason, never guessed.
+- **Weights by position size.** By market value when every holding has a price, otherwise by cost, otherwise equal; the page says which, because mixing priced and unpriced positions would weight them on different scales.
+- **A weighted ranking.** Each company's concern is its weight times its findings (3 points for each high, 1 for each medium, capped at 9) from the notes to its latest annual report, the auditor's report and its covenants. "Tech Mahindra - 8.0% of your book: the auditor's CARO answer on fraud is not the clean one (p.437)" is now a line in the digest, which opens with it. The score orders your reading; it is not a measure of risk.
+- **Blind spots stated.** The share of the book with no annual report read is shown next to the share under a high finding, because "nothing found" is only reassuring where something was read. So is the share whose next annual report should be out by now.
+- **Annual report fetch from BSE** on the Import page, by the company's BSE code or a pasted bseindia.com address. **This is not verified against the live site**: it was built and tested against a fake BSE that follows the documented response shape, because the sandbox it was built in cannot reach bseindia.com. The first real run will show whether BSE answers a cloud server, and every failure says which step failed. The file goes through the same reader as an upload and nothing is saved until you confirm the preview.
 
-To make it a real portfolio view you need four things, none large: a holdings list (symbol, quantity, cost); a weight-aware digest ("Tech Mahindra is 8% of your book and its auditor filed a fraud report under section 143(12)"); automatic fetch of each new annual report from BSE/NSE; and the year-on-year notes comparison above. The first two are about two days of work. The third depends on the exchange feed being reachable, which it is not from where Sentinel was built.
+Still not there: it does not watch the whole market (only companies you have made projects), keeps no price history (a position's weight uses the latest price on the company's Settings page, flagged when it is over a week old), cannot read a holding whose report layout the note readers do not handle (those show as "not read"), and does not yet compare a note year-on-year.

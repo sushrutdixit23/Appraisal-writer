@@ -164,7 +164,7 @@ const COLUMN: Record<"name" | "bse" | "qty" | "cost" | "invested", RegExp> = {
 
 /** A broker holdings export (Zerodha, Groww, an Excel sheet saved as CSV) matched to the projects a person can read: by BSE code, then ticker, then company name with
  * "Limited" and its kin ignored. A row that matches nothing is returned with the reason, never dropped silently and never matched on a guess. */
-export function parseHoldingsCsv(text: string, workspaces: Pick<Workspace, "id" | "company_name" | "ticker" | "bse_code">[]): HoldingsImport {
+export function parseHoldingsCsv(text: string, workspaces: (Pick<Workspace, "id" | "company_name" | "ticker" | "bse_code"> & { owner_id?: string | null })[]): HoldingsImport {
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
   const out: HoldingsImport = { matched: [], unmatched: [], errors: [] };
   if (lines.length < 2) { out.errors.push("The file needs a header row and at least one holding."); return out; }
@@ -175,10 +175,23 @@ export function parseHoldingsCsv(text: string, workspaces: Pick<Workspace, "id" 
   if (iName < 0 && iBse < 0) out.errors.push("No company column found (expected Symbol, Company or BSE code).");
   if (out.errors.length) return out;
 
-  const byBse = new Map(workspaces.filter((w) => w.bse_code).map((w) => [String(w.bse_code).trim(), w]));
-  const byTicker = new Map(workspaces.filter((w) => w.ticker).map((w) => [String(w.ticker).trim().toUpperCase(), w]));
-  const byName = new Map<string, (typeof workspaces)[number][]>();
-  for (const w of workspaces) byName.set(norm(w.company_name), [...(byName.get(norm(w.company_name)) ?? []), w]);
+  type W = (typeof workspaces)[number];
+  const group = (key: (w: W) => string | null) => {
+    const m = new Map<string, W[]>();
+    for (const w of workspaces) { const k = key(w); if (k) m.set(k, [...(m.get(k) ?? []), w]); }
+    return m;
+  };
+  const byBse = group((w) => (w.bse_code ? String(w.bse_code).trim() : null));
+  const byTicker = group((w) => (w.ticker ? String(w.ticker).trim().toUpperCase() : null));
+  const byName = group((w) => norm(w.company_name));
+  /** One project, none, or "ambiguous". A company can exist twice (a person's own project and a reference copy); the person's own is the one they mean, but two of
+   * their own with the same code or name is a question for them, not a guess. */
+  const pick = (hits: W[] | undefined): W | null | "ambiguous" => {
+    if (!hits || hits.length === 0) return null;
+    if (hits.length === 1) return hits[0];
+    const own = hits.filter((h) => h.owner_id);
+    return own.length === 1 ? own[0] : "ambiguous";
+  };
 
   const seen = new Set<string>();
   lines.slice(1).forEach((line, i) => {
@@ -186,12 +199,16 @@ export function parseHoldingsCsv(text: string, workspaces: Pick<Workspace, "id" 
     const label = (iName >= 0 ? c[iName] : c[iBse]) || `row ${i + 2}`;
     const qty = num(c[iQty]);
     if (qty == null || qty <= 0) { out.unmatched.push({ line: i + 2, label, reason: "the quantity is not a positive number" }); return; }
-    let w = iBse >= 0 && c[iBse] ? byBse.get(c[iBse].trim()) : undefined;
-    if (!w && iName >= 0 && c[iName]) {
-      w = byTicker.get(c[iName].trim().toUpperCase());
-      if (!w) { const hits = byName.get(norm(c[iName])) ?? []; w = hits.length === 1 ? hits[0] : undefined; if (hits.length > 1) { out.unmatched.push({ line: i + 2, label, reason: "more than one project has that name" }); return; } }
+    const tries = [
+      iBse >= 0 && c[iBse] ? pick(byBse.get(c[iBse].trim())) : null,
+      iName >= 0 && c[iName] ? pick(byTicker.get(c[iName].trim().toUpperCase())) : null,
+      iName >= 0 && c[iName] ? pick(byName.get(norm(c[iName]))) : null,
+    ];
+    const w = tries.find((t): t is W => t !== null && t !== "ambiguous");
+    if (!w) {
+      out.unmatched.push({ line: i + 2, label, reason: tries.includes("ambiguous") ? "more than one project has that BSE code, ticker or name - rename or fix the duplicate, then upload again" : "no project has this BSE code, ticker or name - create it first, or set its BSE code or ticker under Settings" });
+      return;
     }
-    if (!w) { out.unmatched.push({ line: i + 2, label, reason: "no project has this BSE code, ticker or name - create it first, or set its BSE code or ticker under Settings" }); return; }
     if (seen.has(w.id)) { out.unmatched.push({ line: i + 2, label, reason: `${w.company_name} appears twice; the first row was kept` }); return; }
     seen.add(w.id);
     const direct = iCost >= 0 ? num(c[iCost]) : null;

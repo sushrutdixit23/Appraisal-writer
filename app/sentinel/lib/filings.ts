@@ -16,14 +16,16 @@ export type Filing = {
   headline: string;
   filed_at: string; // ISO timestamp as BSE prints it (India time, no zone)
   url: string | null;
+  /** The announcement's attached file name (BSE's ATTACHMENTNAME), when it has one; used to fetch an annual report's PDF. Not stored with the filing. */
+  attachment?: string | null;
 };
 
 const BASE = "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w";
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
 
-export function bseAnnouncementsUrl(scripCode: string, from: Date, to: Date): string {
-  const q = new URLSearchParams({ pageno: "1", strCat: "-1", subcategory: "-1", strPrevDate: ymd(from), strToDate: ymd(to), strSearch: "P", strScrip: scripCode, strType: "C" });
+export function bseAnnouncementsUrl(scripCode: string, from: Date, to: Date, page = 1): string {
+  const q = new URLSearchParams({ pageno: String(page), strCat: "-1", subcategory: "-1", strPrevDate: ymd(from), strToDate: ymd(to), strSearch: "P", strScrip: scripCode, strType: "C" });
   return `${BASE}?${q}`;
 }
 
@@ -51,7 +53,7 @@ export function parseBseAnnouncements(json: unknown): Filing[] {
     const headline = [r.NEWSSUB, r.HEADLINE].filter((x): x is string => typeof x === "string" && x.trim() !== "").join(" - ");
     const kind = classifyAnnouncement([r.NEWSSUB, r.HEADLINE, r.SUBCATNAME, r.CATEGORYNAME].filter((x) => typeof x === "string").join(" "));
     if (!kind) continue;
-    out.push({ external_id: id, kind, headline: headline.slice(0, 400), filed_at: when, url: typeof r.NSURL === "string" && /^https?:\/\//.test(r.NSURL) ? r.NSURL : null });
+    out.push({ external_id: id, kind, headline: headline.slice(0, 400), filed_at: when, url: typeof r.NSURL === "string" && /^https?:\/\//.test(r.NSURL) ? r.NSURL : null, attachment: typeof r.ATTACHMENTNAME === "string" && r.ATTACHMENTNAME.trim() !== "" ? r.ATTACHMENTNAME.trim() : null });
   }
   return out;
 }

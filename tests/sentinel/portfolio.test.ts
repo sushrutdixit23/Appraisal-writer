@@ -139,6 +139,19 @@ test("a row that matches nothing, is ambiguous, repeats, or has no quantity is r
   assert.match(reasons["Infosys Limited"], /quantity is not a positive number/);
 });
 
+test("a company that exists twice: the person's own project wins over a reference copy; two of their own is a question, answered by the name when there is one", () => {
+  const two = [
+    { id: "own", company_name: "Alpha Limited", ticker: "ALPHA", bse_code: "500001", owner_id: "me" },
+    { id: "ref", company_name: "Alpha Limited", ticker: "ALPHA", bse_code: "500001", owner_id: null },
+    { id: "x1", company_name: "Gamma Works", ticker: null, bse_code: "500009", owner_id: "me" },
+    { id: "x2", company_name: "Gamma Holdings", ticker: null, bse_code: "500009", owner_id: "me" },
+  ];
+  const r = parseHoldingsCsv(["BSE code,Company,Quantity", "500001,Alpha Limited,5", "500009,Gamma Holdings,7", "500009,,3"].join("\n"), two);
+  assert.deepEqual(r.matched.map((m) => [m.workspace_id, m.quantity]), [["own", 5], ["x2", 7]]); // the shared code is ambiguous, the name settles it
+  assert.equal(r.unmatched.length, 1);
+  assert.match(r.unmatched[0].reason, /more than one project has that BSE code/);
+});
+
 test("a file with no quantity or no company column is refused with a message, not half-read", () => {
   assert.match(parseHoldingsCsv("Symbol,Price\nTCS,10", projects).errors.join(" "), /No quantity column/);
   assert.match(parseHoldingsCsv("Quantity,Price\n10,10", projects).errors.join(" "), /No company column/);

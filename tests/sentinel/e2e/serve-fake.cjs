@@ -73,6 +73,12 @@ b.tables.sentinel_covenants = [
   { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Term loan A", metric: "debt_equity", comparator: "max", limit_value: 0.55, next_test_date: null, notes: null, created_at: "2026-01-01T00:00:00Z" },
   { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Working capital line", metric: "current_ratio", comparator: "min", limit_value: 1.5, next_test_date: "2027-03-31", notes: "tested half-yearly", created_at: "2026-01-02T00:00:00Z" },
 ];
+// Alpha 100 x 300 = 30,000; Lakh 50 x 200 = 10,000; Apex (a reference company) 100 x 100 = 10,000. No prices are seeded, so the book is weighted by cost: 60%, 20%, 20%.
+b.tables.sentinel_holdings = [
+  { id: randomUUID(), owner_id: IDS.A, workspace_id: IDS.alpha, quantity: 100, avg_cost: 300, notes: null, created_at: "2026-01-01T00:00:00Z" },
+  { id: randomUUID(), owner_id: IDS.A, workspace_id: IDS.lakh, quantity: 50, avg_cost: 200, notes: null, created_at: "2026-01-02T00:00:00Z" },
+  { id: randomUUID(), owner_id: IDS.A, workspace_id: IDS.ref1, quantity: 100, avg_cost: 100, notes: null, created_at: "2026-01-03T00:00:00Z" },
+];
 b.tables.sentinel_review_cycles = [];
 b.tables.sentinel_recommendations = [];
 

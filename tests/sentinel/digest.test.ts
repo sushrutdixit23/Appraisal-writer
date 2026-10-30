@@ -142,3 +142,19 @@ test("the notes to the accounts: the most serious finding on the latest audited 
   assert.match(items[0].detail, /Auditor's CARO answers, p\.437/);
   assert.match(items[0].detail, /1 more in the notes/);
 });
+
+test("with holdings the digest opens with the findings that sit under the biggest positions, and that section is a view, not extra items", () => {
+  const notes = JSON.stringify({ v: 1, r: { ageing: 1, ratios: 0, caro: 0, contingent: 0, maturity: 0, related_parties: 0 }, f: [{ n: "ageing", i: "x", s: "h", t: "Receivables over a year old are 40%", d: "as printed", p: 12 }], q: [] });
+  const statements = [st("a", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes })];
+  const workspaces = [mine("a", { market_price: 10, market_price_as_of: "2026-10-28" }), mine("b", { market_price: 10, market_price_as_of: "2026-10-28" })];
+  const holdings = [{ workspace_id: "a", quantity: 25, avg_cost: null }, { workspace_id: "b", quantity: 75, avg_cost: null }];
+  const without = buildDigest({ ...base, workspaces, statements });
+  const d = buildDigest({ ...base, workspaces, statements, holdings });
+  assert.equal(d.sections[0].id, "exposures");
+  assert.equal(without.sections.some((s) => s.id === "exposures"), false);
+  assert.match(section(d, "exposures").items[0].title, /^A - 25\.0% of your book: Receivables over a year old are 40%/);
+  assert.equal(section(d, "exposures").items[0].href, "/sentinel/portfolio");
+  assert.equal(d.total, without.total); // the same findings, re-ranked: not counted twice
+  const none = buildDigest({ ...base, workspaces, statements: [], holdings });
+  assert.match(section(none, "exposures").empty, /No holding has a high or medium finding/);
+});

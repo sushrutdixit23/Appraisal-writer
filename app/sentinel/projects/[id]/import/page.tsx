@@ -51,6 +51,9 @@ export default function ImportPage() {
   const seen = useRef<Set<string>>(new Set());
   const [ocrPages, setOcrPages] = useState("");
   const [ocrBusy, setOcrBusy] = useState(false);
+  const [bseBusy, setBseBusy] = useState(false);
+  const [bseUrl, setBseUrl] = useState("");
+  const [bseNote, setBseNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -178,6 +181,32 @@ export default function ImportPage() {
       setErrors(["The OCR request failed. Check your connection."]);
     } finally {
       setOcrBusy(false);
+    }
+  }
+
+  /** The latest annual report fetched from BSE and read exactly like an upload; it joins the file list and nothing is saved until the preview is confirmed. */
+  async function fetchFromBse() {
+    if (!workspace) return;
+    setErrors([]);
+    setOutcomes({});
+    setBseNote(null);
+    setBseBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { router.push("/login"); return; }
+      const res = await fetch("/api/sentinel/annual-report", { method: "POST", headers: { "content-type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ workspace_id: workspace.id, ...(bseUrl.trim() ? { url: bseUrl.trim() } : {}) }) });
+      const body = (await res.json().catch(() => ({}))) as { name?: string; result?: AutofillResult; source?: { url: string; headline: string | null; filed_at: string | null }; error?: string };
+      if (!res.ok || !body.result || !body.name) { setErrors([body.error ?? "The annual report could not be fetched."]); return; }
+      const { name, result, source } = body;
+      setFiles((prev) => (prev.some((x) => x.name === name) ? prev : [...prev, { name, result, unit: result.unit.unit }]));
+      seen.current.clear();
+      setSelected(new Set());
+      setBseNote(`Fetched ${name}${source?.headline ? ` (${source.headline.slice(0, 100)}${source.filed_at ? `, filed ${source.filed_at.slice(0, 10)}` : ""})` : ""} from ${source?.url ?? "BSE"}. Check the periods below before importing.`);
+    } catch {
+      setErrors(["The request to BSE failed. Check your connection, or upload the file."]);
+    } finally {
+      setBseBusy(false);
     }
   }
 
@@ -327,6 +356,22 @@ export default function ImportPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section aria-label="Fetch from BSE" data-testid="bse-card" style={card}>
+        <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.3rem 0" }}>Fetch the latest annual report from BSE</h2>
+        <p style={{ ...small, margin: "0 0 0.7rem 0" }}>
+          Looks up this company&apos;s newest annual-report announcement on BSE (by its BSE code under Settings), downloads the file and reads it like an upload.
+          This has not been verified against the live BSE site: BSE may refuse a request from a server, and if it does you will be told which step failed.
+          You can paste the PDF&apos;s address from BSE&apos;s own page instead (only bseindia.com addresses are fetched), or upload the file above.
+        </p>
+        <div style={{ display: "flex", gap: "0.7rem", alignItems: "center", flexWrap: "wrap" }}>
+          <input value={bseUrl} onChange={(e) => setBseUrl(e.target.value)} placeholder="https://www.bseindia.com/... .pdf (optional)" aria-label="BSE PDF address" style={{ ...selectStyle, flex: "1 1 320px", minWidth: 240 }} disabled={bseBusy} />
+          <button type="button" style={btn} onClick={fetchFromBse} disabled={bseBusy || (!bseUrl.trim() && !workspace.bse_code)}>{bseBusy ? "Fetching..." : bseUrl.trim() ? "Fetch this file" : "Fetch the latest annual report"}</button>
+        </div>
+        {!workspace.bse_code && !bseUrl.trim() && <p style={small}>This company has no BSE code yet. Add one under Settings, Market data, or paste an address above.</p>}
+        {bseBusy && <p role="status" style={{ ...small, color: T.accent }}>Fetching and reading the report. A full annual report can take a minute or two.</p>}
+        {bseNote && <p role="status" data-testid="bse-note" style={{ ...small, color: T.green }}>{bseNote}</p>}
       </section>
 
       <section aria-label="Scanned PDF" data-testid="ocr-card" style={card}>

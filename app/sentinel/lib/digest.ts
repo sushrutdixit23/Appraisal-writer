@@ -8,6 +8,7 @@ import { parseChecks } from "./autofill/annualChecks";
 import { NOTE_LABEL, parseNotes } from "./autofill/notes";
 import { attentionLine, evaluateAll, rankResults, type CovenantRow } from "./covenants";
 import { buildPeerTable } from "./engine";
+import { buildPortfolio, exposureLines, type HoldingRow } from "./portfolio";
 import { buildResultsCalendar, describeRow } from "./resultsCalendar";
 import { isOverdue, type RequestLike } from "./requestDates";
 import type { AnomalyFlag, FinancialStatement, Investigation, Recommendation, Workspace } from "./types";
@@ -20,7 +21,7 @@ export type DigestItem = {
   href: string;
 };
 
-export type DigestSection = { id: "filings" | "results" | "audit" | "notes" | "covenants" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
+export type DigestSection = { id: "exposures" | "filings" | "results" | "audit" | "notes" | "covenants" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
 
 export type Digest = { sections: DigestSection[]; total: number };
 
@@ -34,6 +35,8 @@ export type DigestInput = {
   filings?: { id: string; workspace_id: string; kind: "results" | "annual_report"; headline: string; filed_at: string; url: string | null }[];
   /** The owner's covenant limits (see covenants.ts); tested here against the latest annual statement on file. */
   covenants?: CovenantRow[];
+  /** The caller's holdings (see portfolio.ts). With them the digest opens with the findings that sit under the biggest positions. */
+  holdings?: HoldingRow[];
   /** Reviewer comments the owner has not read yet, one row per investigation. */
   discussion?: { workspace_id: string; period_label: string; unread: number }[];
   userId: string;
@@ -204,7 +207,13 @@ export function buildDigest(input: DigestInput): Digest {
     }
   }
 
+  // The same findings as the audit, notes and covenant sections, re-ranked by how much of the book sits under each: a view of them, so it is not added to the count.
+  const exposures: DigestItem[] = input.holdings && input.holdings.length
+    ? exposureLines(buildPortfolio(input.holdings, workspaces, statements, input.covenants ?? [], today)).map((l) => ({ ...l, href: "/sentinel/portfolio" }))
+    : [];
+
   const sections: DigestSection[] = [
+    ...(input.holdings && input.holdings.length ? [{ id: "exposures" as const, title: "Your book under a finding", empty: "No holding has a high or medium finding in the notes, the auditor's report or a covenant.", items: exposures }] : []),
     { id: "filings", title: "New filings", empty: "No new results or annual reports.", items: filings },
     { id: "results", title: "Results due", empty: "No results due this week.", items: results },
     { id: "audit", title: "Auditor's report", empty: "No qualification, emphasis of matter or going-concern paragraph on file.", items: audit },
@@ -217,5 +226,5 @@ export function buildDigest(input: DigestInput): Digest {
     { id: "requests", title: "Figures not received", empty: "No data requests are overdue.", items: requests },
     { id: "data", title: "Data that has gone stale", empty: "Statements and prices are current.", items: data },
   ];
-  return { sections, total: sections.reduce((n, s) => n + s.items.length, 0) };
+  return { sections, total: sections.filter((s) => s.id !== "exposures").reduce((n, s) => n + s.items.length, 0) };
 }
