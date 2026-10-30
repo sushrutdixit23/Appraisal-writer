@@ -83,6 +83,19 @@ const extractionReply = () => ({
 });
 b.anthropicReply = (body) => {
   if (String(body.system || "").includes("extract financial statement")) return extractionReply();
+  if (String(body.system || "").includes("earnings-call transcript")) {
+    const first = String(body.messages[0].content).includes("Quarter: Q1 FY27");
+    const it = (topic, kind, direction, statement, quote) => ({ topic, kind, direction, statement, quote, speaker: null });
+    return { text: JSON.stringify({ items: first ? [
+      it("outlook", "outlook", "negative", "Management is cautious about the second half.", "We are cautious about the second half given the weak demand in several verticals."),
+      it("people", "commentary", "negative", "Attrition stayed high at 14.8%.", "Attrition remained elevated at 14.8% during the quarter."),
+    ] : [
+      it("outlook", "guidance", "positive", "Management expects 4-6% revenue growth in the second half.", "We expect revenue growth of 4 to 6 percent in the second half"),
+      it("people", "commentary", "positive", "Attrition came down to 12.5%.", "Attrition has come down to 12.5% and we expect it to stay below 13% through the year."),
+      it("demand", "risk", "negative", "Banking clients are cautious and decisions are slower.", "Client budgets in the banking vertical remain cautious and decisions are taking longer than before."),
+      it("outlook", "outlook", "positive", "Management expects a record quarter next.", "we expect a record quarter next time round for sure"),
+    ] }) };
+  }
   const n = body.messages.length;
   if (n === 1) return { text: "Initial hypothesis: growth looks company specific." };
   if (n === 3) return { text: "**Rules out sector-wide effect**\n\nAlpha outgrew its peer set." };

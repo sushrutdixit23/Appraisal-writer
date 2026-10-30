@@ -188,7 +188,39 @@ assert.equal((await db.query(`select count(*)::int as n from sentinel_estimates`
 console.log("ok  estimates migration");
 }
 
+async function transcriptsMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261109000000_sentinel_transcripts.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (end = "2026-09-30") => `insert into sentinel_transcripts (workspace_id, owner_id, period_end_date, items) values ('${ws}','${U1}','${end}','[{"topic":"outlook"}]'::jsonb)`;
+await db.query(ins());
+await assert.rejects(db.query(ins()), /duplicate key/, "one reading per company, person and quarter");
+await db.query(ins("2026-06-30"));
+assert.deepEqual((await db.query(`select items from sentinel_transcripts limit 1`)).rows[0].items, [{ topic: "outlook" }]);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_transcripts`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("2026-03-31")), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_transcripts`)).rows[0].n, 0);
+console.log("ok  transcripts migration");
+}
+
 await auditMigration();
 await otherMigrations();
 await filingsAndDiscussionMigration();
 await estimatesMigration();
+await transcriptsMigration();

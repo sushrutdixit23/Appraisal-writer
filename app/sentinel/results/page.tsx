@@ -11,9 +11,10 @@ import { supabase } from "../../lib/supabase";
 import { workspaceOptionLabel } from "../lib/access";
 import { useShell } from "../lib/shell/ShellData";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
-import { buildResultsBrief, quartersOnFile, type BriefLine } from "../lib/quarterly";
+import { buildResultsBrief, priorQuarterEnd, quartersOnFile, type BriefLine } from "../lib/quarterly";
 import { buildVariance, type EstimateRow } from "../lib/estimates";
 import { EstimatesPanel } from "../lib/EstimatesPanel";
+import { CommentaryPanel, type StoredCommentary } from "../lib/CommentaryPanel";
 import { resultsWindow } from "../lib/resultsCalendar";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement } from "../lib/types";
@@ -36,6 +37,9 @@ export default function ResultsPage() {
   const [estimates, setEstimates] = useState<(EstimateRow & { id?: string })[]>([]);
   const [estimatesSetUp, setEstimatesSetUp] = useState(true);
   const [estimatesTick, setEstimatesTick] = useState(0);
+  const [commentary, setCommentary] = useState<StoredCommentary[]>([]);
+  const [commentarySetUp, setCommentarySetUp] = useState(true);
+  const [commentaryTick, setCommentaryTick] = useState(0);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -63,6 +67,19 @@ export default function ResultsPage() {
       setEstimatesSetUp(body.set_up);
     })();
   }, [wsId, estimatesTick]);
+  useEffect(() => {
+    if (!wsId) return;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch(`/api/sentinel/transcripts?workspace_id=${wsId}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      if (!res || !res.ok) { setCommentary([]); return; }
+      const body = (await res.json()) as { transcripts: StoredCommentary[]; set_up: boolean };
+      setCommentary(body.transcripts);
+      setCommentarySetUp(body.set_up);
+    })();
+  }, [wsId, commentaryTick]);
   const quarters = useMemo(() => (ws ? quartersOnFile(ws, statements) : []), [ws, statements]);
   const end = quarters.find((q) => q.end === quarter)?.end ?? quarters[0]?.end;
   const brief = useMemo(() => (ws && end ? buildResultsBrief(workspaces, statements, ws.id, end) : null), [workspaces, statements, ws, end]);
@@ -164,6 +181,11 @@ export default function ResultsPage() {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section style={card} aria-label="Management commentary" data-testid="results-commentary">
+            <h2 style={h2}>Management commentary</h2>
+            <CommentaryPanel workspaceId={ws.id} periodEnd={brief.period_end_date} periodLabel={brief.period_label} previousEnd={priorQuarterEnd(brief.period_end_date)} previousLabel={brief.prior_quarter_label ?? "the previous quarter"} stored={commentary} setUp={commentarySetUp} onChange={() => setCommentaryTick((n) => n + 1)} />
           </section>
 
           <section style={card} aria-label="Against estimates" data-testid="results-variance">

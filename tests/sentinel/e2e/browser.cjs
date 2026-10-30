@@ -378,6 +378,39 @@ async function ready(page, url, waitFor) {
     assert.ok(!/Street/.test(await b.locator("body").textContent()));
   }, a);
 
+  await check("Commentary: a call transcript gives statements with their exact words, drops what cannot be traced, and compares with the previous call", async () => {
+    const pad = (lines) => lines.flatMap((s) => Array.from({ length: 8 }, (_, i) => `${s} (remark ${i + 1})`)).join("\n");
+    const q2 = pad(["We expect revenue growth of 4 to 6 percent in the second half, and we remain confident in our deal pipeline.", "Attrition has come down to 12.5% and we expect it to stay below 13% through the year.", "Client budgets in the banking vertical remain cautious and decisions are taking longer than before."]);
+    const q1 = pad(["We are cautious about the second half given the weak demand in several verticals.", "Attrition remained elevated at 14.8% during the quarter.", "The deal pipeline is steady and conversations with clients continue as planned for the year."]);
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="commentary-panel"]');
+    await a.locator("#tr-text").fill(q2);
+    await a.getByTestId("read-transcript").click();
+    await a.waitForSelector('[data-testid="results-commentary"]:has-text("Management expects 4-6% revenue growth")', { timeout: 60000 });
+    let panel = await a.locator('[data-testid="results-commentary"]').textContent();
+    assert.match(panel, /3 statements/);
+    assert.match(panel, /We expect revenue growth of 4 to 6 percent in the second half/);
+    assert.match(await a.getByTestId("commentary-dropped").textContent(), /1 more was dropped because they could not be traced to the transcript \(the quote does not appear in the transcript\)/);
+    assert.ok(!/record quarter/.test(panel), "a statement with an invented quote was shown");
+    assert.match(panel, /Read Q1 FY27.s call as well/);
+    // The previous quarter's call.
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q1 FY27" });
+    await a.waitForSelector('[data-testid="commentary-form"]');
+    await a.locator("#tr-text").fill(q1);
+    await a.getByTestId("read-transcript").click();
+    await a.waitForSelector('[data-testid="results-commentary"]:has-text("Management is cautious about the second half")', { timeout: 60000 });
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q2 FY27" });
+    await a.waitForSelector('[data-testid="commentary-changes"]');
+    const changes = await a.getByTestId("commentary-changes").textContent();
+    assert.match(changes, /Since Q1 FY27/);
+    assert.match(changes, /Outlook and guidance: the tone moved from negative to positive/);
+    assert.match(changes, /Hiring, attrition and wages: the tone moved from negative to positive/);
+    assert.match(changes, /Demand and volumes: new this call/);
+    // Only statements are stored, never the transcript.
+    const rows = await db("sentinel_transcripts", `&workspace_id=eq.${IDS.alpha}`);
+    assert.equal(rows.length, 2);
+    assert.ok(!JSON.stringify(rows).includes("(remark 7)"), "the transcript text was stored");
+  }, a);
+
   await check("Results brief: a company with no quarterly results says how to add them", async () => {
     await ready(a, "/sentinel/results?workspace=" + IDS.lakh, '[data-testid="results-empty"]');
     assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);
