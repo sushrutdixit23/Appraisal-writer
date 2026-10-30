@@ -256,3 +256,44 @@ test("Piotroski F is blank without a prior year, without the core inputs, or for
 test("Piotroski F is registered as a ratio for every sector", () => {
   near(computeRatios(p1, p0, "technology").piotroski_f!, 9);
 });
+
+// Free cash flow and the cash/efficiency ratios, against hand-worked numbers.
+import { assetTurnover, capexIntensity, effectiveTaxRate, fcfConversion, fcfMargin, freeCashFlow } from "../../app/sentinel/lib/ratios";
+
+const cash = st("a", { revenue_from_operations: 100, profit_before_tax: 14, tax_expense: 4, profit_after_tax: 10, cash_from_operations: 18, capex: 8, total_assets: 80 });
+
+test("free cash flow = cash from operations - capex: 18 - 8 = 10, a 10% margin and 1.0x of profit; a negative capex entry is the same outflow", () => {
+  near(freeCashFlow(cash)!, 10);
+  near(fcfMargin(cash)!, 0.1);
+  near(fcfConversion(cash)!, 1);
+  near(freeCashFlow({ ...cash, capex: -8 })!, 10);
+  near(freeCashFlow({ ...cash, capex: 30 })!, -12); // negative free cash flow is a result, not a blank
+  near(fcfMargin({ ...cash, capex: 30 })!, -0.12);
+});
+
+test("free cash flow is blank without either input and for a quarter; conversion is blank for a loss", () => {
+  assert.equal(freeCashFlow({ ...cash, cash_from_operations: null }), null);
+  assert.equal(freeCashFlow({ ...cash, capex: null }), null);
+  assert.equal(freeCashFlow({ ...cash, period_type: "Q2" }), null);
+  assert.equal(fcfConversion({ ...cash, profit_after_tax: -5 }), null);
+});
+
+test("capex intensity 8%, effective tax rate 4 / 14 = 28.6% (blank for a loss or no tax line), asset turnover on average assets", () => {
+  near(capexIntensity(cash)!, 0.08);
+  assert.equal(capexIntensity({ ...cash, capex: null }), null);
+  near(effectiveTaxRate(cash)!, 4 / 14);
+  assert.equal(effectiveTaxRate({ ...cash, profit_before_tax: -3 }), null);
+  assert.equal(effectiveTaxRate({ ...cash, tax_expense: null }), null);
+  near(assetTurnover(cash, null)!, 1.25); // 100 / 80, closing only
+  near(assetTurnover(cash, st("a", { total_assets: 60 }))!, 100 / 70); // average of 80 and 60
+  assert.equal(assetTurnover({ ...cash, period_type: "Q2" }, null), null);
+});
+
+test("the new ratios are in every sector's registry and computeRatios carries them", () => {
+  const r = computeRatios(cash, null, "technology");
+  near(r.fcf_margin!, 0.1);
+  near(r.capex_intensity!, 0.08);
+  near(r.effective_tax_rate!, 4 / 14);
+  near(r.asset_turnover!, 1.25);
+  near(r.fcf_conversion!, 1);
+});

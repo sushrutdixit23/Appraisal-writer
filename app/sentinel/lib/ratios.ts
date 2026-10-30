@@ -76,6 +76,42 @@ export function cashConversionToPat(s: Stmt): number | null {
   return div(s.cash_from_operations, s.profit_after_tax);
 }
 
+/** Cash from operations less capital expenditure: the cash left for lenders, owners and growth once the business has been kept going.
+ * Full years only (the cash-flow statement is half-yearly or annual in India, never quarterly). Capex is entered as a positive amount; a negative
+ * entry is read as the same outflow. Can be negative, which is a real result, not a missing one. */
+export function freeCashFlow(s: Stmt): number | null {
+  if (!isYear(s) || s.cash_from_operations == null || s.capex == null) return null;
+  return s.cash_from_operations - Math.abs(s.capex);
+}
+
+/** Free cash flow over revenue. */
+export function fcfMargin(s: Stmt): number | null {
+  return div(freeCashFlow(s), s.revenue_from_operations);
+}
+
+/** Free cash flow over profit after tax: how much of the profit was left as free cash. A loss-making year has no ratio. */
+export function fcfConversion(s: Stmt): number | null {
+  return div(freeCashFlow(s), s.profit_after_tax);
+}
+
+/** Capital expenditure over revenue: how much of each rupee of sales is reinvested in the asset base. Full years only. */
+export function capexIntensity(s: Stmt): number | null {
+  if (!isYear(s) || s.capex == null) return null;
+  return div(Math.abs(s.capex), s.revenue_from_operations);
+}
+
+/** Tax expense over profit before tax. A loss or zero-profit year has no meaningful rate, and a company with no tax line has none either. */
+export function effectiveTaxRate(s: Stmt): number | null {
+  if (s.tax_expense == null) return null;
+  return div(s.tax_expense, s.profit_before_tax);
+}
+
+/** Revenue over average total assets: how much sales each rupee of assets supports. Full years only. */
+export function assetTurnover(s: Stmt, prior: Stmt | null): number | null {
+  if (!isYear(s)) return null;
+  return div(s.revenue_from_operations, averageBalance(s.total_assets, prior?.total_assets));
+}
+
 export type DuPont = {
   net_margin: number;
   asset_turnover: number;

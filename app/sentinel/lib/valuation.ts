@@ -4,6 +4,7 @@
 // function below is pure and null-safe, same convention as ratios.ts: a missing input or a non-positive
 // denominator resolves to null, never a guess.
 
+import { freeCashFlow } from "./ratios";
 import type { FinancialStatement, Workspace } from "./types";
 
 type Stmt = FinancialStatement;
@@ -46,12 +47,43 @@ export function evToSales(ev: number | null, s: Stmt, f: number): number | null 
   return div(ev, s.revenue_from_operations * f);
 }
 
+/** Profit after tax per share, in rupees. The share count is a raw number; a crore is 1e7, so the statement figure (in the company's unit, times `f`
+ * to crore) is brought to rupees before dividing. Blank without a positive share count. A loss gives a negative EPS, which is a real figure. */
+export function epsRupees(s: Stmt, f: number): number | null {
+  if (s.shares_outstanding == null || s.shares_outstanding <= 0) return null;
+  return (s.profit_after_tax * f * 1e7) / s.shares_outstanding;
+}
+
+/** Equity per share, in rupees. Blank when equity is zero or negative: a negative book value per share is not a figure to price against. */
+export function bookValuePerShareRupees(s: Stmt, f: number): number | null {
+  if (s.shares_outstanding == null || s.shares_outstanding <= 0 || s.total_equity == null || s.total_equity <= 0) return null;
+  return (s.total_equity * f * 1e7) / s.shares_outstanding;
+}
+
+/** Market cap over book equity. Blank for zero or negative equity. */
+export function priceToBook(marketCap: number | null, s: Stmt, f: number): number | null {
+  if (s.total_equity == null) return null;
+  return div(marketCap, s.total_equity * f);
+}
+
+/** Free cash flow (in crore) over market cap: the cash return at today's price. Negative when free cash flow is negative. */
+export function fcfYield(marketCap: number | null, s: Stmt, f: number): number | null {
+  const fcf = freeCashFlow(s);
+  return fcf == null ? null : div(fcf * f, marketCap);
+}
+
 export type ValuationSet = {
   market_cap_cr: number | null;
   ev_cr: number | null;
   pe_ratio: number | null;
   ev_ebitda: number | null;
   ev_sales: number | null;
+  pb_ratio: number | null;
+  fcf_yield: number | null;
+  fcf_cr: number | null;
+  /** Per-share figures in rupees; they need shares outstanding but not a price. */
+  eps: number | null;
+  bvps: number | null;
 };
 
 /** Every valuation figure for one statement at once, in the crore terms the rest of a PeerRow already uses.
@@ -66,5 +98,10 @@ export function computeValuation(ws: Workspace, s: Stmt, f: number): ValuationSe
     pe_ratio: peRatio(marketCap, s, f),
     ev_ebitda: evToEbitda(ev, s, f),
     ev_sales: evToSales(ev, s, f),
+    pb_ratio: priceToBook(marketCap, s, f),
+    fcf_yield: fcfYield(marketCap, s, f),
+    fcf_cr: freeCashFlow(s) == null ? null : freeCashFlow(s)! * f,
+    eps: epsRupees(s, f),
+    bvps: bookValuePerShareRupees(s, f),
   };
 }

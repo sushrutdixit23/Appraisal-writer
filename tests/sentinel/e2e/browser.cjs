@@ -1160,6 +1160,9 @@ async function ready(page, url, waitFor) {
     await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
     assert.equal(await tileValue(a, "Market cap (₹ crore"), "1,000");
     assert.equal(await stat(a, "P/E"), "5.26x");
+    // EPS = PAT 190 crore x 1e7 / 1 crore shares = 190 rupees; the card says dividend yield is not held, rather than leaving it out silently.
+    assert.equal(await tileValue(a, "Earnings per share"), "₹190.00");
+    assert.match(await a.locator("body").textContent(), /dividend yield, is not held in Sentinel/);
   }, a);
 
   // ------------------------------------------------------------------------------- data entry (server-validated path)
