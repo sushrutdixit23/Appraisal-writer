@@ -296,6 +296,20 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="digest-discussion"]').textContent(), /Reviewer comments/);
   }, a);
 
+  await check("Results calendar: lists your listed companies with a statutory deadline, and names the ones with no symbol; never another person's company", async () => {
+    await ready(a, "/sentinel/calendar", '[data-testid="calendar-table"]');
+    const table = await a.locator('[data-testid="calendar-table"]').textContent();
+    assert.match(table, /Lakh Industries/);
+    assert.match(table, /Q[1-4] FY\d{2}/);
+    assert.match(table, /\b20\d{2}-\d{2}-\d{2}\b/);
+    const status = await a.locator('[data-testid="calendar-table"] tbody tr').first().getAttribute("data-status");
+    assert.ok(["filed", "open", "due_soon", "overdue"].includes(status), status);
+    const body = await a.locator("body").textContent();
+    assert.match(body, /Not on the calendar \(no NSE symbol or BSE code\): .*Alpha Tyres/);
+    assert.ok(!/Bravo/.test(body), "another person's company leaked into the calendar");
+    assert.ok(await a.getByRole("link", { name: "Results calendar" }).count() > 0);
+  }, a);
+
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
     await ready(a, "/sentinel/calibration", '[data-testid="calibration-summary"]');
     assert.match(await a.locator('[data-testid="calibration-summary"]').textContent(), /decided investigations/);

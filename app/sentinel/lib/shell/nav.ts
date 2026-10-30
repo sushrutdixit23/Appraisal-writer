@@ -77,6 +77,7 @@ export function buildCommands(workspaces: Pick<Workspace, "id" | "company_name" 
     { id: "new-project", label: "New project", hint: "Create a company", group: "Actions", run: { href: "/sentinel/new-project" } },
     { id: "go-exec", label: "Executive dashboard", hint: "Go to", group: "Go to", run: { href: "/sentinel/executive" } },
     { id: "go-digest", label: "Coverage digest", hint: "Go to", group: "Go to", keywords: "today attention todo morning", run: { href: "/sentinel/digest" } },
+    { id: "go-calendar", label: "Results calendar", hint: "Go to", group: "Go to", keywords: "results due deadline quarter earnings season", run: { href: "/sentinel/calendar" } },
     { id: "go-calibration", label: "Confidence calibration", hint: "Go to", group: "Go to", keywords: "accuracy trust score", run: { href: "/sentinel/calibration" } },
   ];
   if (current) {

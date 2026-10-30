@@ -5,6 +5,7 @@
 
 import { groupFlagsByWorkspace, runAllChecks } from "./anomaly";
 import { buildPeerTable } from "./engine";
+import { buildResultsCalendar, describeRow } from "./resultsCalendar";
 import { isOverdue, type RequestLike } from "./requestDates";
 import type { AnomalyFlag, FinancialStatement, Investigation, Recommendation, Workspace } from "./types";
 
@@ -16,7 +17,7 @@ export type DigestItem = {
   href: string;
 };
 
-export type DigestSection = { id: "filings" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
+export type DigestSection = { id: "filings" | "results" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
 
 export type Digest = { sections: DigestSection[]; total: number };
 
@@ -58,6 +59,17 @@ export function buildDigest(input: DigestInput): Digest {
       title: `${name(f.workspace_id)} - ${f.kind === "annual_report" ? "annual report" : "results"} filed ${f.filed_at.slice(0, 10)}`,
       detail: `${f.headline}${f.url ? ` Open on BSE: ${f.url}` : ""} Import the figures once you have the file.`,
       href: `/sentinel/projects/${f.workspace_id}/import`,
+    }));
+
+  // 0b. Results due this week, or past the statutory deadline with nothing imported (see resultsCalendar.ts).
+  const results = buildResultsCalendar(workspaces, statements, today, userId)
+    .filter((r) => r.status === "due_soon" || r.status === "overdue")
+    .map<DigestItem>((r) => ({
+      workspace_id: r.workspace_id,
+      company_name: r.company_name,
+      title: `${r.company_name} - ${r.period_label} results ${r.status === "overdue" ? "past the deadline" : "due this week"}`,
+      detail: describeRow(r),
+      href: `/sentinel/projects/${r.workspace_id}/import`,
     }));
 
   // 1. Drafts waiting for a decision, the most confident first.
@@ -157,6 +169,7 @@ export function buildDigest(input: DigestInput): Digest {
 
   const sections: DigestSection[] = [
     { id: "filings", title: "New filings", empty: "No new results or annual reports.", items: filings },
+    { id: "results", title: "Results due", empty: "No results due this week.", items: results },
     { id: "decide", title: "Waiting for your decision", empty: "No drafts waiting.", items: decide },
     { id: "discussion", title: "Reviewer comments", empty: "No unread comments.", items: discussion },
     { id: "investigate", title: "Flagged, not yet investigated", empty: "Every flag has been investigated.", items: investigate },
