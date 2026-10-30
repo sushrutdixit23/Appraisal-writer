@@ -698,7 +698,7 @@ async function ready(page, url, waitFor) {
     assert.equal(await a.getByRole("link", { name: "Add period" }).count(), 0);
     await ready(a, "/sentinel/projects/" + IDS.alpha, "h1");
     const own = await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Covenants", "Investigations", "Reviews", "Settings"]);
   }, a);
 
   await check("Shell: someone else's project, opened by its address, is 'not found' - and nothing of it is shown", async () => {
