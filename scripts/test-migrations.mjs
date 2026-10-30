@@ -230,6 +230,39 @@ assert.equal((await db.query(`select annual_report_checks from sentinel_statemen
 console.log("ok  annual-report checks migration");
 }
 
+async function holdingsMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+const U2 = "22222222-2222-2222-2222-222222222222";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261113000000_sentinel_holdings.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (owner, qty, cost = "null") => `insert into sentinel_holdings (owner_id, workspace_id, quantity, avg_cost) values ('${owner}','${ws}',${qty},${cost})`;
+await db.query(ins(U1, 10, 250));
+await db.query(ins(U2, 5)); // another person may hold the same company
+await assert.rejects(db.query(ins(U1, 20)), /unique/); // one row per person and company
+await assert.rejects(db.query(ins(U2, 0).replace(U2, "33333333-3333-3333-3333-333333333333")), /check constraint/);
+await assert.rejects(db.query(ins("33333333-3333-3333-3333-333333333333", 1, -5)), /check constraint/);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_holdings`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("44444444-4444-4444-4444-444444444444", 1)), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_holdings`)).rows[0].n, 0, "deleting the company takes its holdings");
+console.log("ok  holdings migration");
+}
+
 async function covenantsMigration() {
 const db = new PGlite();
 const U1 = "11111111-1111-1111-1111-111111111111";
@@ -282,3 +315,4 @@ await transcriptsMigration();
 await annualChecksMigration();
 await covenantsMigration();
 await annualNotesMigration();
+await holdingsMigration();
