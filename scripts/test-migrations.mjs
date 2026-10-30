@@ -230,9 +230,43 @@ assert.equal((await db.query(`select annual_report_checks from sentinel_statemen
 console.log("ok  annual-report checks migration");
 }
 
+async function covenantsMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261111000000_sentinel_covenants.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (metric, comparator, limit = 3) =>
+  `insert into sentinel_covenants (workspace_id, owner_id, name, metric, comparator, limit_value) values ('${ws}','${U1}','Term loan','${metric}','${comparator}',${limit})`;
+await db.query(ins("net_debt_ebitda", "max"));
+await db.query(ins("net_debt_ebitda", "max")); // two covenants on the same ratio are allowed (different facilities)
+await assert.rejects(db.query(ins("pe_ratio", "max")), /check constraint/);
+await assert.rejects(db.query(ins("interest_cover", "exactly")), /check constraint/);
+await assert.rejects(db.query(ins("interest_cover", "min", 0)), /check constraint/);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_covenants`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("current_ratio", "min")), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_covenants`)).rows[0].n, 0, "deleting the company takes its covenants");
+console.log("ok  covenants migration");
+}
+
 await auditMigration();
 await otherMigrations();
 await filingsAndDiscussionMigration();
 await estimatesMigration();
 await transcriptsMigration();
 await annualChecksMigration();
+await covenantsMigration();

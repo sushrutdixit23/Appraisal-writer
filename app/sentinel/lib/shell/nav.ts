@@ -30,6 +30,7 @@ export function projectNav(projectId: string, canWrite: boolean): NavGroup[] {
         { href: `/sentinel/kpi${w}`, label: "KPIs" },
         { href: `/sentinel/analysis${w}`, label: "Peers and trends" },
         { href: `/sentinel/results${w}`, label: "Results brief" },
+        ...(canWrite ? [{ href: `/sentinel/covenants${w}`, label: "Covenants" }] : []),
         { href: `/sentinel${w}`, label: "Investigations", exact: true },
         { href: `/sentinel/reviews${w}`, label: "Reviews" },
       ],

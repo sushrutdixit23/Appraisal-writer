@@ -52,7 +52,7 @@ const flat = (g: ReturnType<typeof projectNav>) => g.flatMap((x) => x.items.map(
 
 test("nav: an owner sees every page, in the order Overview, Data, Analysis, Settings", () => {
   const nav = projectNav("p1", true);
-  assert.deepEqual(flat(nav), ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
+  assert.deepEqual(flat(nav), ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Covenants", "Investigations", "Reviews", "Settings"]);
   assert.deepEqual(nav.map((g) => g.label), [null, "Data", "Analysis", null]);
 });
 

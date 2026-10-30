@@ -5,6 +5,7 @@
 
 import { groupFlagsByWorkspace, runAllChecks } from "./anomaly";
 import { parseChecks } from "./autofill/annualChecks";
+import { attentionLine, evaluateAll, rankResults, type CovenantRow } from "./covenants";
 import { buildPeerTable } from "./engine";
 import { buildResultsCalendar, describeRow } from "./resultsCalendar";
 import { isOverdue, type RequestLike } from "./requestDates";
@@ -18,7 +19,7 @@ export type DigestItem = {
   href: string;
 };
 
-export type DigestSection = { id: "filings" | "results" | "audit" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
+export type DigestSection = { id: "filings" | "results" | "audit" | "covenants" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
 
 export type Digest = { sections: DigestSection[]; total: number };
 
@@ -30,6 +31,8 @@ export type DigestInput = {
   requests?: (RequestLike & { workspace_id: string })[];
   /** New (not yet dismissed) results / annual-report filings found by the filing watcher. */
   filings?: { id: string; workspace_id: string; kind: "results" | "annual_report"; headline: string; filed_at: string; url: string | null }[];
+  /** The owner's covenant limits (see covenants.ts); tested here against the latest annual statement on file. */
+  covenants?: CovenantRow[];
   /** Reviewer comments the owner has not read yet, one row per investigation. */
   discussion?: { workspace_id: string; period_label: string; unread: number }[];
   userId: string;
@@ -83,6 +86,15 @@ export function buildDigest(input: DigestInput): Digest {
     audit.push({ workspace_id: w.id, company_name: w.company_name, title: `${w.company_name} - ${latest.period_label}: ${notable[0].title.charAt(0).toLowerCase()}${notable[0].title.slice(1)}`, detail: notable[0].detail.slice(0, 220) + (notable[0].detail.length > 220 ? "..." : ""), href: `/sentinel/projects/${w.id}` });
   }
   audit.sort((a, b) => a.title.localeCompare(b.title));
+
+  // 0d. A covenant that is breached, tight or about to be tested.
+  const covenantItems = rankResults(evaluateAll((input.covenants ?? []).filter((c) => c.workspace_id && own.has(c.workspace_id)), statements, workspaces, today))
+    .flatMap<DigestItem>((r) => {
+      const line = attentionLine(r);
+      if (!line || !r.covenant.workspace_id) return [];
+      const state = r.status === "breach" ? "covenant breached" : r.status === "tight" ? "covenant tight" : r.status === "unknown" ? "covenant cannot be tested" : "covenant test coming up";
+      return [{ workspace_id: r.covenant.workspace_id, company_name: name(r.covenant.workspace_id), title: `${name(r.covenant.workspace_id)} - ${r.covenant.name}: ${state}`, detail: line, href: `/sentinel/covenants?workspace=${r.covenant.workspace_id}` }];
+    });
 
   // 1. Drafts waiting for a decision, the most confident first.
   const decide = investigations
@@ -183,6 +195,7 @@ export function buildDigest(input: DigestInput): Digest {
     { id: "filings", title: "New filings", empty: "No new results or annual reports.", items: filings },
     { id: "results", title: "Results due", empty: "No results due this week.", items: results },
     { id: "audit", title: "Auditor's report", empty: "No qualification, emphasis of matter or going-concern paragraph on file.", items: audit },
+    { id: "covenants", title: "Covenants", empty: "No covenant is breached, tight or about to be tested.", items: covenantItems },
     { id: "decide", title: "Waiting for your decision", empty: "No drafts waiting.", items: decide },
     { id: "discussion", title: "Reviewer comments", empty: "No unread comments.", items: discussion },
     { id: "investigate", title: "Flagged, not yet investigated", empty: "Every flag has been investigated.", items: investigate },

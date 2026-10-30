@@ -444,6 +444,35 @@ async function ready(page, url, waitFor) {
     await a.waitForSelector("text=Period updated.");
   }, a);
 
+  await check("Covenants: limits are tested on the latest annual statement - one tight, one breached - listed in the digest, and a new one can be added and removed", async () => {
+    await ready(a, "/sentinel/covenants?workspace=" + IDS.alpha, '[data-testid="covenants-table"]');
+    const rows = await a.locator('[data-testid="covenant-row"]').allTextContents();
+    assert.equal(rows.length, 2);
+    assert.match(rows[0], /Working capital line/); // breached ranks first
+    assert.match(rows[0], /Breached/);
+    assert.match(rows[0], /1\.25x/);
+    assert.match(rows[0], /Current ratio 1\.25x against at least 1\.50x - 20% past the limit/);
+    assert.match(rows[1], /Term loan A/);
+    assert.match(rows[1], /Tight/);
+    assert.match(rows[1], /Debt \/ equity 0\.50x against at most 0\.55x - 9% of room/);
+    await ready(a, "/sentinel/digest", '[data-testid="digest-covenants"]');
+    const digest = await a.locator('[data-testid="digest-covenants"]').textContent();
+    assert.match(digest, /Alpha Tyres - Working capital line: covenant breached/);
+    assert.match(digest, /Alpha Tyres - Term loan A: covenant tight/);
+    await ready(a, "/sentinel/covenants?workspace=" + IDS.alpha, '[data-testid="covenants-table"]');
+    await a.getByLabel("Lender or facility").fill("Bond covenant");
+    await a.getByLabel("Ratio").selectOption("interest_cover");
+    await a.getByLabel("Limit (x)").fill("2.5");
+    await a.getByRole("button", { name: "Add covenant" }).click();
+    await a.waitForSelector("text=Covenant saved.");
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid="covenant-row"]').length === 3);
+    const added = (await a.locator('[data-testid="covenant-row"]').allTextContents()).find((t) => /Bond covenant/.test(t));
+    assert.match(added, /Cannot test/); // no finance costs on file: no ratio, and it says so
+    await a.getByRole("button", { name: "Remove Bond covenant" }).click();
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid="covenant-row"]').length === 2);
+    assert.equal((await db("sentinel_covenants", `&workspace_id=eq.${IDS.alpha}`)).length, 2);
+  }, a);
+
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
     await ready(a, "/sentinel/calibration", '[data-testid="calibration-summary"]');
     assert.match(await a.locator('[data-testid="calibration-summary"]').textContent(), /decided investigations/);

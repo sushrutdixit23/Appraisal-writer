@@ -24,6 +24,7 @@ export default function DigestPage() {
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [filings, setFilings] = useState<NonNullable<DigestInput["filings"]>>([]);
   const [discussion, setDiscussion] = useState<NonNullable<DigestInput["discussion"]>>([]);
+  const [covenants, setCovenants] = useState<NonNullable<DigestInput["covenants"]>>([]);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -52,6 +53,8 @@ export default function DigestPage() {
         const watched = own.filter((w) => w.bse_code);
         const filingLists = await Promise.all(watched.map((w) => get(`/api/sentinel/filings?workspace_id=${w.id}`)));
         setFilings(filingLists.flatMap((l) => (l.filings ?? []) as NonNullable<DigestInput["filings"]>));
+        const covenantLists = await Promise.all(own.map((w) => get(`/api/sentinel/covenants?workspace_id=${w.id}`)));
+        setCovenants(covenantLists.flatMap((l) => (l.covenants ?? []) as NonNullable<DigestInput["covenants"]>));
         const unread = await Promise.all(own.map((w) => get(`/api/sentinel/comments?workspace_id=${w.id}&summary=1`)));
         setDiscussion(unread.flatMap((l, i) => ((l.unread ?? []) as { period_label: string; unread: number }[]).map((u) => ({ workspace_id: own[i].id, ...u }))));
       }
@@ -60,8 +63,8 @@ export default function DigestPage() {
   }, [shellLoading, signedIn, workspaces, userId, router]);
 
   const digest = useMemo(
-    () => buildDigest({ workspaces, statements, investigations, recommendations, requests, filings, discussion, userId, today: new Date().toISOString().slice(0, 10) }),
-    [workspaces, statements, investigations, recommendations, requests, filings, discussion, userId]
+    () => buildDigest({ workspaces, statements, investigations, recommendations, requests, filings, discussion, covenants, userId, today: new Date().toISOString().slice(0, 10) }),
+    [workspaces, statements, investigations, recommendations, requests, filings, discussion, covenants, userId]
   );
 
   if (shellLoading || !loaded) return <p style={{ color: T.inkSoft }}>Building your digest...</p>;

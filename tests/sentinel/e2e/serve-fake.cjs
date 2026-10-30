@@ -64,6 +64,11 @@ b.tables.sentinel_filings = [
   { id: randomUUID(), workspace_id: IDS.lakh, source: "bse", external_id: "n1", kind: "results", headline: "Financial Results for the quarter ended September 30, 2026", filed_at: "2026-10-09T17:05:11", url: "https://www.bseindia.com/x", status: "new" },
   { id: randomUUID(), workspace_id: IDS.bravo, source: "bse", external_id: "n2", kind: "results", headline: "Bravo results", filed_at: "2026-10-10T17:05:11", url: null, status: "new" },
 ];
+// Alpha FY26 carries debt 300 on equity 600 (0.50x) and current assets 500 on current liabilities 400 (1.25x): one covenant tight, one breached.
+b.tables.sentinel_covenants = [
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Term loan A", metric: "debt_equity", comparator: "max", limit_value: 0.55, next_test_date: null, notes: null, created_at: "2026-01-01T00:00:00Z" },
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Working capital line", metric: "current_ratio", comparator: "min", limit_value: 1.5, next_test_date: "2027-03-31", notes: "tested half-yearly", created_at: "2026-01-02T00:00:00Z" },
+];
 b.tables.sentinel_review_cycles = [];
 b.tables.sentinel_recommendations = [];
 
