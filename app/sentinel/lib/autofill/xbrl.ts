@@ -173,5 +173,5 @@ export function autofillFromXbrl(xml: string, opts: AutofillOptions): AutofillRe
     periods.push({ key: `${s.end}|${s.kind}`, period_type: p.period_type, period_label: p.period_label, period_end_date: p.period_end_date, basis: finalBasis, fields, notes: dnotes, issues });
   }
   periods.sort((a, b) => (b.period_end_date ?? "").localeCompare(a.period_end_date ?? ""));
-  return { kind: "xbrl", unit: unitResult, periods, notes, pages_used: [], layout: "XBRL instance", source_file: opts.sourceFile ?? "results.xml", key_audit_matters_text: null, annual_report_checks: null };
+  return { kind: "xbrl", unit: unitResult, periods, notes, pages_used: [], layout: "XBRL instance", source_file: opts.sourceFile ?? "results.xml", key_audit_matters_text: null, annual_report_checks: null, annual_report_notes: null };
 }

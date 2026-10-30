@@ -1,0 +1,61 @@
+{
+ "tcs": {
+  "basis": "standalone",
+  "period": "FY26",
+  "fields": {
+   "revenue_from_operations": 220938.0,
+   "other_income": 10036.0,
+   "total_income": 230974.0,
+   "total_expenses": 164101.0,
+   "depreciation_and_amortisation": 4288.0,
+   "finance_costs": 1124.0,
+   "exceptional_items": 4067.0,
+   "profit_before_tax": 62806.0,
+   "tax_expense": 13710.0,
+   "profit_after_tax": 49096.0,
+   "total_assets": 149268.0,
+   "current_assets": 110270.0,
+   "cash_and_cash_equivalents": 1833.0,
+   "trade_receivables": 57177.0,
+   "fixed_assets": 8259.0,
+   "total_liabilities": 64592.0,
+   "current_liabilities": 54960.0,
+   "trade_payables": 18099.0,
+   "total_equity": 84676.0,
+   "cash_from_operations": 45597.0,
+   "cash_from_investing": -5127.0,
+   "cash_from_financing": -41527.0,
+   "capex": 3081.0
+  }
+ },
+ "infosys": {
+  "basis": "standalone",
+  "period": "FY26",
+  "fields": {
+   "revenue_from_operations": 148819.0,
+   "other_income": 6491.0,
+   "total_income": 155310.0,
+   "total_expenses": 115407.0,
+   "depreciation_and_amortisation": 2394.0,
+   "finance_costs": 207.0,
+   "exceptional_items": 1146.0,
+   "profit_before_tax": 38757.0,
+   "tax_expense": 9546.0,
+   "profit_after_tax": 29211.0,
+   "total_assets": 126691.0,
+   "current_assets": 80431.0,
+   "cash_and_cash_equivalents": 8727.0,
+   "trade_receivables": 44043.0,
+   "fixed_assets": 10774.0,
+   "total_liabilities": 45817.0,
+   "current_liabilities": 39637.0,
+   "trade_payables": 3539.0,
+   "total_equity": 80874.0,
+   "cash_from_operations": 28164.0,
+   "cash_from_investing": 4086.0,
+   "cash_from_financing": -37787.0,
+   "capex": 2170.0,
+   "unbilled_revenue": 13706.0
+  }
+ }
+}

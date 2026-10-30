@@ -123,3 +123,38 @@ test("covenants: a breached or tight one is listed for the owner with its room a
   assert.match(items[2].detail, /Next test 2026-11-10 \(13 days\)/);
   assert.equal(items[0].href, "/sentinel/covenants?workspace=a");
 });
+
+test("the notes to the accounts: the most serious finding on the latest audited year is listed with its page; info-only, other years and other people's companies are not", () => {
+  const notes = (f: object[]) => JSON.stringify({ v: 1, r: {}, f });
+  const high = { n: "caro", i: "caro_xi", s: "h", t: "The auditor's CARO answer on fraud is not the clean one", d: "Clause (xi): a report under section 143(12) has been filed.", p: 437 };
+  const med = { n: "ageing", i: "ageing_over_1y", s: "m", t: "8.5% of trade receivables is over a year overdue", d: "4,970 of 58,267 crore.", p: 184 };
+  const info = { n: "ratios", i: "ratio_x", s: "i", t: "Current ratio moved", d: "x", p: 1 };
+  const statements = [
+    st("a", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([med, high]) }),
+    st("a", { period_label: "FY25", period_end_date: "2025-03-31", annual_report_notes: notes([high]) }),
+    st("b", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([med]) }),
+    st("c", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([info]) }),
+    st("x", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([high]) }),
+  ];
+  const d = buildDigest({ ...base, workspaces: [mine("a"), mine("b"), mine("c"), ws("x", { sector: "technology", owner_id: "other" })], statements, today: "2026-10-28" });
+  const items = section(d, "notes").items;
+  assert.deepEqual(items.map((i) => i.title), ["A - FY26: The auditor's CARO answer on fraud is not the clean one", "B - FY26: 8.5% of trade receivables is over a year overdue"]);
+  assert.match(items[0].detail, /Auditor's CARO answers, p\.437/);
+  assert.match(items[0].detail, /1 more in the notes/);
+});
+
+test("with holdings the digest opens with the findings that sit under the biggest positions, and that section is a view, not extra items", () => {
+  const notes = JSON.stringify({ v: 1, r: { ageing: 1, ratios: 0, caro: 0, contingent: 0, maturity: 0, related_parties: 0 }, f: [{ n: "ageing", i: "x", s: "h", t: "Receivables over a year old are 40%", d: "as printed", p: 12 }], q: [] });
+  const statements = [st("a", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes })];
+  const workspaces = [mine("a", { market_price: 10, market_price_as_of: "2026-10-28" }), mine("b", { market_price: 10, market_price_as_of: "2026-10-28" })];
+  const holdings = [{ workspace_id: "a", quantity: 25, avg_cost: null }, { workspace_id: "b", quantity: 75, avg_cost: null }];
+  const without = buildDigest({ ...base, workspaces, statements });
+  const d = buildDigest({ ...base, workspaces, statements, holdings });
+  assert.equal(d.sections[0].id, "exposures");
+  assert.equal(without.sections.some((s) => s.id === "exposures"), false);
+  assert.match(section(d, "exposures").items[0].title, /^A - 25\.0% of your book: Receivables over a year old are 40%/);
+  assert.equal(section(d, "exposures").items[0].href, "/sentinel/portfolio");
+  assert.equal(d.total, without.total); // the same findings, re-ranked: not counted twice
+  const none = buildDigest({ ...base, workspaces, statements: [], holdings });
+  assert.match(section(none, "exposures").empty, /No holding has a high or medium finding/);
+});

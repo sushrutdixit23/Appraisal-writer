@@ -15,6 +15,7 @@ import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
 import { basisNote, formatMetricValue, materialityNote, receivablesDefinitionNote, receivablesStandingCaveat, trendBlock } from "../../../sentinel/lib/narrativeContext";
 import { parseChecks } from "../../../sentinel/lib/autofill/annualChecks";
+import { NOTE_LABEL, parseNotes } from "../../../sentinel/lib/autofill/notes";
 import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
 import { DECIDED_STATUSES, renderDecisionMemory, type PriorInvestigation } from "../../../sentinel/lib/decisionMemory";
 import { renderSectorPatterns, sectorPatterns } from "../../../sentinel/lib/sectorPatterns";
@@ -99,6 +100,19 @@ function annualChecksBlock(stmt: FinancialStatement): string {
   return (
     `\n\nWhat the auditor's report raises for this filing (the auditor's own words, from the annual report):\n${lines.join("\n")}\n` +
     "A qualification or a going-concern uncertainty is serious: if it bears on a flag above, say so plainly; if it does not, do not force a link."
+  );
+}
+
+/** What the notes to the annual report raise at high or medium severity, each with its page: a CARO answer that is not the clean one, a long receivables tail,
+ * borrowings falling due within a year. Silent when there is none. The model is told to treat these as leads from the filing, not as conclusions of its own. */
+function annualNotesBlock(stmt: FinancialStatement): string {
+  const n = parseNotes(stmt.annual_report_notes);
+  const notable = n?.findings.filter((f) => f.severity !== "info").slice(0, 5) ?? [];
+  if (notable.length === 0) return "";
+  const lines = notable.map((f) => `- ${f.title} (${NOTE_LABEL[f.note].toLowerCase()}, p.${f.page}): ${f.detail.length > 360 ? `${f.detail.slice(0, 360).trim()}...` : f.detail}`);
+  return (
+    `\n\nWhat the notes to the annual report raise for this filing (read by rules from the filing itself, each with its page):\n${lines.join("\n")}\n` +
+    "Use these only where they bear on a flag above, and cite the page. Do not state a figure that is not in the lines above or the company data."
   );
 }
 
@@ -324,7 +338,7 @@ export async function POST(req: Request) {
 
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}${trend}${operating}${keyAuditMattersBlock(stmt)}${annualChecksBlock(stmt)}${memory}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${trend}${operating}${keyAuditMattersBlock(stmt)}${annualChecksBlock(stmt)}${annualNotesBlock(stmt)}${memory}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";

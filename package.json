@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:sentinel": "node scripts/test-sentinel.mjs",
     "score:extraction": "node scripts/score-extraction.mjs",
+    "score:notes": "node scripts/score-notes.mjs",
     "score:confidence": "node scripts/score-confidence.mjs",
     "seed:reference": "node scripts/seed-reference-universe.mjs",
     "tally:agent": "node scripts/tally-agent.mjs",

@@ -239,3 +239,16 @@ test("when the database has the column, the auditor's-report checks are saved wi
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.equal(statements(wsA)[0].annual_report_checks, '{"o":"qualified","f":[]}');
 });
+
+test("the notes read from an annual report are saved with the statement; a database without that column still saves the figures", async () => {
+  const notes = '{"v":1,"r":{},"f":[]}';
+  const ok = await call({ workspace_id: wsA, statement: stmt({ annual_report_notes: notes }) });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(statements(wsA)[0].annual_report_notes, notes);
+  backend.tables.sentinel_statements = [];
+  backend.failNext = { table: "sentinel_statements", method: "POST", status: 400, body: { code: "PGRST204", message: "Could not find the 'annual_report_notes' column of 'sentinel_statements' in the schema cache" } };
+  const r = await call({ workspace_id: wsA, statement: stmt({ annual_report_notes: notes }) });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(statements(wsA)[0].revenue_from_operations, 1000);
+  assert.ok(!("annual_report_notes" in statements(wsA)[0]));
+});

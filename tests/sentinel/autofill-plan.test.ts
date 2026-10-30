@@ -24,7 +24,7 @@ function period(over: Partial<AutofillPeriod> & { fields?: Record<string, FieldH
 const file = (name: string, periods: AutofillPeriod[], unit: ImportFile["unit"] = "INR_CRORE"): ImportFile => ({
   name,
   unit,
-  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name, key_audit_matters_text: null, annual_report_checks: null } as AutofillResult,
+  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name, key_audit_matters_text: null, annual_report_checks: null, annual_report_notes: null } as AutofillResult,
 });
 
 const ws = { currency_unit: "INR_CRORE", comparison_basis: "consolidated" as const, fiscal_year_start_month: 4 };
@@ -151,4 +151,12 @@ test("the auditor's-report checks and the Key Audit Matters are saved with the a
   assert.match(fy.annual_report_checks ?? "", /"o":"qualified"/);
   assert.equal(q.key_audit_matters_text, null);
   assert.equal(q.annual_report_checks, null);
+});
+
+test("the notes read from an annual report belong to the audited year, never to a quarter read from the same file", () => {
+  const f = file("report.pdf", [period(), period({ key: "q", period_type: "Q2", period_label: "Q2 FY27", period_end_date: "2026-09-30" })]);
+  f.result = { ...f.result, kind: "pdf", annual_report_notes: { findings: [{ note: "caro", id: "caro_xi", severity: "high", title: "Fraud", detail: "x", page: 437 }], read: { ageing: 1, ratios: 0, caro: 1, contingent: 0, maturity: 0, related_parties: 0 }, ratios: [] } };
+  const rows = planImport([f], ws, []);
+  assert.match(rows.find((r) => r.period_type === "FY")!.statement!.annual_report_notes ?? "", /"i":"caro_xi"/);
+  assert.equal(rows.find((r) => r.period_type === "Q2")!.statement!.annual_report_notes, null);
 });

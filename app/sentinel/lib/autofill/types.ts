@@ -5,6 +5,7 @@ import type { CurrencyUnit } from "../units";
 import type { Issue } from "../validate";
 import type { Basis, PeriodType } from "../types";
 import type { AnnualReportChecks } from "./annualChecks";
+import type { AnnualNotes } from "./notes";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -54,6 +55,8 @@ export type AutofillResult = {
   key_audit_matters_text: string | null;
   /** What the auditor's report says about the audit (opinion, emphasis of matter, going concern) - PDFs only, null when no auditor's report was in the pages. */
   annual_report_checks: AnnualReportChecks | null;
+  /** What the notes to the annual report say (receivables ageing, CARO, ratios, contingent liabilities, maturities, related parties) - PDFs only; null for a spreadsheet or XBRL file. */
+  annual_report_notes: AnnualNotes | null;
 };
 
 export class AutofillError extends Error {}

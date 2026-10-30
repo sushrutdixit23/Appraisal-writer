@@ -163,6 +163,7 @@ export function autofillFromSheet(input: Cell[][], opts: AutofillOptions & { kin
     source_file: opts.sourceFile ?? (opts.kind === "csv" ? "uploaded.csv" : "uploaded.xlsx"),
     key_audit_matters_text: null,
     annual_report_checks: null,
+    annual_report_notes: null,
   };
 }
 
@@ -348,5 +349,6 @@ function readAsTrialBalance(rows: Cell[][], layout: NonNullable<ReturnType<typeo
     source_file: opts.sourceFile ?? (opts.kind === "csv" ? "uploaded.csv" : "uploaded.xlsx"),
     key_audit_matters_text: null,
     annual_report_checks: null,
+    annual_report_notes: null,
   };
 }

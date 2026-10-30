@@ -1,0 +1,22 @@
+{
+  "case-srei-fy21": { "label": "case", "company": "Srei Infrastructure Finance", "fy": "FY2020-21", "event": "2021-10-04", "published": null },
+  "case-reliancecapital-fy21": { "label": "case", "company": "Reliance Capital", "fy": "FY2020-21", "event": "2021-11-29", "published": null },
+  "case-futureretail-fy21": { "label": "case", "company": "Future Retail", "fy": "FY2020-21", "event": "2022-07-20", "published": null },
+  "case-brightcom-fy22": { "label": "case", "company": "Brightcom Group", "fy": "FY2021-22", "event": "2023-04-01", "published": null },
+  "case-gensol-fy24": { "label": "case", "company": "Gensol Engineering", "fy": "FY2023-24", "event": "2025-04-15", "published": null },
+  "control-cholamandalam-fy21": { "label": "control", "company": "Cholamandalam Investment & Finance", "fy": "FY2020-21", "hard": false },
+  "control-bajajfinance-fy21": { "label": "control", "company": "Bajaj Finance", "fy": "FY2020-21", "hard": false },
+  "control-shriramtransport-fy21": { "label": "control", "company": "Shriram Transport Finance", "fy": "FY2020-21", "hard": false },
+  "control-bajajfinserv-fy21": { "label": "control", "company": "Bajaj Finserv", "fy": "FY2020-21", "hard": false },
+  "control-adityabirlacapital-fy21": { "label": "control", "company": "Aditya Birla Capital", "fy": "FY2020-21", "hard": false },
+  "control-hdfcltd-fy21": { "label": "control", "company": "HDFC Ltd", "fy": "FY2020-21", "hard": false },
+  "control-avenuesupermarts-fy21": { "label": "control", "company": "Avenue Supermarts", "fy": "FY2020-21", "hard": false },
+  "control-trent-fy21": { "label": "control", "company": "Trent", "fy": "FY2020-21", "hard": false },
+  "control-shoppersstop-fy21": { "label": "control", "company": "Shoppers Stop", "fy": "FY2020-21", "hard": true },
+  "control-sasken-fy22": { "label": "control", "company": "Sasken Technologies", "fy": "FY2021-22", "hard": false },
+  "control-cigniti-fy22": { "label": "control", "company": "Cigniti Technologies", "fy": "FY2021-22", "hard": false },
+  "control-nucleus-fy22": { "label": "control", "company": "Nucleus Software Exports", "fy": "FY2021-22", "hard": false },
+  "control-kpigreen-fy24": { "label": "control", "company": "KPI Green Energy", "fy": "FY2023-24", "hard": false },
+  "control-waareert-fy24": { "label": "control", "company": "Waaree Renewable Technologies", "fy": "FY2023-24", "hard": false },
+  "control-suzlon-fy24": { "label": "control", "company": "Suzlon Energy", "fy": "FY2023-24", "hard": true }
+}

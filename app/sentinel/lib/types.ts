@@ -115,6 +115,8 @@ export type FinancialStatement = {
   key_audit_matters_text?: string | null;
   /** The auditor's-report checks saved with the statement (JSON written by autofill/annualChecks.ts serialiseChecks); null for a statement not read from an annual report. */
   annual_report_checks?: string | null;
+  /** What the notes to the annual report say (JSON written by autofill/notes serialiseNotes): receivables ageing, CARO, ratios, contingent liabilities, maturities, related parties. */
+  annual_report_notes?: string | null;
 };
 
 export type AnomalyFlag = {

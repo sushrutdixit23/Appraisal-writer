@@ -450,6 +450,7 @@ async function ready(page, url, waitFor) {
     await a.waitForSelector("text=Period updated.");
     const [row] = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_label=eq.FY26`);
     assert.match(row.annual_report_checks ?? "", /"o":"qualified"/);
+    assert.match(row.annual_report_notes ?? "", /caro_xi/, "a hand edit must not wipe what the notes said");
     // Put the figure back: later checks (the revenue-to-profit bridge) read Alpha FY26 as seeded.
     await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
     await a.locator("#mp-period").selectOption({ label: "FY26 (FY, consolidated)" });
@@ -485,6 +486,23 @@ async function ready(page, url, waitFor) {
     await a.getByRole("button", { name: "Remove Bond covenant" }).click();
     await a.waitForFunction(() => document.querySelectorAll('[data-testid="covenant-row"]').length === 2);
     assert.equal((await db("sentinel_covenants", `&workspace_id=eq.${IDS.alpha}`)).length, 2);
+  }, a);
+
+  await check("Notes to the accounts: the findings from the annual report's notes show on the project Overview with their pages, say what was not read, and reach the digest", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="annual-notes"]');
+    const card = await a.locator('[data-testid="annual-notes"]').textContent();
+    assert.match(card, /Read from the notes, FY26/);
+    assert.match(card, /2 findings worth reading, each with its page/);
+    assert.match(card, /The auditor's CARO answer on fraud is not the clean one \(standalone\)/);
+    assert.match(card, /auditor's caro answers, p\.437/);
+    assert.match(card, /8\.5% of trade receivables has been outstanding over a year/);
+    assert.match(card, /1 more for information/);
+    assert.match(await a.locator('[data-testid="notes-not-read"]').textContent(), /not the same as nothing to report.*when borrowings fall due.*related-party transactions/);
+    assert.equal(await a.locator('[data-testid="note-finding"]').count(), 2);
+    await ready(a, "/sentinel/digest", '[data-testid="digest-notes"]');
+    const digest = await a.locator('[data-testid="digest-notes"]').textContent();
+    assert.match(digest, /Alpha Tyres - FY26: The auditor's CARO answer on fraud is not the clean one/);
+    assert.match(digest, /p\.437/);
   }, a);
 
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
@@ -1215,6 +1233,60 @@ async function ready(page, url, waitFor) {
     const tiles = await a.locator('[data-stat="Altman Z\u2033"]').innerText();
     assert.match(tiles, /Needs retained earnings/);
     assert.match(await a.locator('[data-stat="Piotroski F-Score"]').innerText(), /Needs this and last year/);
+  }, a);
+
+  await check("Portfolio: positions are weighted by cost with the basis stated, ordered by weight under a finding, private to the person, editable, importable, and the digest opens with them", async () => {
+    await ready(a, "/sentinel/portfolio", '[data-testid="portfolio-table"]');
+    assert.match(await a.locator('[data-testid="portfolio-basis"]').textContent(), /Weights are by cost.*at least one holding has no price/);
+    const rows = await a.locator('[data-testid^="position-"]:not([data-testid="position-finding"])').allTextContents();
+    assert.equal(rows.length, 3);
+    assert.match(rows[0], /Alpha Tyres/);
+    assert.match(rows[0], /60\.0%/);
+    assert.match(rows[0], /High The auditor has qualified the opinion \(p\.9\)/);
+    assert.match(rows[0], /FY26/); // the year whose notes were read
+    assert.match(rows[1] + rows[2], /Lakh Industries.*20\.0%|Apex Reference Tyres.*20\.0%/s);
+    assert.match(await a.locator('[data-testid="portfolio-summary"]').textContent(), /60\.0%Book under a high finding/);
+    assert.match(await a.locator('[data-testid="portfolio-summary"]').textContent(), /40\.0%Book with no annual report read/); // Lakh and Apex have none read
+    await ready(a, "/sentinel/digest", '[data-testid="digest-exposures"]');
+    const exposures = await a.locator('[data-testid="digest-exposures"]').textContent();
+    assert.match(exposures, /Your book under a finding/);
+    assert.match(exposures, /Alpha Tyres - 60\.0% of your book \(by cost\):/);
+    // Change a holding, then add one and remove it again.
+    await ready(a, "/sentinel/portfolio", '[data-testid="portfolio-table"]');
+    await a.getByLabel("Company").selectOption({ label: "Zenith Reference Tyres" });
+    await a.getByLabel("Quantity").fill("10");
+    await a.getByLabel("Average cost").fill("100");
+    await a.getByRole("button", { name: "Save holding" }).click();
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid^="position-"]:not([data-testid="position-finding"])').length === 4);
+    assert.match(await a.locator('[data-testid="position-Zenith Reference Tyres"]').textContent(), /2\.0%/); // 1,000 of 51,000
+    await a.getByRole("button", { name: "Remove Zenith Reference Tyres" }).click();
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid^="position-"]:not([data-testid="position-finding"])').length === 3);
+    // A broker file: one row matches by BSE code, one by name, one matches nothing and says why.
+    await a.getByLabel("Holdings file").setInputFiles({ name: "holdings.csv", mimeType: "text/csv", buffer: Buffer.from("BSE code,Company,Quantity,Avg cost\n532540,Lakh Industries,60,210\n,Nobody Ltd,5,1\n") });
+    await a.waitForSelector('[data-testid="import-result"]');
+    const result = await a.locator('[data-testid="import-result"]').textContent();
+    assert.match(result, /1 holding saved; 1 row not used/);
+    assert.match(result, /Nobody Ltd: no project has this BSE code, ticker or name/);
+    assert.equal((await db("sentinel_holdings", `&owner_id=eq.${IDS.A}&workspace_id=eq.${IDS.lakh}`))[0].quantity, 60);
+    // Private: the other person sees an empty book.
+    await ready(b, "/sentinel/portfolio", '[data-testid="portfolio-empty"]');
+    assert.equal(await b.locator('[data-testid="portfolio-table"]').count(), 0);
+    assert.equal((await db("sentinel_holdings", `&owner_id=eq.${IDS.A}`)).length, 3);
+  }, a);
+
+  await check("Import from BSE: the card says it is unverified, refuses an address that is not on bseindia.com, and when BSE cannot be reached says so and adds nothing", async () => {
+    await ready(a, `/sentinel/projects/${IDS.lakh}/import`, '[data-testid="bse-card"]');
+    const card = await a.locator('[data-testid="bse-card"]').textContent();
+    assert.match(card, /not been verified against the live BSE site/);
+    await a.getByLabel("BSE PDF address").fill("https://evil.example/annual-report.pdf");
+    await a.getByRole("button", { name: "Fetch this file" }).click();
+    await a.waitForSelector("text=Only an address on bseindia.com (https) can be fetched.");
+    await a.getByLabel("BSE PDF address").fill("");
+    await a.getByRole("button", { name: "Fetch the latest annual report" }).click();
+    // This sandbox cannot reach bseindia.com, so the honest outcome here is a sentence naming the failed step; the success path is covered against a fake BSE in the route tests.
+    await a.waitForSelector('[role="alert"]:has-text("BSE")', { timeout: 90000 });
+    assert.equal(await a.locator('[aria-label="Files read"] li').count(), 0);
+    assert.equal(await a.locator('[data-testid="bse-note"]').count(), 0);
   }, a);
 
   await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {

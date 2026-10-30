@@ -13,6 +13,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { useDisplayUnit } from "../../lib/displayUnit";
 import { parseChecks } from "../../lib/autofill/annualChecks";
+import { NOTE_KINDS, NOTE_LABEL, parseNotes } from "../../lib/autofill/notes";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
@@ -281,6 +282,45 @@ export default function ProjectOverviewPage() {
                   <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Contingent liabilities stated with an amount</div>
                   <ul style={{ margin: "0.3rem 0 0 0", paddingLeft: "1.1rem", fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55 }}>{leads.map((f, i) => <li key={i}>{f.detail}{f.page ? ` (p.${f.page})` : ""}</li>)}</ul>
                 </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
+      {!empty && (() => {
+        // What the notes to the annual report say, for the latest audited year that has them on file. Every line carries the page it came from.
+        const withNotes = [...annual].filter((s) => parseNotes(s.annual_report_notes)).sort((x, y) => y.period_end_date.localeCompare(x.period_end_date))[0];
+        const notes = withNotes ? parseNotes(withNotes.annual_report_notes) : null;
+        if (!withNotes || !notes) return null;
+        const shown = notes.findings.filter((f) => f.severity !== "info");
+        const info = notes.findings.filter((f) => f.severity === "info");
+        const notRead = NOTE_KINDS.filter((k) => notes.read[k] === 0);
+        const chip = (sev: string) => ({ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" as const, padding: "0.1rem 0.45rem", borderRadius: 2, marginRight: 8, color: sev === "high" ? T.oxblood : sev === "medium" ? T.ochre : T.inkSoft, background: sev === "high" ? "rgba(140,30,30,0.12)" : sev === "medium" ? "rgba(176,110,0,0.14)" : "rgba(0,0,0,0.06)" });
+        return (
+          <section aria-label="Notes to the accounts" style={{ marginBottom: "1.8rem" }} data-testid="annual-notes">
+            <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>Read from the notes, {withNotes.period_label}</h2>
+            <div style={{ ...card, padding: "0.9rem 1.1rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.6 }}>
+                {shown.length === 0 ? "Nothing in the notes read crossed a threshold." : `${shown.length} finding${shown.length === 1 ? "" : "s"} worth reading, each with its page.`}{" "}
+                <span style={{ color: T.inkSoft }}>Read: {NOTE_KINDS.filter((k) => notes.read[k] > 0).map((k) => NOTE_LABEL[k].toLowerCase()).join(", ") || "none"}.</span>
+              </p>
+              {shown.map((f, i) => (
+                <div key={i} style={{ marginTop: "0.7rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }} data-testid="note-finding">
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem" }}><span style={chip(f.severity)}>{f.severity}</span>{f.title} <span style={{ color: T.inkSoft, fontWeight: 400 }}>({NOTE_LABEL[f.note].toLowerCase()}, p.{f.page})</span></div>
+                  <div style={{ fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55, marginTop: 2 }}>{f.detail}</div>
+                </div>
+              ))}
+              {info.length > 0 && (
+                <details style={{ marginTop: "0.8rem" }}>
+                  <summary style={{ cursor: "pointer", fontSize: "0.84rem", color: T.accent }}>{info.length} more for information</summary>
+                  <ul style={{ margin: "0.4rem 0 0 0", paddingLeft: "1.1rem", fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55 }}>{info.map((f, i) => <li key={i}>{f.title} (p.{f.page})</li>)}</ul>
+                </details>
+              )}
+              {notRead.length > 0 && (
+                <p style={{ margin: "0.8rem 0 0 0", fontSize: "0.78rem", color: T.inkSoft, lineHeight: 1.5 }} data-testid="notes-not-read">
+                  Not read from this report (its layout was not recognised, which is not the same as nothing to report): {notRead.map((k) => NOTE_LABEL[k].toLowerCase()).join(", ")}.
+                </p>
               )}
             </div>
           </section>
