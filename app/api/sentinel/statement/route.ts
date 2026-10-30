@@ -13,7 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { getSectorConfig } from "../../../sentinel/lib/config";
-import { BASES, withoutUnsetOptionalColumns } from "../../../sentinel/lib/fields";
+import { BASES, OPTIONAL_TEXT_COLUMNS, withoutUnsetOptionalColumns } from "../../../sentinel/lib/fields";
 import { diffStatement, readSources, recordChange, recordSources } from "../../../sentinel/lib/audit";
 import { authenticate, getAdmin, isFailure, loadWorkspaceFor } from "../../../sentinel/lib/server";
 import { normaliseUnit } from "../../../sentinel/lib/units";
@@ -124,8 +124,13 @@ export async function POST(req: Request) {
   }
 
   const record = withoutUnsetOptionalColumns({ ...row, workspace_id: workspace.id }, existingRow);
+  // A column added after the first release (each has a hand-run migration) may not exist yet. The figures matter more than the extra text, so a save that fails
+  // on one of those columns is retried without them rather than refused.
+  const missingColumn = (e: { code?: string; message?: string } | null) => !!e && (e.code === "PGRST204" || /could not find the .* column|column .* does not exist/i.test(e.message ?? ""));
+  const withoutTextColumns = () => { const r = { ...record } as Record<string, unknown>; for (const k of OPTIONAL_TEXT_COLUMNS) delete r[k]; return r; };
   if (existingId) {
-    const { error } = await admin.from("sentinel_statements").update(record).eq("id", existingId);
+    let { error } = await admin.from("sentinel_statements").update(record).eq("id", existingId);
+    if (missingColumn(error)) ({ error } = await admin.from("sentinel_statements").update(withoutTextColumns()).eq("id", existingId));
     if (error) return fail(error.message, 500);
     const history = await recordChange(admin, {
       workspaceId: workspace.id, statementId: existingId, periodLabel: row.period_label, basis: row.basis, action: "updated", userId,
@@ -135,7 +140,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "updated", workspace_id: workspace.id, statement_id: existingId, warnings, history_recorded: history });
   }
 
-  const { data: inserted, error: insertError } = await admin.from("sentinel_statements").insert(record).select("id").single();
+  let { data: inserted, error: insertError } = await admin.from("sentinel_statements").insert(record).select("id").single();
+  if (missingColumn(insertError)) ({ data: inserted, error: insertError } = await admin.from("sentinel_statements").insert(withoutTextColumns()).select("id").single());
   if (insertError || !inserted) {
     // Do not leave an empty company behind because its first statement could not be saved.
     if (createdWorkspaceId) await admin.from("sentinel_workspaces").delete().eq("id", createdWorkspaceId);

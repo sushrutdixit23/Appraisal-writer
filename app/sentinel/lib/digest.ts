@@ -4,6 +4,7 @@
 // reference companies are context for the checks, never an item on someone's to-do list.
 
 import { groupFlagsByWorkspace, runAllChecks } from "./anomaly";
+import { parseChecks } from "./autofill/annualChecks";
 import { buildPeerTable } from "./engine";
 import { buildResultsCalendar, describeRow } from "./resultsCalendar";
 import { isOverdue, type RequestLike } from "./requestDates";
@@ -17,7 +18,7 @@ export type DigestItem = {
   href: string;
 };
 
-export type DigestSection = { id: "filings" | "results" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
+export type DigestSection = { id: "filings" | "results" | "audit" | "decide" | "discussion" | "investigate" | "recommendations" | "requests" | "data"; title: string; empty: string; items: DigestItem[] };
 
 export type Digest = { sections: DigestSection[]; total: number };
 
@@ -71,6 +72,17 @@ export function buildDigest(input: DigestInput): Digest {
       detail: describeRow(r),
       href: `/sentinel/projects/${r.workspace_id}/import`,
     }));
+
+  // 0c. What an auditor's report raised on the latest audited year: a qualification, an emphasis of matter, a going-concern uncertainty.
+  const audit: DigestItem[] = [];
+  for (const w of own.values()) {
+    const latest = statements.filter((s) => s.workspace_id === w.id && s.period_type === "FY" && s.annual_report_checks).sort((a, b) => b.period_end_date.localeCompare(a.period_end_date))[0];
+    const checks = latest ? parseChecks(latest.annual_report_checks) : null;
+    const notable = checks?.findings.filter((f) => f.severity !== "info").sort((a, b) => (a.severity === "high" ? 0 : 1) - (b.severity === "high" ? 0 : 1)) ?? [];
+    if (!latest || notable.length === 0) continue;
+    audit.push({ workspace_id: w.id, company_name: w.company_name, title: `${w.company_name} - ${latest.period_label}: ${notable[0].title.charAt(0).toLowerCase()}${notable[0].title.slice(1)}`, detail: notable[0].detail.slice(0, 220) + (notable[0].detail.length > 220 ? "..." : ""), href: `/sentinel/projects/${w.id}` });
+  }
+  audit.sort((a, b) => a.title.localeCompare(b.title));
 
   // 1. Drafts waiting for a decision, the most confident first.
   const decide = investigations
@@ -170,6 +182,7 @@ export function buildDigest(input: DigestInput): Digest {
   const sections: DigestSection[] = [
     { id: "filings", title: "New filings", empty: "No new results or annual reports.", items: filings },
     { id: "results", title: "Results due", empty: "No results due this week.", items: results },
+    { id: "audit", title: "Auditor's report", empty: "No qualification, emphasis of matter or going-concern paragraph on file.", items: audit },
     { id: "decide", title: "Waiting for your decision", empty: "No drafts waiting.", items: decide },
     { id: "discussion", title: "Reviewer comments", empty: "No unread comments.", items: discussion },
     { id: "investigate", title: "Flagged, not yet investigated", empty: "Every flag has been investigated.", items: investigate },

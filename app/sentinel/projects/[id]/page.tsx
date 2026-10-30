@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { useDisplayUnit } from "../../lib/displayUnit";
+import { parseChecks } from "../../lib/autofill/annualChecks";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
@@ -253,6 +254,38 @@ export default function ProjectOverviewPage() {
           </div>
         </section>
       )}
+
+      {!empty && (() => {
+        // What the auditor's report said, for the latest audited year that has it on file.
+        const audited = [...annual].filter((s) => parseChecks(s.annual_report_checks)).sort((x, y) => y.period_end_date.localeCompare(x.period_end_date))[0];
+        const checks = audited ? parseChecks(audited.annual_report_checks) : null;
+        if (!audited || !checks) return null;
+        const notable = checks.findings.filter((f) => f.severity !== "info");
+        const leads = checks.findings.filter((f) => f.id === "contingent");
+        return (
+          <section aria-label="Auditor's report" style={{ marginBottom: "1.8rem" }} data-testid="auditor-report">
+            <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>Auditor&apos;s report, {audited.period_label}</h2>
+            <div style={{ ...card, padding: "0.9rem 1.1rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.6 }}>
+                Opinion: <strong>{checks.opinion === "unknown" ? "could not be classified" : checks.opinion}</strong>.{" "}
+                {notable.length === 0 ? "No qualification, emphasis-of-matter or going-concern paragraph was found." : `${notable.length} paragraph${notable.length === 1 ? "" : "s"} worth reading:`}
+              </p>
+              {notable.map((f, i) => (
+                <div key={i} style={{ marginTop: "0.7rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem", color: f.severity === "high" ? T.oxblood : T.ink }}>{f.title}{f.page ? ` (p.${f.page})` : ""}</div>
+                  <div style={{ fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55, marginTop: 2 }}>{f.detail}</div>
+                </div>
+              ))}
+              {leads.length > 0 && (
+                <div style={{ marginTop: "0.7rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Contingent liabilities stated with an amount</div>
+                  <ul style={{ margin: "0.3rem 0 0 0", paddingLeft: "1.1rem", fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55 }}>{leads.map((f, i) => <li key={i}>{f.detail}{f.page ? ` (p.${f.page})` : ""}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {!empty && (
         <section aria-label="Periods" style={{ marginBottom: "1.8rem" }}>

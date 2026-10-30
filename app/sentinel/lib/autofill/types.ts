@@ -4,6 +4,7 @@ import type { NumericField } from "../fields";
 import type { CurrencyUnit } from "../units";
 import type { Issue } from "../validate";
 import type { Basis, PeriodType } from "../types";
+import type { AnnualReportChecks } from "./annualChecks";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -51,6 +52,8 @@ export type AutofillResult = {
    * and null for a PDF with no such section found. Carried through to the saved statement so the
    * investigation narrative can cite the real text instead of only a page pointer. */
   key_audit_matters_text: string | null;
+  /** What the auditor's report says about the audit (opinion, emphasis of matter, going concern) - PDFs only, null when no auditor's report was in the pages. */
+  annual_report_checks: AnnualReportChecks | null;
 };
 
 export class AutofillError extends Error {}

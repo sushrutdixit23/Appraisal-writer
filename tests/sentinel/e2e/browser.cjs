@@ -416,6 +416,34 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);
   }, a);
 
+  await check("Auditor's report: a qualified opinion saved with the year shows on the project Overview and on the digest, and survives a hand edit of a figure", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="auditor-report"]');
+    const card = await a.locator('[data-testid="auditor-report"]').textContent();
+    assert.match(card, /Auditor.s report, FY26/);
+    assert.match(card, /Opinion: qualified/);
+    assert.match(card, /The auditor has qualified the opinion \(p\.9\)/);
+    assert.match(card, /not provided for doubtful advances of Rs 120 crore/);
+    assert.match(card, /Contingent liabilities stated with an amount/);
+    assert.match(card, /Rs 506 crore/);
+    await ready(a, "/sentinel/digest", '[data-testid="digest-audit"]');
+    assert.match(await a.locator('[data-testid="digest-audit"]').textContent(), /Alpha Tyres - FY26: the auditor has qualified the opinion/);
+    // Editing a figure by hand must not wipe the checks.
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.locator("#mp-period").selectOption({ label: "FY26 (FY, consolidated)" });
+    const original = await field(a, "Other income").inputValue();
+    await fill(a, "Other income", String(Number(original || 0) + 1));
+    await a.getByRole("button", { name: "Update period" }).click();
+    await a.waitForSelector("text=Period updated.");
+    const [row] = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_label=eq.FY26`);
+    assert.match(row.annual_report_checks ?? "", /"o":"qualified"/);
+    // Put the figure back: later checks (the revenue-to-profit bridge) read Alpha FY26 as seeded.
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.locator("#mp-period").selectOption({ label: "FY26 (FY, consolidated)" });
+    await fill(a, "Other income", original);
+    await a.getByRole("button", { name: "Update period" }).click();
+    await a.waitForSelector("text=Period updated.");
+  }, a);
+
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
     await ready(a, "/sentinel/calibration", '[data-testid="calibration-summary"]');
     assert.match(await a.locator('[data-testid="calibration-summary"]').textContent(), /decided investigations/);

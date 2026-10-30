@@ -14,6 +14,7 @@ import { buildPeerTable, findPriorYear } from "../../../sentinel/lib/engine";
 import { getSectorConfig } from "../../../sentinel/lib/config";
 import { findClosestPeer } from "../../../sentinel/lib/benchmark";
 import { basisNote, formatMetricValue, materialityNote, receivablesDefinitionNote, receivablesStandingCaveat, trendBlock } from "../../../sentinel/lib/narrativeContext";
+import { parseChecks } from "../../../sentinel/lib/autofill/annualChecks";
 import { checkNarrativeGrounding } from "../../../sentinel/lib/narrativeGrounding";
 import { DECIDED_STATUSES, renderDecisionMemory, type PriorInvestigation } from "../../../sentinel/lib/decisionMemory";
 import { renderSectorPatterns, sectorPatterns } from "../../../sentinel/lib/sectorPatterns";
@@ -84,6 +85,20 @@ function keyAuditMattersBlock(stmt: FinancialStatement): string {
     "Use this only where it actually bears on the flag(s) above - a Key Audit Matter naming the " +
     "same account or process as a flag is worth citing by name; one about an unrelated area is " +
     "not worth forcing in."
+  );
+}
+
+/** What the auditor's report raised, when it raised anything: a qualification, an emphasis of matter, a going-concern uncertainty. Silent for a clean report, so the
+ * prompt does not describe an absence. Verbatim, because it is the auditor's wording, not ours. */
+function annualChecksBlock(stmt: FinancialStatement): string {
+  const c = parseChecks(stmt.annual_report_checks);
+  if (!c) return "";
+  const notable = c.findings.filter((f) => f.severity !== "info");
+  if (notable.length === 0) return "";
+  const lines = notable.slice(0, 3).map((f) => `- ${f.title}: "${f.detail.length > 600 ? `${f.detail.slice(0, 600).trim()}...` : f.detail}"`);
+  return (
+    `\n\nWhat the auditor's report raises for this filing (the auditor's own words, from the annual report):\n${lines.join("\n")}\n` +
+    "A qualification or a going-concern uncertainty is serious: if it bears on a flag above, say so plainly; if it does not, do not force a link."
   );
 }
 
@@ -309,7 +324,7 @@ export async function POST(req: Request) {
 
   const turn1User =
     `${flags.length} ${plural} raised for ${workspace.company_name} (${period_label}):\n${flagsBlock}\n\n` +
-    `Company data:\n${companyContext(workspace, stmt, prior)}${trend}${operating}${keyAuditMattersBlock(stmt)}${memory}\n\n` +
+    `Company data:\n${companyContext(workspace, stmt, prior)}${trend}${operating}${keyAuditMattersBlock(stmt)}${annualChecksBlock(stmt)}${memory}\n\n` +
     "Based only on this company's own data, what's your initial hypothesis for " +
     "why this happened? If there's more than one flag, say whether you think they're " +
     "connected or separate issues. 2-4 sentences.";

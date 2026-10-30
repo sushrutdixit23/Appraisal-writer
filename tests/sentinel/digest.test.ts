@@ -93,3 +93,19 @@ test("unread reviewer comments are listed with a count; read ones and other peop
   });
   assert.deepEqual(section(d, "discussion").items.map((i) => i.title), ["A - 2 new comments on FY26"]);
 });
+
+test("an auditor's-report finding on the latest audited year is listed, most serious first; a clean report and other people's companies are not", () => {
+  const checks = (o: string, findings: object[]) => JSON.stringify({ o, f: findings });
+  const f = (id: string, s: string, t: string, d: string) => ({ id, s, t, d, p: 9 });
+  const statements = [
+    st("a", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_checks: checks("qualified", [f("qualified", "high", "The auditor has qualified the opinion", "Advances of Rs 120 crore were not provided for.")]) }),
+    st("a", { period_label: "FY25", period_end_date: "2025-03-31", annual_report_checks: checks("unmodified", [f("unmodified", "info", "clean", "clean")]) }),
+    st("b", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_checks: checks("unmodified", [f("emphasis", "medium", "The auditor draws attention to a matter (emphasis of matter)", "We draw attention to Note 42.")]) }),
+    st("c", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_checks: checks("unmodified", [f("unmodified", "info", "clean", "clean")]) }),
+    st("x", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_checks: checks("adverse", [f("adverse", "high", "The auditor has given an adverse opinion", "Pervasive.")]) }),
+  ];
+  const d = buildDigest({ ...base, workspaces: [mine("a"), mine("b"), mine("c"), ws("x", { sector: "technology", owner_id: "other" })], statements, today: "2026-10-28" });
+  const items = section(d, "audit").items;
+  assert.deepEqual(items.map((i) => i.title), ["A - FY26: the auditor has qualified the opinion", "B - FY26: the auditor draws attention to a matter (emphasis of matter)"]);
+  assert.match(items[0].detail, /Advances of Rs 120 crore/);
+});

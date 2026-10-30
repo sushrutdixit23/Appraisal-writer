@@ -113,6 +113,8 @@ export type FinancialStatement = {
   // supabase/migrations/20261102000000_sentinel_kam_text.sql is applied), same rule as the other
   // fields added after the first release.
   key_audit_matters_text?: string | null;
+  /** The auditor's-report checks saved with the statement (JSON written by autofill/annualChecks.ts serialiseChecks); null for a statement not read from an annual report. */
+  annual_report_checks?: string | null;
 };
 
 export type AnomalyFlag = {

@@ -92,7 +92,7 @@ export const OPTIONAL_COLUMNS: readonly NumericField[] = [
 
 /** Non-numeric columns added after the first release, under the same "don't send a null for a
  * column the database might not have yet" rule as OPTIONAL_COLUMNS. */
-export const OPTIONAL_TEXT_COLUMNS: readonly string[] = ["key_audit_matters_text"];
+export const OPTIONAL_TEXT_COLUMNS: readonly string[] = ["key_audit_matters_text", "annual_report_checks"];
 
 export function withoutUnsetOptionalColumns<T extends object>(record: T, existing?: object | null): T {
   const out = { ...record } as Record<string, unknown>;

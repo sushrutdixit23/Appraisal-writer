@@ -24,7 +24,7 @@ function period(over: Partial<AutofillPeriod> & { fields?: Record<string, FieldH
 const file = (name: string, periods: AutofillPeriod[], unit: ImportFile["unit"] = "INR_CRORE"): ImportFile => ({
   name,
   unit,
-  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name, key_audit_matters_text: null } as AutofillResult,
+  result: { kind: "csv", unit: { unit, source: "sheet", evidence: null, ambiguous: false }, periods, notes: [], pages_used: [], layout: null, source_file: name, key_audit_matters_text: null, annual_report_checks: null } as AutofillResult,
 });
 
 const ws = { currency_unit: "INR_CRORE", comparison_basis: "consolidated" as const, fiscal_year_start_month: 4 };
@@ -136,4 +136,19 @@ test("summary line counts what will be saved and what will not", () => {
   assert.equal(summariseImport(rows, selected), "1 new; 2 not imported");
   const all = new Set(rows.map((r) => r.id));
   assert.equal(summariseImport(rows, all), "1 new, 1 replacing what is on file; 1 not imported");
+});
+
+// ---- what the auditor's report and Key Audit Matters belong to ----------------------------------------------------------------
+
+test("the auditor's-report checks and the Key Audit Matters are saved with the audited year, never with a quarter read from the same file", () => {
+  const checks = { opinion: "qualified" as const, findings: [{ id: "qualified", severity: "high" as const, title: "The auditor has qualified the opinion", detail: "Advances of Rs 120 crore were not provided for.", page: 9 }], report_pages: [9], contingent: [] };
+  const f = file("report.pdf", [period(), period({ key: "q", period_type: "Q2", period_label: "Q2 FY27", period_end_date: "2026-09-30" })]);
+  f.result = { ...f.result, kind: "pdf", key_audit_matters_text: "Revenue recognition", annual_report_checks: checks };
+  const rows = planImport([f], ws, []);
+  const fy = rows.find((r) => r.period_type === "FY")!.statement!;
+  const q = rows.find((r) => r.period_type === "Q2")!.statement!;
+  assert.equal(fy.key_audit_matters_text, "Revenue recognition");
+  assert.match(fy.annual_report_checks ?? "", /"o":"qualified"/);
+  assert.equal(q.key_audit_matters_text, null);
+  assert.equal(q.annual_report_checks, null);
 });

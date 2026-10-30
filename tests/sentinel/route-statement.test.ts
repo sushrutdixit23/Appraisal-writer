@@ -224,3 +224,18 @@ test("when one of them is filled it is saved, and clearing it later saves a null
   assert.equal(cleared.json.status, "updated");
   assert.equal(statements(wsA)[0].retained_earnings, null);
 });
+
+test("a database that does not have a newer text column yet still saves the figures: the save is retried without the optional text", async () => {
+  backend.failNext = { table: "sentinel_statements", method: "POST", status: 400, body: { code: "PGRST204", message: "Could not find the 'annual_report_checks' column of 'sentinel_statements' in the schema cache" } };
+  const r = await call({ workspace_id: wsA, statement: stmt({ annual_report_checks: '{"o":"unmodified","f":[]}', key_audit_matters_text: "Revenue recognition" }) });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const [saved] = statements(wsA);
+  assert.equal(saved.revenue_from_operations, 1000);
+  assert.ok(!("annual_report_checks" in saved) && !("key_audit_matters_text" in saved), "the optional text columns were left out of the retry");
+});
+
+test("when the database has the column, the auditor's-report checks are saved with the statement", async () => {
+  const r = await call({ workspace_id: wsA, statement: stmt({ annual_report_checks: '{"o":"qualified","f":[]}' }) });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(statements(wsA)[0].annual_report_checks, '{"o":"qualified","f":[]}');
+});

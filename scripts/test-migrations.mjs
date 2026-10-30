@@ -219,8 +219,20 @@ assert.equal((await db.query(`select count(*)::int as n from sentinel_transcript
 console.log("ok  transcripts migration");
 }
 
+async function annualChecksMigration() {
+const db = new PGlite();
+await db.exec(`create table sentinel_statements (id uuid primary key default gen_random_uuid(), period_label text, key_audit_matters_text text);`);
+const sql = fs.readFileSync(root + "20261110000000_sentinel_annual_report_checks.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.query(`insert into sentinel_statements (period_label, annual_report_checks) values ('FY26', '{"o":"unmodified","f":[]}')`);
+assert.equal((await db.query(`select annual_report_checks from sentinel_statements`)).rows[0].annual_report_checks, '{"o":"unmodified","f":[]}');
+console.log("ok  annual-report checks migration");
+}
+
 await auditMigration();
 await otherMigrations();
 await filingsAndDiscussionMigration();
 await estimatesMigration();
 await transcriptsMigration();
+await annualChecksMigration();
