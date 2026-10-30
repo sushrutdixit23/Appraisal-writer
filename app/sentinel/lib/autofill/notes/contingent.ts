@@ -101,6 +101,7 @@ export function readContingentLiabilities(pages: PdfPage[]): ContingentItem[] {
 
 /** Starting assumptions, not calibrated: the share of net worth a stated contingent liability would be. */
 export const CONTINGENT_THRESHOLDS = { medium: 0.1, high: 0.25 };
+export const CONTINGENT_IMPLAUSIBLE = 3;
 
 const fmt = (v: number, unit: string | null) => `${v.toLocaleString(unit === "million" ? "en-US" : "en-IN")}${unit ? ` ${unit}` : ""}`;
 
@@ -113,7 +114,9 @@ export function contingentFindings(items: ContingentItem[], netWorth?: number | 
     const key = `${i.subject}|${i.current}|${i.prior}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const share = netWorth != null && netWorth > 0 ? i.current / netWorth : null;
+    // A contingent liability several times the company's net worth is possible but, far more often, a misread net worth: it is shown unranked rather than as an alarm.
+    const raw = netWorth != null && netWorth > 0 ? i.current / netWorth : null;
+    const share = raw != null && raw <= CONTINGENT_IMPLAUSIBLE ? raw : null;
     const severity: NoteFinding["severity"] = share == null ? "info" : share >= CONTINGENT_THRESHOLDS.high ? "high" : share >= CONTINGENT_THRESHOLDS.medium ? "medium" : "info";
     const change = i.prior != null && i.prior > 0 ? ` (${fmt(i.prior, i.unit)} the year before, ${i.current >= i.prior ? "+" : ""}${(((i.current - i.prior) / i.prior) * 100).toFixed(0)}%)` : "";
     out.push({

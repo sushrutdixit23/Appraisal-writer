@@ -70,6 +70,10 @@ export const RPT_THRESHOLDS = { exposure_medium: 0.05, exposure_high: 0.15, conc
 const fmt = (v: number, unit: string | null) => `${v.toLocaleString(unit === "million" ? "en-US" : "en-IN")}${unit ? ` ${unit}` : ""}`;
 const sum = (rows: RptRow[]) => rows.reduce((n, r) => n + r.total, 0);
 
+/** A share this large means the company figure it was divided by is a misread (a related-party revenue line cannot be several times the company's revenue, and a year's
+ * loans cannot be several times its net worth), so the figure is ignored and the finding is shown unranked rather than as an alarm. */
+export const IMPLAUSIBLE_SHARE = 1.5;
+
 /** `context` is the company's own figures in the table's unit, when known: net worth for exposure, revenue and total expenses for concentration. */
 export function relatedPartyFindings(tables: RptTable[], context: { net_worth?: number | null; revenue?: number | null; expenses?: number | null } = {}): NoteFinding[] {
   const out: NoteFinding[] = [];
@@ -79,7 +83,8 @@ export function relatedPartyFindings(tables: RptTable[], context: { net_worth?: 
     const exposure = t.rows.filter((r) => r.kind === "loan_given" || r.kind === "guarantee_given");
     const given = sum(exposure);
     if (given > 0) {
-      const share = context.net_worth && context.net_worth > 0 ? given / context.net_worth : null;
+      const raw = context.net_worth && context.net_worth > 0 ? given / context.net_worth : null;
+      const share = raw != null && raw <= IMPLAUSIBLE_SHARE ? raw : null;
       out.push({
         id: "rpt_exposure", page: t.page,
         severity: share == null ? "info" : share >= RPT_THRESHOLDS.exposure_high ? "high" : share >= RPT_THRESHOLDS.exposure_medium ? "medium" : "info",
@@ -91,7 +96,8 @@ export function relatedPartyFindings(tables: RptTable[], context: { net_worth?: 
       const rows = t.rows.filter((r) => r.kind === kind);
       const amount = rows.length ? rows[0].total : 0; // the first matching row: "Revenue from operations", not every later sub-line
       if (amount <= 0) continue;
-      const share = base && base > 0 ? amount / base : null;
+      const rawShare = base && base > 0 ? amount / base : null;
+      const share = rawShare != null && rawShare <= IMPLAUSIBLE_SHARE ? rawShare : null;
       if (share != null && share < RPT_THRESHOLDS.concentration_medium) continue;
       if (share == null && kind === "purchase") continue; // without the company's own figure a purchases total says little
       out.push({

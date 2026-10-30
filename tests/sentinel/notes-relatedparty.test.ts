@@ -64,3 +64,11 @@ test("a table with a total column that is not related-party transactions (a page
   const page = { num: 1, text: ["Segment revenue by geography", ...Array.from({ length: 8 }, (_, i) => `Region ${i} \t10 \t20 \t30 \t60`)].join("\n") };
   assert.deepEqual(readRelatedParties([page]), []);
 });
+
+test("a company figure that makes the share absurd is a misread, not a finding: revenue of 12 against 37,508 of related-party revenue is shown unranked", () => {
+  // Found on the first end-to-end run: the statement reader took TCS's revenue from a full annual report as 12.
+  const tables = readRelatedParties(load("tcs"));
+  const f = relatedPartyFindings(tables, { revenue: 12, net_worth: 3, expenses: 5 });
+  assert.ok(f.every((x) => x.severity === "info"), JSON.stringify(f.map((x) => [x.id, x.severity])));
+  assert.ok(f.every((x) => !/% of/.test(x.title)), "no percentage is printed from an implausible base");
+});

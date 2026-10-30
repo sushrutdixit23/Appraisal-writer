@@ -123,3 +123,22 @@ test("covenants: a breached or tight one is listed for the owner with its room a
   assert.match(items[2].detail, /Next test 2026-11-10 \(13 days\)/);
   assert.equal(items[0].href, "/sentinel/covenants?workspace=a");
 });
+
+test("the notes to the accounts: the most serious finding on the latest audited year is listed with its page; info-only, other years and other people's companies are not", () => {
+  const notes = (f: object[]) => JSON.stringify({ v: 1, r: {}, f });
+  const high = { n: "caro", i: "caro_xi", s: "h", t: "The auditor's CARO answer on fraud is not the clean one", d: "Clause (xi): a report under section 143(12) has been filed.", p: 437 };
+  const med = { n: "ageing", i: "ageing_over_1y", s: "m", t: "8.5% of trade receivables is over a year overdue", d: "4,970 of 58,267 crore.", p: 184 };
+  const info = { n: "ratios", i: "ratio_x", s: "i", t: "Current ratio moved", d: "x", p: 1 };
+  const statements = [
+    st("a", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([med, high]) }),
+    st("a", { period_label: "FY25", period_end_date: "2025-03-31", annual_report_notes: notes([high]) }),
+    st("b", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([med]) }),
+    st("c", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([info]) }),
+    st("x", { period_label: "FY26", period_end_date: "2026-03-31", annual_report_notes: notes([high]) }),
+  ];
+  const d = buildDigest({ ...base, workspaces: [mine("a"), mine("b"), mine("c"), ws("x", { sector: "technology", owner_id: "other" })], statements, today: "2026-10-28" });
+  const items = section(d, "notes").items;
+  assert.deepEqual(items.map((i) => i.title), ["A - FY26: The auditor's CARO answer on fraud is not the clean one", "B - FY26: 8.5% of trade receivables is over a year overdue"]);
+  assert.match(items[0].detail, /Auditor's CARO answers, p\.437/);
+  assert.match(items[0].detail, /1 more in the notes/);
+});

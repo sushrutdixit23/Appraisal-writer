@@ -282,3 +282,22 @@ test("what the auditor's report raised reaches the prompt in the auditor's own w
   await call({ workspace_id: wsA, period_label: "FY26" });
   assert.doesNotMatch(backend.anthropicCalls[0].messages[0].content as string, /auditor's report raises/);
 });
+
+test("what the notes to the annual report raise reaches the prompt with its page; info-only findings add nothing", async () => {
+  const own = backend.tables.sentinel_statements.find((s) => s.workspace_id === wsA && s.period_label === "FY26")!;
+  own.annual_report_notes = JSON.stringify({ v: 1, r: { ageing: 2, ratios: 9, caro: 8, contingent: 3, maturity: 4, related_parties: 0 }, f: [
+  { n: "caro", i: "caro_xi", s: "h", t: "The auditor's CARO answer on fraud is not the clean one (standalone)", d: "Clause (xi): \"(b) A report under sub-section (12) of section 143 has been filed by us in Form ADT-4.\"", p: 437 },
+  { n: "ageing", i: "ageing_over_1y", s: "m", t: "8.5% of trade receivables has been outstanding over a year past its due date", d: "4,970 crore of 58,267 crore gross is over a year overdue.", p: 184 },
+  { n: "ratios", i: "ratio_current_ratio", s: "i", t: "Current ratio moved down 29% (2.1 to 1.5)", d: "The company's own disclosure.", p: 128 },
+] });
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  const first = backend.anthropicCalls[0].messages[0].content as string;
+  assert.match(first, /What the notes to the annual report raise for this filing/);
+  assert.match(first, /The auditor's CARO answer on fraud is not the clean one \(standalone\) \(auditor's caro answers, p\.437\)/);
+  assert.match(first, /8\.5% of trade receivables .* \(receivables ageing, p\.184\)/);
+  assert.doesNotMatch(first, /Current ratio moved down 29%/);
+  backend.anthropicCalls = [];
+  own.annual_report_notes = JSON.stringify({ v: 1, r: {}, f: [{ n: "ratios", i: "x", s: "i", t: "info only", d: "x", p: 1 }] });
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  assert.doesNotMatch(backend.anthropicCalls[0].messages[0].content as string, /notes to the annual report raise/);
+});

@@ -16,6 +16,8 @@ import { parseNumberInput } from "../fields";
 import { extractKeyAuditMattersText, findKeyAuditMattersPages, selectStatementPages, type PdfPage } from "../extraction";
 import { detectUnitInText } from "../units";
 import { runAnnualReportChecks, summariseChecks } from "./annualChecks";
+import type { NumericField } from "../fields";
+import { readAnnualNotes, summarise as summariseNotes } from "./notes";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
 import { findDates, findFiscalYearRanges, periodForEndDate } from "./periods";
@@ -361,6 +363,17 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
   }
   periods.sort((a, b) => (b.period_end_date ?? "").localeCompare(a.period_end_date ?? ""));
 
+  // The notes to the accounts (ageing, CARO, ratios, contingent liabilities, maturities, related parties), with the filing's own latest-year figures for scale.
+  // Only an annual report has them; a results announcement finds none and the field is null.
+  const year = periods.find((p) => p.period_type === "FY");
+  const v = (k: NumericField) => year?.fields[k]?.value ?? null;
+  const annualNotes = readAnnualNotes(pages, {
+    net_worth: v("total_equity"), revenue: v("revenue_from_operations"), expenses: v("total_expenses"),
+    statement: year ? { basis: year.basis ?? "consolidated", current_assets: v("current_assets"), current_liabilities: v("current_liabilities"), profit_after_tax: v("profit_after_tax") ?? 0, revenue_from_operations: v("revenue_from_operations") ?? 0 } : null,
+  });
+  const anyNotes = Object.values(annualNotes.read).some((n) => n > 0);
+  if (anyNotes) notes.push(summariseNotes(annualNotes));
+
   // Periods that found almost nothing are usually a comparative column of a statement that only prints one year.
   const unit = selection.unit ?? detectUnitInText(selection.text);
   return {
@@ -375,6 +388,7 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
     source_file: opts.sourceFile ?? "uploaded.pdf",
     key_audit_matters_text: keyAuditMattersText,
     annual_report_checks: annualChecks,
+    annual_report_notes: anyNotes ? annualNotes : null,
   };
 }
 

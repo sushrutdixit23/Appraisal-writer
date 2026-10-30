@@ -55,3 +55,9 @@ test("policy wording and amounts that are not a pair are not read: 'an amount of
   const page = { num: 1, text: "Upon resolution of the disputes, an amount aggregating to `86 crore has been reduced from contingent liabilities. Contingent liabilities are not recognised." };
   assert.deepEqual(readContingentLiabilities([page]), []);
 });
+
+test("a net worth that makes the contingent liability several times itself is a misread: shown unranked, with no percentage", () => {
+  const items = readContingentLiabilities(load("tcs")).filter((i) => i.kind === "sentence");
+  const f = contingentFindings(items, 12); // 506 against a "net worth" of 12
+  assert.ok(f.every((x) => x.severity === "info" && !/of net worth/.test(x.detail)));
+});

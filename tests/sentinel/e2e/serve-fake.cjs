@@ -37,7 +37,11 @@ const fy = (ws, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
   revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,
 });
 b.tables.sentinel_statements = [
-  fy(IDS.alpha, "FY26", "2026-03-31", 1300, 260, 130, 100, { annual_report_checks: JSON.stringify({ o: "qualified", f: [{ id: "qualified", s: "high", t: "The auditor has qualified the opinion", d: "The Company has not provided for doubtful advances of Rs 120 crore.", p: 9 }, { id: "contingent", s: "info", t: "A contingent liability is stated with an amount", d: "Contingent liability in respect of tax demands is Rs 506 crore as at March 31, 2026.", p: 31 }] }), total_equity: 600, total_debt: 300, current_assets: 500, current_liabilities: 400, inventory: 100, total_expenses: 1150, trade_receivables: 120 }),
+  fy(IDS.alpha, "FY26", "2026-03-31", 1300, 260, 130, 100, { annual_report_notes: JSON.stringify({ v: 1, r: { ageing: 2, ratios: 9, caro: 8, contingent: 3, maturity: 0, related_parties: 0 }, f: [
+    { n: "caro", i: "caro_xi", s: "h", t: "The auditor's CARO answer on fraud is not the clean one (standalone)", d: "Clause (xi): \"(b) A report under sub-section (12) of section 143 of the Companies Act has been filed by us in Form ADT-4.\"", p: 437 },
+    { n: "ageing", i: "ageing_over_1y", s: "m", t: "8.5% of trade receivables has been outstanding over a year past its due date", d: "4,970 crore of 58,267 crore gross is over a year overdue.", p: 184 },
+    { n: "ratios", i: "ratio_current_ratio", s: "i", t: "Current ratio moved down 29% (2.1 to 1.5)", d: "The company's own disclosure.", p: 128 },
+  ] }), annual_report_checks: JSON.stringify({ o: "qualified", f: [{ id: "qualified", s: "high", t: "The auditor has qualified the opinion", d: "The Company has not provided for doubtful advances of Rs 120 crore.", p: 9 }, { id: "contingent", s: "info", t: "A contingent liability is stated with an amount", d: "Contingent liability in respect of tax demands is Rs 506 crore as at March 31, 2026.", p: 31 }] }), total_equity: 600, total_debt: 300, current_assets: 500, current_liabilities: 400, inventory: 100, total_expenses: 1150, trade_receivables: 120 }),
   fy(IDS.alpha, "FY25", "2025-03-31", 1000, 190, 100, 80),
   fy(IDS.ref1, "FY26", "2026-03-31", 1250, 230, 120, 90), fy(IDS.ref1, "FY25", "2025-03-31", 1180, 215, 110, 85),
   fy(IDS.ref2, "FY26", "2026-03-31", 2000, 360, 200, 150), fy(IDS.ref2, "FY25", "2025-03-31", 1900, 340, 190, 142),

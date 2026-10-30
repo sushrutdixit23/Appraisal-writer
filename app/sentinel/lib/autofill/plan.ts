@@ -13,6 +13,7 @@
 import { ALL_FIELDS, type NumericField } from "../fields";
 import { prepareFromForm, type StatementRow } from "../validate";
 import { serialiseChecks } from "./annualChecks";
+import { serialiseNotes } from "./notes";
 import { applyAutofillPeriod } from "./apply";
 import { periodForEndDate } from "./periods";
 import type { AutofillPeriod, AutofillResult } from "./types";
@@ -111,6 +112,7 @@ export function planImport(files: ImportFile[], workspace: Workspace, existing: 
           // What the auditor's report and the Key Audit Matters say belongs to the audited year, not to a quarter or a half-year column read from the same file.
           keyAuditMattersText: type === "FY" ? file.result.key_audit_matters_text : null,
           annualReportChecks: type === "FY" && file.result.annual_report_checks ? serialiseChecks(file.result.annual_report_checks) : null,
+          annualReportNotes: type === "FY" && file.result.annual_report_notes ? serialiseNotes(file.result.annual_report_notes) : null,
         },
         others
       );
