@@ -38,7 +38,7 @@ export type AutofillUnit = {
 };
 
 export type AutofillResult = {
-  kind: "pdf" | "csv" | "xlsx";
+  kind: "pdf" | "csv" | "xlsx" | "xbrl";
   unit: AutofillUnit;
   /** Most recent first. */
   periods: AutofillPeriod[];

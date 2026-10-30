@@ -236,6 +236,24 @@ async function ready(page, url, waitFor) {
     assert.equal(again.status, 404);
   }, a);
 
+  await check("XBRL: an exchange-style results file read in the Import page gives its quarters, each with its figures, before anything is saved", async () => {
+    const ctx = (id, a, z) => `<xbrli:context id="${id}"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:startDate>${a}</xbrli:startDate><xbrli:endDate>${z}</xbrli:endDate></xbrli:period></xbrli:context>`;
+    const f = (n, c, v) => `<in-bse-fin:${n} contextRef="${c}" unitRef="INR">${v}</in-bse-fin:${n}>`;
+    const xml = `<?xml version="1.0"?><xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:in-bse-fin="http://www.bseindia.com/xbrl/fin">` +
+      ctx("OneD", "2027-01-01", "2027-03-31") + ctx("ThreeD", "2026-01-01", "2026-03-31") +
+      `<in-bse-fin:LevelOfRoundingUsedInFinancialStatements contextRef="OneD">Crores</in-bse-fin:LevelOfRoundingUsedInFinancialStatements>` +
+      f("RevenueFromOperations", "OneD", 450) + f("ProfitBeforeTax", "OneD", 70) + f("ProfitLossForPeriod", "OneD", 52) +
+      f("RevenueFromOperations", "ThreeD", 400) + f("ProfitBeforeTax", "ThreeD", 60) + f("ProfitLossForPeriod", "ThreeD", 44) + `</xbrli:xbrl>`;
+    await ready(a, `/sentinel/projects/${IDS.alpha}/import`, "input[type=file]");
+    await a.locator("input[type=file]").first().setInputFiles({ name: "results.xml", mimeType: "text/xml", buffer: Buffer.from(xml) });
+    await a.waitForSelector('[data-testid="import-summary"]', { timeout: 60000 });
+    const body = await a.locator("body").textContent();
+    assert.match(body, /results\.xml/);
+    assert.match(body, /XBRL, 2 periods/);
+    assert.match(body, /Q4 FY27/);
+    assert.match(body, /Q4 FY26/);
+  }, a);
+
   await check("Digest: lists the draft waiting for a decision and the flagged company, only for the signed-in owner", async () => {
     await ready(a, "/sentinel/digest", 'h1:has-text("Coverage digest")');
     await a.waitForSelector('[data-testid="digest-summary"]');
