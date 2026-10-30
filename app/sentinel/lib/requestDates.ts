@@ -34,3 +34,10 @@ export function isOverdue(r: RequestLike, today: string): boolean {
   return (r.due_date ?? defaultDueDate(r.period_end_date)) < today;
 }
 
+
+/** A real calendar date written YYYY-MM-DD. Date.parse alone rolls 2026-02-30 over to 2 March, so the date is rebuilt and compared. */
+export function isRealDate(s: unknown): s is string {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}

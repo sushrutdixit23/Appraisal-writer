@@ -333,6 +333,33 @@ async function ready(page, url, waitFor) {
     await a.waitForSelector('[data-testid="results-table"]:has-text("Alpha Tyres - Q1 FY27")');
   }, a);
 
+  await check("Estimates: typed in and uploaded as a CSV, they give beat / in line / miss by line on the quarter, and wait for a quarter not yet reported", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="estimates-panel"]');
+    assert.match(await a.locator('[data-testid="results-variance"]').textContent(), /No estimates are stored for the quarter ended 2026-09-30/);
+    await a.locator("#est-period").fill("2026-09-30");
+    await a.locator("#est-revenue").fill("390");      // actual 400: +2.6%, a beat
+    await a.locator("#est-ebitda").fill("80.5");      // actual 80: -0.6%, in line
+    await a.locator("#est-pat").fill("48");           // actual 45: -6.3%, a miss
+    await a.locator("#est-label").fill("Street");
+    await a.getByTestId("save-estimates").click();
+    await a.waitForSelector('[data-testid="results-variance"]:has-text("Street")');
+    const v = await a.locator('[data-testid="results-variance"]').textContent();
+    assert.match(v, /Revenue from operations/);
+    assert.match(v, /\+2\.6%\s*Beat/);
+    assert.match(v, /-0\.6%\s*In line/);
+    assert.match(v, /-6\.3%\s*Miss/);
+    // A CSV for the next quarter: stored, and said to be waiting for results.
+    const csv = "period,revenue,PAT,source,source label\nQ3 FY27,410,47,own,My model\n";
+    await a.getByLabel("Estimates CSV").setInputFiles({ name: "est.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+    await a.waitForSelector('[data-testid="estimates-waiting"]:has-text("2026-12-31")');
+    const rows = await db("sentinel_estimates", `&workspace_id=eq.${IDS.alpha}`);
+    assert.equal(rows.length, 5);
+    assert.ok(rows.every((r) => r.owner_id === IDS.A));
+    // Another person has none of them.
+    await ready(b, "/sentinel/results?workspace=" + IDS.ref1, '[data-testid="estimates-panel"]');
+    assert.ok(!/Street/.test(await b.locator("body").textContent()));
+  }, a);
+
   await check("Results brief: a company with no quarterly results says how to add them", async () => {
     await ready(a, "/sentinel/results?workspace=" + IDS.lakh, '[data-testid="results-empty"]');
     assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);

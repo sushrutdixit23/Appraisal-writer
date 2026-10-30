@@ -12,6 +12,9 @@ import { workspaceOptionLabel } from "../lib/access";
 import { useShell } from "../lib/shell/ShellData";
 import { useSelectedWorkspace } from "../lib/useSelectedWorkspace";
 import { buildResultsBrief, quartersOnFile, type BriefLine } from "../lib/quarterly";
+import { buildVariance, type EstimateRow } from "../lib/estimates";
+import { EstimatesPanel } from "../lib/EstimatesPanel";
+import { resultsWindow } from "../lib/resultsCalendar";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement } from "../lib/types";
 
@@ -30,6 +33,9 @@ export default function ResultsPage() {
   const [loaded, setLoaded] = useState(false);
   const [primaryId] = useSelectedWorkspace(workspaces.map((w) => w.id));
   const [quarter, setQuarter] = useState("");
+  const [estimates, setEstimates] = useState<(EstimateRow & { id?: string })[]>([]);
+  const [estimatesSetUp, setEstimatesSetUp] = useState(true);
+  const [estimatesTick, setEstimatesTick] = useState(0);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -43,12 +49,35 @@ export default function ResultsPage() {
   }, [shellLoading, signedIn, workspaces, router]);
 
   const ws = workspaces.find((w) => w.id === primaryId) ?? null;
+  const wsId = ws?.id;
+  useEffect(() => {
+    if (!wsId) return;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch(`/api/sentinel/estimates?workspace_id=${wsId}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+      if (!res || !res.ok) { setEstimates([]); return; }
+      const body = (await res.json()) as { estimates: (EstimateRow & { id?: string })[]; set_up: boolean };
+      setEstimates(body.estimates);
+      setEstimatesSetUp(body.set_up);
+    })();
+  }, [wsId, estimatesTick]);
   const quarters = useMemo(() => (ws ? quartersOnFile(ws, statements) : []), [ws, statements]);
   const end = quarters.find((q) => q.end === quarter)?.end ?? quarters[0]?.end;
   const brief = useMemo(() => (ws && end ? buildResultsBrief(workspaces, statements, ws.id, end) : null), [workspaces, statements, ws, end]);
 
   if (shellLoading || !loaded) return <p style={{ color: T.inkSoft }}>Building the brief...</p>;
   if (!ws) return <p style={{ color: T.inkSoft }}>No company selected.</p>;
+  const variance = brief ? buildVariance(brief, estimates) : [];
+  const reportedEnds = new Set(quarters.map((q) => q.end));
+  const nextEnd = resultsWindow(new Date().toISOString().slice(0, 10), ws.fiscal_year_start_month || 4);
+  const defaultPeriod = brief && !reportedEnds.has(nextEnd.latest.period_end_date) ? nextEnd.latest.period_end_date : nextEnd.next.period_end_date;
+  const CALL: Record<string, { text: string; bg: string; fg: string }> = {
+    beat: { text: "Beat", bg: "rgba(11,107,95,0.12)", fg: "#0b6b5f" },
+    miss: { text: "Miss", bg: "rgba(140,30,30,0.14)", fg: T.oxblood },
+    "in line": { text: "In line", bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
+  };
 
   const th: React.CSSProperties = { textAlign: "right", fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, fontWeight: 500, padding: "0.5rem 0.7rem", borderBottom: `1px solid ${T.rule}`, whiteSpace: "nowrap" };
   const td: React.CSSProperties = { fontSize: "0.88rem", padding: "0.55rem 0.7rem", borderBottom: `1px solid ${T.rule}`, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
@@ -137,6 +166,31 @@ export default function ResultsPage() {
             )}
           </section>
 
+          <section style={card} aria-label="Against estimates" data-testid="results-variance">
+            <h2 style={h2}>Against estimates</h2>
+            {variance.length === 0 ? (
+              <p style={{ margin: 0, fontSize: "0.9rem", color: T.inkSoft }}>No estimates are stored for the quarter ended {brief.period_end_date}. Add them below and the beat or miss appears here.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
+                  <thead><tr><th style={{ ...th, textAlign: "left" }}>Line (₹ crore)</th><th style={th}>Actual</th><th style={{ ...th, textAlign: "left" }}>Estimate</th><th style={th}>Estimate value</th><th style={th}>Variance</th><th style={th}>Call</th></tr></thead>
+                  <tbody>
+                    {variance.flatMap((row) => row.estimates.map((e, i) => (
+                      <tr key={`${row.metric}-${e.source}`}>
+                        <td style={{ ...td, textAlign: "left", fontWeight: 500 }}>{i === 0 ? row.label : ""}</td>
+                        <td style={td}>{i === 0 ? amount(row.actual) : ""}</td>
+                        <td style={{ ...td, textAlign: "left" }}>{e.source === "own" ? "My estimate" : "Consensus"}{e.source_label ? ` (${e.source_label})` : ""}</td>
+                        <td style={td}>{amount(e.value)}</td><td style={td}>{signed(e.variance)}</td>
+                        <td style={td}>{e.call && <span style={{ fontSize: "0.74rem", fontWeight: 600, padding: "0.15rem 0.55rem", borderRadius: 2, background: CALL[e.call].bg, color: CALL[e.call].fg }}>{CALL[e.call].text}</span>}</td>
+                      </tr>
+                    )))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p style={{ fontSize: "0.76rem", color: T.inkSoft, margin: "0.6rem 0 0 0" }}>In line means within 1% on revenue, 2% on EBITDA and 3% on profit before and after tax (starting assumptions).</p>
+          </section>
+
           <section style={card} aria-label="Peers" data-testid="results-peers">
             <h2 style={h2}>Against peers that have reported {brief.period_label}</h2>
             {brief.peers.reported.length === 0 ? (
@@ -172,6 +226,12 @@ export default function ResultsPage() {
           </section>
         </>
       )}
+
+      <section style={card} aria-label="Estimates">
+        <h2 style={h2}>Estimates</h2>
+        <p style={{ fontSize: "0.82rem", color: T.inkSoft, margin: "0 0 0.8rem 0", lineHeight: 1.5 }}>What was expected, in rupees crore. Enter it before the result, or paste a consensus. Sentinel has no consensus feed; these are your numbers, visible only to you.</p>
+        <EstimatesPanel workspaceId={ws.id} fyStartMonth={ws.fiscal_year_start_month || 4} defaultPeriodEnd={defaultPeriod} estimates={estimates} setUp={estimatesSetUp} reportedEnds={reportedEnds} onChange={() => setEstimatesTick((n) => n + 1)} />
+      </section>
     </div>
   );
 }
