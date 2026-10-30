@@ -2,7 +2,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareFields, precisionFromSheet, summariseComparison, tieOutAgeing, toCsv } from "../../app/sentinel/lib/evaluation/notesScorecard";
+import { compareFields, precisionFromSheet, summariseBacktest, summariseComparison, tieOutAgeing, toCsv } from "../../app/sentinel/lib/evaluation/notesScorecard";
 import type { AgeingTable } from "../../app/sentinel/lib/autofill/notes/ageing";
 
 const table = (over: Partial<AgeingTable> = {}): AgeingTable => ({ page: 5, unit: "crore", year_hint: 2026, buckets: [], rows: [], total: [0, 0, 0, 0, 0, 0, 1000], total_prior: null, allowance: 40, rows_checked: 3, rows_rejected: 0, total_agrees: true, excerpt: "", ...over });
@@ -37,4 +37,14 @@ test("the checker's sheet: every extracted item with its page and source and an 
   assert.deepEqual([marked.caro.right, marked.caro.wrong, marked.caro.precision], [1, 1, 0.5]);
   assert.equal(marked.ageing.precision, 1);
   assert.ok(marked.caro.interval && marked.caro.interval[0] < 0.5 && marked.caro.interval[1] > 0.5);
+});
+
+test("backtest summary: catch rate over cases, false-alarm rate over controls, hard controls apart, each with an interval", () => {
+  const r = (file: string, label: "case" | "control", flagged: boolean, hard = false) => ({ file, label, hard, high: flagged ? 1 : 0, medium: 0, flagged, top: null, not_read: [] });
+  const s = summariseBacktest([r("a", "case", true), r("b", "case", true), r("c", "case", false), r("d", "case", true), r("e", "case", true), ...Array.from({ length: 13 }, (_, i) => r(`c${i}`, "control", i === 0)), r("h1", "control", true, true), r("h2", "control", false, true)]);
+  assert.deepEqual([s.catch.flagged, s.catch.n, s.catch.rate], [4, 5, 0.8]);
+  assert.deepEqual([s.false_alarm.flagged, s.false_alarm.n], [2, 15]);
+  assert.deepEqual([s.hard_controls.flagged, s.hard_controls.n], [1, 2]);
+  assert.ok(s.catch.interval && s.catch.interval[0] > 0.37 && s.catch.interval[0] < 0.39 && s.catch.interval[1] > 0.96 && s.catch.interval[1] < 0.99, JSON.stringify(s.catch.interval)); // 4 of 5: about 38% to 96%
+  assert.equal(summariseBacktest([]).catch.rate, null);
 });

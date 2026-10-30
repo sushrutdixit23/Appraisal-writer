@@ -3,6 +3,7 @@
 //   npm run score:notes -- <folder of annual-report PDFs> [--out <folder>] [--truth <truth.json>] [--basis standalone|consolidated]
 //
 // It writes, into --out (default ./scorecard-out):
+//   backtest       with --backtest docs/backtest/backtest.json: catch rate over the cases and false-alarm rate over the controls, per the pre-registered protocol
 //   scorecard.md   coverage of each reader on each report, tie-outs against the report's own figures, statement figures against typed ground truth,
 //                  and every finding raised
 //   items.csv      every extracted item with its page and the text it came from and an EMPTY verdict column - the sheet an outside checker marks
@@ -23,7 +24,7 @@ import { readAnnualNotes, NOTE_KINDS, NOTE_LABEL } from "../app/sentinel/lib/aut
 import { readMaturities } from "../app/sentinel/lib/autofill/notes/maturity";
 import { readReportedRatios } from "../app/sentinel/lib/autofill/notes/ratios";
 import { readRelatedParties } from "../app/sentinel/lib/autofill/notes/relatedParty";
-import { compareFields, precisionFromSheet, summariseComparison, tieOutAgeing, toCsv, type SheetRow } from "../app/sentinel/lib/evaluation/notesScorecard";
+import { compareFields, precisionFromSheet, summariseBacktest, summariseComparison, tieOutAgeing, toCsv, type BacktestRow, type SheetRow } from "../app/sentinel/lib/evaluation/notesScorecard";
 import type { PdfPage } from "../app/sentinel/lib/autofill/../extraction";
 
 const args = process.argv.slice(2);
@@ -55,6 +56,8 @@ async function main() {
   const tie: string[] = [];
   const figs: string[] = [];
   const findingsMd: string[] = [];
+  const backtestSpec = flag("backtest") ? (JSON.parse(fs.readFileSync(flag("backtest")!, "utf8")) as Record<string, { label: "case" | "control"; hard?: boolean }>) : {};
+  const backtest: BacktestRow[] = [];
 
   for (const file of fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".pdf")).sort()) {
     const name = file.replace(/\.pdf$/i, "");
@@ -69,6 +72,16 @@ async function main() {
     const t2 = Date.now();
 
     coverage.push([name, String(pages.length), ...NOTE_KINDS.map((k) => String(notes.read[k])), String(notes.findings.filter((f) => f.severity === "high").length), String(notes.findings.filter((f) => f.severity === "medium").length), `${((t2 - t1) / 1000).toFixed(1)}s`]);
+
+    // ---- backtest: flagged = at least one high finding from the notes, or an auditor's report that is not unmodified or carries a going-concern paragraph
+    const spec = backtestSpec[name];
+    if (spec) {
+      const ac = result?.annual_report_checks;
+      const auditorHigh = ac && (ac.opinion === "qualified" || ac.opinion === "adverse" || ac.opinion === "disclaimer" || ac.findings.some((f) => f.severity === "high"));
+      const high = notes.findings.filter((f) => f.severity === "high").length + (auditorHigh ? 1 : 0);
+      const top = notes.findings.find((f) => f.severity === "high") ?? null;
+      backtest.push({ file: name, label: spec.label, hard: spec.hard, high, medium: notes.findings.filter((f) => f.severity === "medium").length, flagged: high > 0, top: auditorHigh && !top ? `auditor's report: ${ac!.opinion}` : top ? `[${NOTE_LABEL[top.note]}] p.${top.page} ${top.title}` : null, not_read: NOTE_KINDS.filter((k) => notes.read[k] === 0).map((k) => NOTE_LABEL[k]) });
+    }
 
     // ---- sheet rows
     const ageing = readReceivablesAgeing(pages);
@@ -106,6 +119,13 @@ async function main() {
     "## Tie-outs: receivables gross less allowance against the net figure printed on the page", "", "| Report | Tables | Tied | No match | Not testable | No-match pages |", "|---|---|---|---|---|---|", ...tie, "",
     "No match is not proof of an error (a report may print its net on another page); it is the list to look at first.", "");
   if (figs.length) md.push("## Statement figures against figures typed from the filing", "", "| Report | Period | Fields | Match | Wrong | Missing | Match rate (95% interval) | Wrong values |", "|---|---|---|---|---|---|---|---|", ...figs, "", "A missing figure is a gap; a wrong one is a danger. Both are counted against the reader.", "");
+  if (backtest.length) {
+    const b = summariseBacktest(backtest);
+    const r = (x: { n: number; flagged: number; rate: number | null; interval: [number, number] | null }) => `${x.flagged} of ${x.n} (${pct(x.rate)}; 95% interval ${x.interval ? `${pct(x.interval[0])}-${pct(x.interval[1])}` : "n/a"})`;
+    md.push("## Backtest (pre-registered protocol: docs/backtest/PROTOCOL.md)", "", `- Cases flagged before the event: **${r(b.catch)}**`, `- Controls flagged (false alarms): **${r(b.false_alarm)}**`, `- Hard controls (distressed, survived) flagged: ${r(b.hard_controls)}`, "",
+      "| Report | Label | High | Medium | Flagged | Top finding | Readers that did not recognise their note |", "|---|---|---|---|---|---|---|", ...backtest.map((x) => `| ${x.file} | ${x.label}${x.hard ? " (hard)" : ""} | ${x.high} | ${x.medium} | ${x.flagged ? "yes" : "no"} | ${x.top ?? "-"} | ${x.not_read.join(", ") || "-"} |`), "",
+      "With this few reports the intervals are wide. This shows whether the idea is worth pursuing; it does not establish an accuracy.", "");
+  }
   md.push("## Findings raised (high and medium)", "", ...findingsMd, "## What this scorecard does not show", "",
     "- Precision of the findings. That needs a person to look at `items.csv` against the PDF and fill the verdict column; then run `npm run score:notes -- --marked items.csv`.",
     "- Recall. Nobody has listed every receivables table, CARO answer or contingent liability in these reports, so what was missed is unknown.",

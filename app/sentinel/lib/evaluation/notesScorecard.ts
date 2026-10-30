@@ -82,3 +82,15 @@ function parseCsvLine(line: string): string[] {
   out.push(cur);
   return out;
 }
+
+// ---- the backtest summary ------------------------------------------------------------------------------------------------------
+
+export type BacktestRow = { file: string; label: "case" | "control"; hard?: boolean; high: number; medium: number; flagged: boolean; top: string | null; not_read: string[] };
+
+/** Catch rate over the cases and false-alarm rate over the controls, each with a 95% Wilson interval, as the protocol defines them (docs/backtest/PROTOCOL.md): a report is
+ * flagged when it has at least one high finding. Hard controls (distressed companies that survived) are reported on their own as well. */
+export function summariseBacktest(rows: BacktestRow[]) {
+  const cases = rows.filter((r) => r.label === "case"), controls = rows.filter((r) => r.label === "control"), hard = controls.filter((r) => r.hard);
+  const rate = (xs: BacktestRow[]) => ({ n: xs.length, flagged: xs.filter((r) => r.flagged).length, rate: xs.length ? xs.filter((r) => r.flagged).length / xs.length : null, interval: wilson(xs.filter((r) => r.flagged).length, xs.length) });
+  return { catch: rate(cases), false_alarm: rate(controls), hard_controls: rate(hard) };
+}
