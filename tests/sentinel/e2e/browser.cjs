@@ -411,6 +411,20 @@ async function ready(page, url, waitFor) {
     assert.ok(!JSON.stringify(rows).includes("(remark 7)"), "the transcript text was stored");
   }, a);
 
+  await check("Earnings note: the draft downloads as a real Word file holding the quarter, the estimates and the verified commentary, with no rating", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="download-note"]');
+    const [download] = await Promise.all([a.waitForEvent("download", { timeout: 120000 }), a.getByTestId("download-note").click()]);
+    assert.equal(download.suggestedFilename(), "Alpha_Tyres_Q2_FY27_earnings_note.docx");
+    const bytes = fs.readFileSync(await download.path());
+    assert.equal(bytes.subarray(0, 2).toString(), "PK");
+    const zip = await require("jszip").loadAsync(bytes);
+    const xml = await zip.file("word/document.xml").async("string");
+    for (const needle of ["Alpha Tyres: Q2 FY27 results", "DRAFT for analyst review", "₹400 cr", "+14.3%", "Against estimates", "What management said", "gives no rating, target price or recommendation"]) {
+      assert.ok(xml.includes(needle), `missing in the note: ${needle}`);
+    }
+    assert.ok(!/Bravo/.test(xml), "another person's company leaked into the note");
+  }, a);
+
   await check("Results brief: a company with no quarterly results says how to add them", async () => {
     await ready(a, "/sentinel/results?workspace=" + IDS.lakh, '[data-testid="results-empty"]');
     assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);

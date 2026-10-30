@@ -40,6 +40,8 @@ export default function ResultsPage() {
   const [commentary, setCommentary] = useState<StoredCommentary[]>([]);
   const [commentarySetUp, setCommentarySetUp] = useState(true);
   const [commentaryTick, setCommentaryTick] = useState(0);
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (shellLoading) return;
@@ -84,6 +86,33 @@ export default function ResultsPage() {
   const end = quarters.find((q) => q.end === quarter)?.end ?? quarters[0]?.end;
   const brief = useMemo(() => (ws && end ? buildResultsBrief(workspaces, statements, ws.id, end) : null), [workspaces, statements, ws, end]);
 
+  async function downloadNote() {
+    if (!ws || !end) return;
+    setNoteBusy(true);
+    setNoteError(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch("/api/sentinel/export/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {}) },
+        body: JSON.stringify({ workspace_id: ws.id, period_end_date: end }),
+      });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The note could not be built (${res.status}).`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${ws.company_name.replace(/\s+/g, "_")}_${(brief?.period_label ?? "quarter").replace(/\s+/g, "_")}_earnings_note.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setNoteError(e instanceof Error ? e.message : "The note could not be built.");
+    } finally {
+      setNoteBusy(false);
+    }
+  }
+
   if (shellLoading || !loaded) return <p style={{ color: T.inkSoft }}>Building the brief...</p>;
   if (!ws) return <p style={{ color: T.inkSoft }}>No company selected.</p>;
   const variance = brief ? buildVariance(brief, estimates) : [];
@@ -118,6 +147,14 @@ export default function ResultsPage() {
               {quarters.map((q) => <option key={q.end} value={q.end}>{q.label}</option>)}
             </select>
           </label>
+        )}
+        {brief && (
+          <>
+            <button type="button" data-testid="download-note" onClick={downloadNote} disabled={noteBusy} style={{ fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 500, padding: "0.4rem 0.9rem", border: `1px solid ${T.accent}`, borderRadius: 3, background: "transparent", color: T.accent, cursor: noteBusy ? "wait" : "pointer" }}>
+              {noteBusy ? "Building the note..." : "Download draft note (.docx)"}
+            </button>
+            {noteError && <span role="alert" style={{ fontSize: "0.82rem", color: T.oxblood }}>{noteError}</span>}
+          </>
         )}
       </div>
 
