@@ -1,4 +1,4 @@
-// The ratio-disclosure reader, against the real FY26 reports of TCS, Infosys, Tata Motors, Wipro and HCLTech (the pages are fixtures; the expected figures
+// The ratio-disclosure reader, against the real FY26 reports of TCS, Infosys, Tech Mahindra, Wipro and HCLTech (the pages are fixtures; the expected figures
 // were checked by hand against them), and synthetic rows for what a real report does not show. The test that matters most is the one for a row that cannot be
 // verified: it is dropped, not guessed.
 
@@ -31,7 +31,7 @@ test("Infosys (consolidated, a variance column): current ratio 2.0 against 2.4 w
   assert.equal(readReportedRatios(load("infosys")).filter((x) => x.page !== 274).length, 0);
 });
 
-test("Tata Motors (a name and definition wrapped over four lines, figures on the last): debt service coverage 11.52 against 9.99, +15.38% printed", () => {
+test("Tech Mahindra (a name and definition wrapped over four lines, figures on the last): debt service coverage 11.52 against 9.99, +15.38% printed", () => {
   const r = row("tml", "dscr");
   assert.deepEqual([r.current, r.previous, r.printed_variance], [11.52, 9.99, 15.38]);
   assert.equal(readReportedRatios(load("tml")).length, 10); // all ten, including ROCE 23.36 vs 20.24 and ROI 5.84 vs 8.27 on the next page

@@ -1,6 +1,6 @@
-// The receivables ageing reader, against the real FY26 annual reports of TCS, Infosys, Tata Motors, Wipro and HCLTech (the ageing pages are kept as
+// The receivables ageing reader, against the real FY26 annual reports of TCS, Infosys, Tech Mahindra, Wipro and HCLTech (the ageing pages are kept as
 // fixtures), and against synthetic tables for the cases a real report does not show. The expected figures were checked by hand against the printed
-// tables. Five companies, five layouts: one table per year (TCS, Wipro), last year's row under each row (Infosys), last year in [brackets] (Tata Motors),
+// tables. Five companies, five layouts: one table per year (TCS, Wipro), last year's row under each row (Infosys), last year in [brackets] (Tech Mahindra),
 // a label wrapped above its figures (HCLTech).
 
 import test from "node:test";
@@ -67,7 +67,7 @@ test("Infosys (last year's row under each row): both years read, the printed tot
   assert.deepEqual(ageingFindings([t]), []);
 });
 
-test("Tata Motors (last year in [brackets], labels printed above the figures, million): 76,820 million gross, 12.2% over a year, allowance 10,344", () => {
+test("Tech Mahindra (last year in [brackets], labels printed above the figures, million): 76,820 million gross, 12.2% over a year, allowance 10,344", () => {
   const tables = readReceivablesAgeing(load("tml"));
   const t = tables.find((x) => x.total[6] === 76820)!;
   assert.deepEqual(t.total_prior, [32563, 18849, 4042, 4072, 2804, 2601, 64931]);

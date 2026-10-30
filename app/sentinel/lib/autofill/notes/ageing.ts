@@ -2,7 +2,7 @@
 // has been outstanding for under six months, six months to a year, one to two years, two to three years and over three years, split into undisputed and
 // disputed, good and credit impaired. A receivable-days ratio hides all of that: the same ratio can be a clean book or a book with a long tail nobody collects.
 //
-// Layouts differ (TCS prints one table per year, Infosys puts last year's row under each row, Tata Motors prints it in [brackets], Wipro adds a currency
+// Layouts differ (TCS prints one table per year, Infosys puts last year's row under each row, Tech Mahindra prints it in [brackets], Wipro adds a currency
 // glyph the PDF font turns into "I"), so this does not rely on a layout. It finds figure rows of six or seven numbers where the last is the total, and the
 // check that makes a row trustworthy is arithmetic: the buckets must add up to that total. A row that does not add up is dropped, never repaired, and the
 // table says how many rows passed. Every table carries its page and the rows exactly as printed.
@@ -20,7 +20,7 @@ export type AgeingRow = {
   disputed: boolean;
   /** One figure per bucket for the table's current year. */
   current: number[];
-  /** The row printed under it (Infosys) or in [brackets] (Tata Motors) when the table carries both years. */
+  /** The row printed under it (Infosys) or in [brackets] (Tech Mahindra) when the table carries both years. */
   prior: number[] | null;
 };
 

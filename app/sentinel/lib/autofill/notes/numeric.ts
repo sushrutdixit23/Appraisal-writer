@@ -5,7 +5,7 @@
 export type Cell = { value: number; bracketed: boolean };
 
 const NIL = new Set(["-", "–", "—", "−", "^", "nil", "Nil", "NIL"]);
-const CURRENCY = new Set(["I", "H", "`", "₹", "Rs", "Rs.", "INR", "$", "US$", "€"]);
+const CURRENCY = new Set(["I", "H", "K", "`", "₹", "Rs", "Rs.", "INR", "$", "US$", "€"]);
 
 /** One whitespace-free token as a figure: "1,234" "(48)" "[2,367]" "-" "12.5" "(1.2)%". Null when it is anything else. */
 export function parseToken(raw: string): Cell | null {
