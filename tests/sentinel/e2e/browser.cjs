@@ -204,7 +204,7 @@ async function ready(page, url, waitFor) {
 
   await check("Data request: a CA's trial balance, sent through the public link with no login, arrives as a draft and imports after review", async () => {
     await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="data-requests"]');
-    await a.getByLabel("Period ends").fill("2026-06-30");
+    await a.getByLabel("Period ends").fill("2026-08-31");
     await a.getByRole("button", { name: "Create upload link" }).click();
     await a.waitForSelector('[data-testid="request-link"]');
     const link = await a.locator('[data-testid="request-link"] code').textContent();
@@ -227,7 +227,7 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="import-summary"]').textContent(), /1 new/);
     const drafts = await db("sentinel_ingest_drafts");
     assert.equal(drafts.length, 1);
-    const stmts = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_end_date=eq.2026-06-30`);
+    const stmts = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_end_date=eq.2026-08-31`);
     assert.equal(stmts.length, 0, "a draft must not become a statement until it is imported");
     // The link stops working once closed.
     await a.getByRole("button", { name: "Close link" }).click();
@@ -308,6 +308,34 @@ async function ready(page, url, waitFor) {
     assert.match(body, /Not on the calendar \(no NSE symbol or BSE code\): .*Alpha Tyres/);
     assert.ok(!/Bravo/.test(body), "another person's company leaked into the calendar");
     assert.ok(await a.getByRole("link", { name: "Results calendar" }).count() > 0);
+  }, a);
+
+  await check("Results brief: a quarter against the previous quarter, last year, the trailing twelve months and the peers that reported", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="results-table"]');
+    const table = await a.locator('[data-testid="results-table"]').textContent();
+    assert.match(table, /Alpha Tyres - Q2 FY27/);
+    assert.match(table, /Q1 FY27/);
+    assert.match(table, /Q2 FY26/);
+    // Revenue 400 against 380 (+5.3%) and 350 (+14.3%); EBITDA margin 20.0% against 19.5% (+53 bps) and 18.9% (+114 bps).
+    assert.match(table, /\+5\.3%/);
+    assert.match(table, /\+14\.3%/);
+    assert.match(table, /\+53 bps/);
+    assert.match(table, /\+114 bps/);
+    // Four quarters are not on file (no Q4 FY26 / Q3 FY26): the page says which are missing rather than guessing.
+    assert.match(await a.locator('[data-testid="results-ttm"]').textContent(), /Not available: add Q4 FY26 and Q3 FY26/);
+    const peers = await a.locator('[data-testid="results-peers"]').textContent();
+    assert.match(peers, /Apex Reference Tyres/);
+    assert.match(peers, /Meridian Reference Tyres/);
+    assert.match(peers, /Zenith Reference Tyres/); // reported nothing for the quarter: named as not yet reported
+    assert.match(peers, /Not yet reported.*Zenith Reference Tyres/);
+    assert.ok(!/Bravo/.test(await a.locator("body").textContent()), "another person's company leaked into the brief");
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q1 FY27" });
+    await a.waitForSelector('[data-testid="results-table"]:has-text("Alpha Tyres - Q1 FY27")');
+  }, a);
+
+  await check("Results brief: a company with no quarterly results says how to add them", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.lakh, '[data-testid="results-empty"]');
+    assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);
   }, a);
 
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
@@ -530,12 +558,12 @@ async function ready(page, url, waitFor) {
     await ready(a, "/sentinel/projects/" + IDS.ref1, "h1");
     assert.equal(await a.getByRole("heading", { level: 1 }).innerText(), "Apex Reference Tyres");
     const links = await a.getByRole("navigation", { name: /Apex Reference Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(links, ["Overview", "Statements", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(links, ["Overview", "Statements", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
     assert.equal(await a.locator('[data-testid="setup-checklist"]').count(), 0);
     assert.equal(await a.getByRole("link", { name: "Add period" }).count(), 0);
     await ready(a, "/sentinel/projects/" + IDS.alpha, "h1");
     const own = await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
   }, a);
 
   await check("Shell: someone else's project, opened by its address, is 'not found' - and nothing of it is shown", async () => {

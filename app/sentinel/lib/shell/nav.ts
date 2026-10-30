@@ -29,6 +29,7 @@ export function projectNav(projectId: string, canWrite: boolean): NavGroup[] {
       items: [
         { href: `/sentinel/kpi${w}`, label: "KPIs" },
         { href: `/sentinel/analysis${w}`, label: "Peers and trends" },
+        { href: `/sentinel/results${w}`, label: "Results brief" },
         { href: `/sentinel${w}`, label: "Investigations", exact: true },
         { href: `/sentinel/reviews${w}`, label: "Reviews" },
       ],

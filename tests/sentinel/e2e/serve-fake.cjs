@@ -44,6 +44,15 @@ b.tables.sentinel_statements = [
   fy(IDS.ref3, "FY26", "2026-03-31", 800, 140, 70, 52), fy(IDS.ref3, "FY25", "2025-03-31", 760, 133, 66, 49),
   fy(IDS.bravo, "FY26", "2026-03-31", 4321, 800, 400, 300), fy(IDS.bravo, "FY25", "2025-03-31", 4000, 700, 350, 260),
 ];
+const qfy = (ws, type, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
+  id: randomUUID(), workspace_id: ws, review_cycle_id: null, period_type: type, period_label: label, period_end_date: end, basis: "consolidated",
+  revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, tax_expense: pbt - pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,
+});
+b.tables.sentinel_statements.push(
+  qfy(IDS.alpha, "Q2", "Q2 FY27", "2026-09-30", 400, 80, 60, 45), qfy(IDS.alpha, "Q1", "Q1 FY27", "2026-06-30", 380, 74, 55, 41), qfy(IDS.alpha, "Q2", "Q2 FY26", "2025-09-30", 350, 66, 50, 37),
+  qfy(IDS.ref1, "Q2", "Q2 FY27", "2026-09-30", 330, 62, 48, 36), qfy(IDS.ref1, "Q2", "Q2 FY26", "2025-09-30", 300, 54, 42, 31), qfy(IDS.ref1, "Q1", "Q1 FY27", "2026-06-30", 320, 60, 46, 34),
+  qfy(IDS.ref2, "Q2", "Q2 FY27", "2026-09-30", 520, 100, 78, 58), qfy(IDS.ref2, "Q2", "Q2 FY26", "2025-09-30", 480, 90, 70, 52), qfy(IDS.ref2, "Q1", "Q1 FY27", "2026-06-30", 500, 96, 74, 55),
+);
 // Rows as the database returns them: every column present, arrays defaulting to empty.
 const invDefaults = { review_cycle_id: null, statement_id: null, initial_hypothesis: "Hypothesis", named_peer: null, possible_causes: [], financial_impact: null, confidence_signals: { flag_count: 2, corroborating_flag_types: 1, max_severity: 1.5, peer_sample_size: 4 }, suggested_questions: [], suggested_actions: [], reviewer_notes: null, archived_at: null };
 b.tables.sentinel_investigations = [

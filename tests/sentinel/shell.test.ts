@@ -52,12 +52,12 @@ const flat = (g: ReturnType<typeof projectNav>) => g.flatMap((x) => x.items.map(
 
 test("nav: an owner sees every page, in the order Overview, Data, Analysis, Settings", () => {
   const nav = projectNav("p1", true);
-  assert.deepEqual(flat(nav), ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+  assert.deepEqual(flat(nav), ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
   assert.deepEqual(nav.map((g) => g.label), [null, "Data", "Analysis", null]);
 });
 
 test("nav: a reference company gets only the pages that read", () => {
-  assert.deepEqual(flat(projectNav("p1", false)), ["Overview", "Statements", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+  assert.deepEqual(flat(projectNav("p1", false)), ["Overview", "Statements", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
 });
 
 test("nav: links carry the project so a pasted link opens on it", () => {
