@@ -268,3 +268,17 @@ test("with no unbilled line on file anywhere, the standing receivables-definitio
   assert.match(second, /Do not state or imply that the definitions match/);
   assert.match(second, /more than 3% - a peer slightly above the line \(for example 105\.16 against 105\)/);
 });
+
+test("what the auditor's report raised reaches the prompt in the auditor's own words; a clean report adds nothing", async () => {
+  const stmts = backend.tables.sentinel_statements;
+  const own = stmts.find((s) => s.workspace_id === wsA && s.period_label === "FY26")!;
+  own.annual_report_checks = JSON.stringify({ o: "qualified", f: [{ id: "qualified", s: "high", t: "The auditor has qualified the opinion", d: "The Company has not provided for doubtful advances of Rs 120 crore.", p: 9 }] });
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  const first = backend.anthropicCalls[0].messages[0].content as string;
+  assert.match(first, /What the auditor's report raises for this filing/);
+  assert.match(first, /The auditor has qualified the opinion: "The Company has not provided for doubtful advances of Rs 120 crore\."/);
+  backend.anthropicCalls = [];
+  own.annual_report_checks = JSON.stringify({ o: "unmodified", f: [{ id: "unmodified", s: "info", t: "clean", d: "clean", p: 9 }] });
+  await call({ workspace_id: wsA, period_label: "FY26" });
+  assert.doesNotMatch(backend.anthropicCalls[0].messages[0].content as string, /auditor's report raises/);
+});

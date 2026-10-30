@@ -5,9 +5,9 @@
 import { NextResponse } from "next/server";
 import { authenticate, getAdmin, isFailure, loadWorkspaceFor, rateLimit } from "../../../sentinel/lib/server";
 import { CADENCES, defaultDueDate, hashToken, newToken, type Cadence } from "../../../sentinel/lib/requests";
+import { isRealDate as isDate } from "../../../sentinel/lib/requestDates";
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
-const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 const notSetUp = (e: { code?: string; message?: string } | null) => !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|schema cache/i.test(e.message ?? ""));
 
 export async function POST(req: Request) {

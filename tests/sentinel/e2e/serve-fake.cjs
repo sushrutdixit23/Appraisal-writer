@@ -37,13 +37,22 @@ const fy = (ws, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
   revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,
 });
 b.tables.sentinel_statements = [
-  fy(IDS.alpha, "FY26", "2026-03-31", 1300, 260, 130, 100, { total_equity: 600, total_debt: 300, current_assets: 500, current_liabilities: 400, inventory: 100, total_expenses: 1150, trade_receivables: 120 }),
+  fy(IDS.alpha, "FY26", "2026-03-31", 1300, 260, 130, 100, { annual_report_checks: JSON.stringify({ o: "qualified", f: [{ id: "qualified", s: "high", t: "The auditor has qualified the opinion", d: "The Company has not provided for doubtful advances of Rs 120 crore.", p: 9 }, { id: "contingent", s: "info", t: "A contingent liability is stated with an amount", d: "Contingent liability in respect of tax demands is Rs 506 crore as at March 31, 2026.", p: 31 }] }), total_equity: 600, total_debt: 300, current_assets: 500, current_liabilities: 400, inventory: 100, total_expenses: 1150, trade_receivables: 120 }),
   fy(IDS.alpha, "FY25", "2025-03-31", 1000, 190, 100, 80),
   fy(IDS.ref1, "FY26", "2026-03-31", 1250, 230, 120, 90), fy(IDS.ref1, "FY25", "2025-03-31", 1180, 215, 110, 85),
   fy(IDS.ref2, "FY26", "2026-03-31", 2000, 360, 200, 150), fy(IDS.ref2, "FY25", "2025-03-31", 1900, 340, 190, 142),
   fy(IDS.ref3, "FY26", "2026-03-31", 800, 140, 70, 52), fy(IDS.ref3, "FY25", "2025-03-31", 760, 133, 66, 49),
   fy(IDS.bravo, "FY26", "2026-03-31", 4321, 800, 400, 300), fy(IDS.bravo, "FY25", "2025-03-31", 4000, 700, 350, 260),
 ];
+const qfy = (ws, type, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
+  id: randomUUID(), workspace_id: ws, review_cycle_id: null, period_type: type, period_label: label, period_end_date: end, basis: "consolidated",
+  revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, tax_expense: pbt - pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,
+});
+b.tables.sentinel_statements.push(
+  qfy(IDS.alpha, "Q2", "Q2 FY27", "2026-09-30", 400, 80, 60, 45), qfy(IDS.alpha, "Q1", "Q1 FY27", "2026-06-30", 380, 74, 55, 41), qfy(IDS.alpha, "Q2", "Q2 FY26", "2025-09-30", 350, 66, 50, 37),
+  qfy(IDS.ref1, "Q2", "Q2 FY27", "2026-09-30", 330, 62, 48, 36), qfy(IDS.ref1, "Q2", "Q2 FY26", "2025-09-30", 300, 54, 42, 31), qfy(IDS.ref1, "Q1", "Q1 FY27", "2026-06-30", 320, 60, 46, 34),
+  qfy(IDS.ref2, "Q2", "Q2 FY27", "2026-09-30", 520, 100, 78, 58), qfy(IDS.ref2, "Q2", "Q2 FY26", "2025-09-30", 480, 90, 70, 52), qfy(IDS.ref2, "Q1", "Q1 FY27", "2026-06-30", 500, 96, 74, 55),
+);
 // Rows as the database returns them: every column present, arrays defaulting to empty.
 const invDefaults = { review_cycle_id: null, statement_id: null, initial_hypothesis: "Hypothesis", named_peer: null, possible_causes: [], financial_impact: null, confidence_signals: { flag_count: 2, corroborating_flag_types: 1, max_severity: 1.5, peer_sample_size: 4 }, suggested_questions: [], suggested_actions: [], reviewer_notes: null, archived_at: null };
 b.tables.sentinel_investigations = [
@@ -54,6 +63,11 @@ b.tables.sentinel_investigations = [
 b.tables.sentinel_filings = [
   { id: randomUUID(), workspace_id: IDS.lakh, source: "bse", external_id: "n1", kind: "results", headline: "Financial Results for the quarter ended September 30, 2026", filed_at: "2026-10-09T17:05:11", url: "https://www.bseindia.com/x", status: "new" },
   { id: randomUUID(), workspace_id: IDS.bravo, source: "bse", external_id: "n2", kind: "results", headline: "Bravo results", filed_at: "2026-10-10T17:05:11", url: null, status: "new" },
+];
+// Alpha FY26 carries debt 300 on equity 600 (0.50x) and current assets 500 on current liabilities 400 (1.25x): one covenant tight, one breached.
+b.tables.sentinel_covenants = [
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Term loan A", metric: "debt_equity", comparator: "max", limit_value: 0.55, next_test_date: null, notes: null, created_at: "2026-01-01T00:00:00Z" },
+  { id: randomUUID(), workspace_id: IDS.alpha, owner_id: IDS.A, name: "Working capital line", metric: "current_ratio", comparator: "min", limit_value: 1.5, next_test_date: "2027-03-31", notes: "tested half-yearly", created_at: "2026-01-02T00:00:00Z" },
 ];
 b.tables.sentinel_review_cycles = [];
 b.tables.sentinel_recommendations = [];
@@ -74,6 +88,19 @@ const extractionReply = () => ({
 });
 b.anthropicReply = (body) => {
   if (String(body.system || "").includes("extract financial statement")) return extractionReply();
+  if (String(body.system || "").includes("earnings-call transcript")) {
+    const first = String(body.messages[0].content).includes("Quarter: Q1 FY27");
+    const it = (topic, kind, direction, statement, quote) => ({ topic, kind, direction, statement, quote, speaker: null });
+    return { text: JSON.stringify({ items: first ? [
+      it("outlook", "outlook", "negative", "Management is cautious about the second half.", "We are cautious about the second half given the weak demand in several verticals."),
+      it("people", "commentary", "negative", "Attrition stayed high at 14.8%.", "Attrition remained elevated at 14.8% during the quarter."),
+    ] : [
+      it("outlook", "guidance", "positive", "Management expects 4-6% revenue growth in the second half.", "We expect revenue growth of 4 to 6 percent in the second half"),
+      it("people", "commentary", "positive", "Attrition came down to 12.5%.", "Attrition has come down to 12.5% and we expect it to stay below 13% through the year."),
+      it("demand", "risk", "negative", "Banking clients are cautious and decisions are slower.", "Client budgets in the banking vertical remain cautious and decisions are taking longer than before."),
+      it("outlook", "outlook", "positive", "Management expects a record quarter next.", "we expect a record quarter next time round for sure"),
+    ] }) };
+  }
   const n = body.messages.length;
   if (n === 1) return { text: "Initial hypothesis: growth looks company specific." };
   if (n === 3) return { text: "**Rules out sector-wide effect**\n\nAlpha outgrew its peer set." };

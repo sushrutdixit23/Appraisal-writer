@@ -15,6 +15,7 @@
 import { parseNumberInput } from "../fields";
 import { extractKeyAuditMattersText, findKeyAuditMattersPages, selectStatementPages, type PdfPage } from "../extraction";
 import { detectUnitInText } from "../units";
+import { runAnnualReportChecks, summariseChecks } from "./annualChecks";
 import { checkAndDowngrade, deriveFields, type Raw } from "./derive";
 import { matchLabel, statementOfHeading, type StatementKind, type Target } from "./labels";
 import { findDates, findFiscalYearRanges, periodForEndDate } from "./periods";
@@ -264,6 +265,8 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
   // audit report at all.
   const kamPages = findKeyAuditMattersPages(pages);
   const keyAuditMattersText = extractKeyAuditMattersText(pages, kamPages);
+  const annualChecks = runAnnualReportChecks(pages);
+  if (annualChecks && annualChecks.report_pages.length > 0) notes.push(summariseChecks(annualChecks));
   if (kamPages.length > 0) {
     notes.push(`The auditor's Key Audit Matters are on p.${kamPages.join(", ")} - worth reading before relying on this period.`);
   }
@@ -371,6 +374,7 @@ export function autofillFromPdfPages(pages: PdfPage[], opts: AutofillOptions = {
     layout: null,
     source_file: opts.sourceFile ?? "uploaded.pdf",
     key_audit_matters_text: keyAuditMattersText,
+    annual_report_checks: annualChecks,
   };
 }
 

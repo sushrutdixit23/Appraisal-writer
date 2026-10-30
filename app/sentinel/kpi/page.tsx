@@ -50,6 +50,8 @@ import { VIZ } from "../lib/viz/tokens";
 import { buildPeerTable, buildTimeSeries, computeRatios, findPriorYear } from "../lib/engine";
 import { getBenchmark, getMetricValue, type Benchmark } from "../lib/benchmark";
 import { altmanZone, BENEISH_THRESHOLD, piotroskiF } from "../lib/ratios";
+import { bookValuePerShareRupees, epsRupees } from "../lib/valuation";
+import { croreFactor } from "../lib/units";
 import { computeHealthScore, type HealthCategory, type HealthScore, type HealthStatus } from "../lib/health";
 import { SERIF, T } from "../lib/theme";
 import type { FinancialStatement, PeerRow, Workspace } from "../lib/types";
@@ -59,6 +61,7 @@ const num = (v: number | null) =>
   v == null ? "-" : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 const days = (v: number | null) => (v == null ? "-" : `${v.toFixed(0)}d`);
 const ratioX = (v: number | null) => (v == null ? "-" : `${v.toFixed(2)}x`);
+const rupees = (v: number | null) => (v == null ? "-" : `\u20b9${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
 function formatBenchmarkNote(b: Benchmark | null, unit: "pp" | "cr" | "x" | "d", du: DisplayFormat): string | null {
   if (!b || !b.closestPeer || b.gapToClosestPeer == null) return null;
@@ -168,7 +171,11 @@ const PEER_RANKING_METRICS: {
   { label: "Interest cover", metric: "interest_cover", direction: "higher_is_better", unit: "x" },
   { label: "Net debt / EBITDA", metric: "net_debt_to_ebitda", direction: "lower_is_better", unit: "x" },
   { label: "Cash from operations / PAT", metric: "cfo_to_pat", direction: "higher_is_better", unit: "x" },
+  { label: "Free cash flow margin", metric: "fcf_margin", direction: "higher_is_better", unit: "pp" },
+  { label: "Asset turnover", metric: "asset_turnover", direction: "higher_is_better", unit: "x" },
   { label: "P/E", metric: "pe_ratio", direction: "lower_is_better", unit: "x" },
+  { label: "Price / book", metric: "pb_ratio", direction: "lower_is_better", unit: "x" },
+  { label: "Free cash flow yield", metric: "fcf_yield", direction: "higher_is_better", unit: "pp" },
   { label: "EV/EBITDA", metric: "ev_ebitda", direction: "lower_is_better", unit: "x" },
   { label: "EV/Sales", metric: "ev_sales", direction: "lower_is_better", unit: "x" },
 ];
@@ -607,6 +614,54 @@ export default function KpiDashboardPage() {
       spark: series("cfo_to_pat"),
     },
     {
+      label: `Free cash flow (${du.crossLabel})`,
+      value: ratioNow("fcf_cr") == null ? "-" : num(du.fromCrore(ratioNow("fcf_cr")!)),
+      note: ratioNow("fcf_cr") == null ? "Needs cash from operations and capital expenditure for a full year" : null,
+      formula: "Cash from operations - capital expenditure. Negative means the year's investment was not covered by operating cash. Full years only",
+      delta: makeDelta("amount", "higher", ratioNow("fcf_cr"), ratioPrev("fcf_cr"), vs),
+      spark: series("fcf_cr", (v) => du.fromCrore(v)),
+    },
+    {
+      label: "Free cash flow margin",
+      value: pct(ratioNow("fcf_margin")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "fcf_margin"), "pp", du),
+      formula: "Free cash flow / revenue from operations",
+      delta: makeDelta("percent", "higher", ratioNow("fcf_margin"), ratioPrev("fcf_margin"), vs),
+      spark: series("fcf_margin"),
+    },
+    {
+      label: "Free cash flow / PAT",
+      value: ratioX(ratioNow("fcf_conversion")),
+      note: null,
+      formula: "Free cash flow / profit after tax: how much of the profit was left as free cash. Blank for a loss-making year",
+      delta: makeDelta("multiple", "higher", ratioNow("fcf_conversion"), ratioPrev("fcf_conversion"), vs),
+      spark: series("fcf_conversion"),
+    },
+    {
+      label: "Capex intensity",
+      value: pct(ratioNow("capex_intensity")),
+      note: null,
+      formula: "Capital expenditure / revenue from operations: how much of sales is reinvested in the asset base. Neither high nor low is good by itself; read it with growth and returns",
+      delta: makeDelta("percent", "lower", ratioNow("capex_intensity"), ratioPrev("capex_intensity"), vs),
+      spark: series("capex_intensity"),
+    },
+    {
+      label: "Effective tax rate",
+      value: pct(ratioNow("effective_tax_rate")),
+      note: null,
+      formula: "Tax expense / profit before tax. Blank for a loss or zero-profit year. A rate far from the statutory one is worth a question about deferred tax and one-off items",
+      delta: makeDelta("percent", "lower", ratioNow("effective_tax_rate"), ratioPrev("effective_tax_rate"), vs),
+      spark: series("effective_tax_rate"),
+    },
+    {
+      label: "Asset turnover",
+      value: ratioX(ratioNow("asset_turnover")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "asset_turnover"), "x", du),
+      formula: "Revenue / average total assets (closing only when there is no prior year). Full years only",
+      delta: makeDelta("multiple", "higher", ratioNow("asset_turnover"), ratioPrev("asset_turnover"), vs),
+      spark: series("asset_turnover"),
+    },
+    {
       label: "Altman Z\u2033",
       value: ratioNow("altman_z") == null ? "-" : ratioNow("altman_z")!.toFixed(2),
       note: ratioNow("altman_z") == null ? "Needs retained earnings, current assets and liabilities, total liabilities" : `${altmanZone(ratioNow("altman_z")!)} zone (above 2.6 safe, 1.1 to 2.6 grey, below 1.1 distress)`,
@@ -679,6 +734,38 @@ export default function KpiDashboardPage() {
       note: null,
       delta: makeDelta("multiple", "lower", ratioNow("ev_sales"), ratioPrev("ev_sales"), vs),
       spark: series("ev_sales"),
+    },
+    {
+      label: "Price / book",
+      value: ratioX(ratioNow("pb_ratio")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "pb_ratio", "lower_is_better"), "x", du),
+      formula: "Market cap / total equity. Blank for zero or negative equity. Uses today's price, so past years are not shown against it",
+      delta: null,
+      spark: [],
+    },
+    {
+      label: "Free cash flow yield",
+      value: pct(ratioNow("fcf_yield")),
+      note: formatBenchmarkNote(getBenchmark(peerRows, selected.id, "fcf_yield"), "pp", du),
+      formula: "Free cash flow / market cap: the cash return at today's price. Negative when free cash flow is negative",
+      delta: null,
+      spark: [],
+    },
+    {
+      label: "Earnings per share",
+      value: rupees(ratioNow("eps")),
+      note: ratioNow("eps") == null ? "Needs shares outstanding (on the statement). Dividend per share, and so dividend yield, is not held in Sentinel" : "Profit after tax / shares outstanding. Dividend per share, and so dividend yield, is not held in Sentinel",
+      formula: "Profit after tax / shares outstanding, in rupees",
+      delta: makeDelta("amount", "higher", ratioNow("eps"), latestOwnStatement && priorOwnStatement ? epsRupees(priorOwnStatement, croreFactor(selected.currency_unit)) : null, vs),
+      spark: series("eps"),
+    },
+    {
+      label: "Book value per share",
+      value: rupees(ratioNow("bvps")),
+      note: null,
+      formula: "Total equity / shares outstanding, in rupees. Blank for zero or negative equity",
+      delta: makeDelta("amount", "higher", ratioNow("bvps"), priorOwnStatement ? bookValuePerShareRupees(priorOwnStatement, croreFactor(selected.currency_unit)) : null, vs),
+      spark: series("bvps"),
     },
   ];
 

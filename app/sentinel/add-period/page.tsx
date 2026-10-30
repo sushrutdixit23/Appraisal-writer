@@ -19,6 +19,7 @@ import { supabase } from "../../lib/supabase";
 import { sortWorkspaces } from "../lib/access";
 import { BASES, PERIOD_TYPES, statementToFormValues, withoutUnsetOptionalColumns } from "../lib/fields";
 import { AutofillUpload, type AutofillApplied } from "../lib/AutofillUpload";
+import { serialiseChecks } from "../lib/autofill/annualChecks";
 import { applyAutofillPeriod, countFields } from "../lib/autofill/apply";
 import type { AutofillResult } from "../lib/autofill/types";
 import { Field, StatementFields, inputStyle } from "../lib/StatementFields";
@@ -75,6 +76,8 @@ export default function AddPeriodPage() {
   const [sourceFile, setSourceFile] = useState("manual entry");
   const [extractionNotes, setExtractionNotes] = useState<string | null>(null);
   const [keyAuditMattersText, setKeyAuditMattersText] = useState<string | null>(null);
+  // Carried with the statement so editing a figure by hand does not wipe what the auditor's report said (see lib/autofill/annualChecks.ts).
+  const [annualReportChecks, setAnnualReportChecks] = useState<string | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
   const [sources, setSources] = useState<Record<string, string>>({});
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -183,6 +186,7 @@ export default function AddPeriodPage() {
       setSourceFile("manual entry");
       setExtractionNotes(null);
       setKeyAuditMattersText(null);
+      setAnnualReportChecks(null);
       setSelectedReviewCycleId("");
       return;
     }
@@ -196,6 +200,7 @@ export default function AddPeriodPage() {
     setSourceFile(stmt.source_file);
     setExtractionNotes(stmt.extraction_notes);
     setKeyAuditMattersText(stmt.key_audit_matters_text ?? null);
+    setAnnualReportChecks(stmt.annual_report_checks ?? null);
     setSelectedReviewCycleId(stmt.review_cycle_id ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatementId, statements, selectedWs?.id]);
@@ -213,6 +218,7 @@ export default function AddPeriodPage() {
       [`Filled from ${result.source_file} by rules (no AI).`, applied.unitNote, ...result.notes, ...period.notes].filter(Boolean).join(" ") || null
     );
     setKeyAuditMattersText(result.key_audit_matters_text);
+    setAnnualReportChecks(period.period_type === "FY" && result.annual_report_checks ? serialiseChecks(result.annual_report_checks) : null);
     setIssues([]);
     setAutofillPeriodKey(period.key);
   }
@@ -272,7 +278,7 @@ export default function AddPeriodPage() {
     }
 
     const prepared = prepareFromForm(
-      { periodType, periodLabel: label, periodEndDate, basis, values, sourceFile, extractionNotes, keyAuditMattersText },
+      { periodType, periodLabel: label, periodEndDate, basis, values, sourceFile, extractionNotes, keyAuditMattersText, annualReportChecks },
       others
     );
     setIssues([...prepared.issues]);

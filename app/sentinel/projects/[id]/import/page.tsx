@@ -256,7 +256,7 @@ export default function ImportPage() {
           id="sentinel-import-files"
           type="file"
           multiple
-          accept=".pdf,.csv,.tsv,.txt,.xlsx,.xlsm,application/pdf,text/csv"
+          accept=".pdf,.csv,.tsv,.txt,.xlsx,.xlsm,.xml,.xbrl,application/pdf,text/csv,application/xml,text/xml"
           disabled={reading || saving}
           onChange={(e) => {
             readFiles(e.target.files);

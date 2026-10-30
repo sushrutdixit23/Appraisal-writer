@@ -155,7 +155,7 @@ export function AutofillUpload({
       <input
         id="sentinel-autofill-file"
         type="file"
-        accept=".pdf,.csv,.tsv,.txt,.xlsx,.xlsm,application/pdf,text/csv"
+        accept=".pdf,.csv,.tsv,.txt,.xlsx,.xlsm,.xml,.xbrl,application/pdf,text/csv,application/xml,text/xml"
         disabled={working !== ""}
         onChange={(e) => {
           const f = e.target.files?.[0];

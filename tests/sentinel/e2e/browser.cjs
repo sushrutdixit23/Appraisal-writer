@@ -204,7 +204,7 @@ async function ready(page, url, waitFor) {
 
   await check("Data request: a CA's trial balance, sent through the public link with no login, arrives as a draft and imports after review", async () => {
     await ready(a, `/sentinel/projects/${IDS.alpha}/import`, '[data-testid="data-requests"]');
-    await a.getByLabel("Period ends").fill("2026-06-30");
+    await a.getByLabel("Period ends").fill("2026-08-31");
     await a.getByRole("button", { name: "Create upload link" }).click();
     await a.waitForSelector('[data-testid="request-link"]');
     const link = await a.locator('[data-testid="request-link"] code').textContent();
@@ -227,13 +227,31 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="import-summary"]').textContent(), /1 new/);
     const drafts = await db("sentinel_ingest_drafts");
     assert.equal(drafts.length, 1);
-    const stmts = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_end_date=eq.2026-06-30`);
+    const stmts = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_end_date=eq.2026-08-31`);
     assert.equal(stmts.length, 0, "a draft must not become a statement until it is imported");
     // The link stops working once closed.
     await a.getByRole("button", { name: "Close link" }).click();
     for (let i = 0; i < 40 && (await db("sentinel_data_requests")).every((r) => r.status !== "closed"); i++) await a.waitForTimeout(500);
     const again = await fetch(`${BASE}/api/sentinel/submit/${token}`, { method: "POST", body: form });
     assert.equal(again.status, 404);
+  }, a);
+
+  await check("XBRL: an exchange-style results file read in the Import page gives its quarters, each with its figures, before anything is saved", async () => {
+    const ctx = (id, a, z) => `<xbrli:context id="${id}"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:startDate>${a}</xbrli:startDate><xbrli:endDate>${z}</xbrli:endDate></xbrli:period></xbrli:context>`;
+    const f = (n, c, v) => `<in-bse-fin:${n} contextRef="${c}" unitRef="INR">${v}</in-bse-fin:${n}>`;
+    const xml = `<?xml version="1.0"?><xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:in-bse-fin="http://www.bseindia.com/xbrl/fin">` +
+      ctx("OneD", "2027-01-01", "2027-03-31") + ctx("ThreeD", "2026-01-01", "2026-03-31") +
+      `<in-bse-fin:LevelOfRoundingUsedInFinancialStatements contextRef="OneD">Crores</in-bse-fin:LevelOfRoundingUsedInFinancialStatements>` +
+      f("RevenueFromOperations", "OneD", 450) + f("ProfitBeforeTax", "OneD", 70) + f("ProfitLossForPeriod", "OneD", 52) +
+      f("RevenueFromOperations", "ThreeD", 400) + f("ProfitBeforeTax", "ThreeD", 60) + f("ProfitLossForPeriod", "ThreeD", 44) + `</xbrli:xbrl>`;
+    await ready(a, `/sentinel/projects/${IDS.alpha}/import`, "input[type=file]");
+    await a.locator("input[type=file]").first().setInputFiles({ name: "results.xml", mimeType: "text/xml", buffer: Buffer.from(xml) });
+    await a.waitForSelector('[data-testid="import-summary"]', { timeout: 60000 });
+    const body = await a.locator("body").textContent();
+    assert.match(body, /results\.xml/);
+    assert.match(body, /XBRL, 2 periods/);
+    assert.match(body, /Q4 FY27/);
+    assert.match(body, /Q4 FY26/);
   }, a);
 
   await check("Digest: lists the draft waiting for a decision and the flagged company, only for the signed-in owner", async () => {
@@ -294,6 +312,179 @@ async function ready(page, url, waitFor) {
     assert.match(text, /https:\/\/www\.bseindia\.com\/x/);
     assert.ok(!/Bravo/.test(await a.locator("body").textContent()), "another person's filing leaked");
     assert.match(await a.locator('[data-testid="digest-discussion"]').textContent(), /Reviewer comments/);
+  }, a);
+
+  await check("Results calendar: lists your listed companies with a statutory deadline, and names the ones with no symbol; never another person's company", async () => {
+    await ready(a, "/sentinel/calendar", '[data-testid="calendar-table"]');
+    const table = await a.locator('[data-testid="calendar-table"]').textContent();
+    assert.match(table, /Lakh Industries/);
+    assert.match(table, /Q[1-4] FY\d{2}/);
+    assert.match(table, /\b20\d{2}-\d{2}-\d{2}\b/);
+    const status = await a.locator('[data-testid="calendar-table"] tbody tr').first().getAttribute("data-status");
+    assert.ok(["filed", "open", "due_soon", "overdue"].includes(status), status);
+    const body = await a.locator("body").textContent();
+    assert.match(body, /Not on the calendar \(no NSE symbol or BSE code\): .*Alpha Tyres/);
+    assert.ok(!/Bravo/.test(body), "another person's company leaked into the calendar");
+    assert.ok(await a.getByRole("link", { name: "Results calendar" }).count() > 0);
+  }, a);
+
+  await check("Results brief: a quarter against the previous quarter, last year, the trailing twelve months and the peers that reported", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="results-table"]');
+    const table = await a.locator('[data-testid="results-table"]').textContent();
+    assert.match(table, /Alpha Tyres - Q2 FY27/);
+    assert.match(table, /Q1 FY27/);
+    assert.match(table, /Q2 FY26/);
+    // Revenue 400 against 380 (+5.3%) and 350 (+14.3%); EBITDA margin 20.0% against 19.5% (+53 bps) and 18.9% (+114 bps).
+    assert.match(table, /\+5\.3%/);
+    assert.match(table, /\+14\.3%/);
+    assert.match(table, /\+53 bps/);
+    assert.match(table, /\+114 bps/);
+    // Four quarters are not on file (no Q4 FY26 / Q3 FY26): the page says which are missing rather than guessing.
+    assert.match(await a.locator('[data-testid="results-ttm"]').textContent(), /Not available: add Q4 FY26 and Q3 FY26/);
+    const peers = await a.locator('[data-testid="results-peers"]').textContent();
+    assert.match(peers, /Apex Reference Tyres/);
+    assert.match(peers, /Meridian Reference Tyres/);
+    assert.match(peers, /Zenith Reference Tyres/); // reported nothing for the quarter: named as not yet reported
+    assert.match(peers, /Not yet reported.*Zenith Reference Tyres/);
+    assert.ok(!/Bravo/.test(await a.locator("body").textContent()), "another person's company leaked into the brief");
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q1 FY27" });
+    await a.waitForSelector('[data-testid="results-table"]:has-text("Alpha Tyres - Q1 FY27")');
+  }, a);
+
+  await check("Estimates: typed in and uploaded as a CSV, they give beat / in line / miss by line on the quarter, and wait for a quarter not yet reported", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="estimates-panel"]');
+    assert.match(await a.locator('[data-testid="results-variance"]').textContent(), /No estimates are stored for the quarter ended 2026-09-30/);
+    await a.locator("#est-period").fill("2026-09-30");
+    await a.locator("#est-revenue").fill("390");      // actual 400: +2.6%, a beat
+    await a.locator("#est-ebitda").fill("80.5");      // actual 80: -0.6%, in line
+    await a.locator("#est-pat").fill("48");           // actual 45: -6.3%, a miss
+    await a.locator("#est-label").fill("Street");
+    await a.getByTestId("save-estimates").click();
+    await a.waitForSelector('[data-testid="results-variance"]:has-text("Street")');
+    const v = await a.locator('[data-testid="results-variance"]').textContent();
+    assert.match(v, /Revenue from operations/);
+    assert.match(v, /\+2\.6%\s*Beat/);
+    assert.match(v, /-0\.6%\s*In line/);
+    assert.match(v, /-6\.3%\s*Miss/);
+    // A CSV for the next quarter: stored, and said to be waiting for results.
+    const csv = "period,revenue,PAT,source,source label\nQ3 FY27,410,47,own,My model\n";
+    await a.getByLabel("Estimates CSV").setInputFiles({ name: "est.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+    await a.waitForSelector('[data-testid="estimates-waiting"]:has-text("2026-12-31")');
+    const rows = await db("sentinel_estimates", `&workspace_id=eq.${IDS.alpha}`);
+    assert.equal(rows.length, 5);
+    assert.ok(rows.every((r) => r.owner_id === IDS.A));
+    // Another person has none of them.
+    await ready(b, "/sentinel/results?workspace=" + IDS.ref1, '[data-testid="estimates-panel"]');
+    assert.ok(!/Street/.test(await b.locator("body").textContent()));
+  }, a);
+
+  await check("Commentary: a call transcript gives statements with their exact words, drops what cannot be traced, and compares with the previous call", async () => {
+    const pad = (lines) => lines.flatMap((s) => Array.from({ length: 8 }, (_, i) => `${s} (remark ${i + 1})`)).join("\n");
+    const q2 = pad(["We expect revenue growth of 4 to 6 percent in the second half, and we remain confident in our deal pipeline.", "Attrition has come down to 12.5% and we expect it to stay below 13% through the year.", "Client budgets in the banking vertical remain cautious and decisions are taking longer than before."]);
+    const q1 = pad(["We are cautious about the second half given the weak demand in several verticals.", "Attrition remained elevated at 14.8% during the quarter.", "The deal pipeline is steady and conversations with clients continue as planned for the year."]);
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="commentary-panel"]');
+    await a.locator("#tr-text").fill(q2);
+    await a.getByTestId("read-transcript").click();
+    await a.waitForSelector('[data-testid="results-commentary"]:has-text("Management expects 4-6% revenue growth")', { timeout: 60000 });
+    let panel = await a.locator('[data-testid="results-commentary"]').textContent();
+    assert.match(panel, /3 statements/);
+    assert.match(panel, /We expect revenue growth of 4 to 6 percent in the second half/);
+    assert.match(await a.getByTestId("commentary-dropped").textContent(), /1 more was dropped because they could not be traced to the transcript \(the quote does not appear in the transcript\)/);
+    assert.ok(!/record quarter/.test(panel), "a statement with an invented quote was shown");
+    assert.match(panel, /Read Q1 FY27.s call as well/);
+    // The previous quarter's call.
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q1 FY27" });
+    await a.waitForSelector('[data-testid="commentary-form"]');
+    await a.locator("#tr-text").fill(q1);
+    await a.getByTestId("read-transcript").click();
+    await a.waitForSelector('[data-testid="results-commentary"]:has-text("Management is cautious about the second half")', { timeout: 60000 });
+    await a.getByLabel("Quarter", { exact: true }).selectOption({ label: "Q2 FY27" });
+    await a.waitForSelector('[data-testid="commentary-changes"]');
+    const changes = await a.getByTestId("commentary-changes").textContent();
+    assert.match(changes, /Since Q1 FY27/);
+    assert.match(changes, /Outlook and guidance: the tone moved from negative to positive/);
+    assert.match(changes, /Hiring, attrition and wages: the tone moved from negative to positive/);
+    assert.match(changes, /Demand and volumes: new this call/);
+    // Only statements are stored, never the transcript.
+    const rows = await db("sentinel_transcripts", `&workspace_id=eq.${IDS.alpha}`);
+    assert.equal(rows.length, 2);
+    assert.ok(!JSON.stringify(rows).includes("(remark 7)"), "the transcript text was stored");
+  }, a);
+
+  await check("Earnings note: the draft downloads as a real Word file holding the quarter, the estimates and the verified commentary, with no rating", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.alpha, '[data-testid="download-note"]');
+    const [download] = await Promise.all([a.waitForEvent("download", { timeout: 120000 }), a.getByTestId("download-note").click()]);
+    assert.equal(download.suggestedFilename(), "Alpha_Tyres_Q2_FY27_earnings_note.docx");
+    const bytes = fs.readFileSync(await download.path());
+    assert.equal(bytes.subarray(0, 2).toString(), "PK");
+    const zip = await require("jszip").loadAsync(bytes);
+    const xml = await zip.file("word/document.xml").async("string");
+    for (const needle of ["Alpha Tyres: Q2 FY27 results", "DRAFT for analyst review", "₹400 cr", "+14.3%", "Against estimates", "What management said", "gives no rating, target price or recommendation"]) {
+      assert.ok(xml.includes(needle), `missing in the note: ${needle}`);
+    }
+    assert.ok(!/Bravo/.test(xml), "another person's company leaked into the note");
+  }, a);
+
+  await check("Results brief: a company with no quarterly results says how to add them", async () => {
+    await ready(a, "/sentinel/results?workspace=" + IDS.lakh, '[data-testid="results-empty"]');
+    assert.match(await a.locator('[data-testid="results-empty"]').textContent(), /no quarterly results on file/);
+  }, a);
+
+  await check("Auditor's report: a qualified opinion saved with the year shows on the project Overview and on the digest, and survives a hand edit of a figure", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="auditor-report"]');
+    const card = await a.locator('[data-testid="auditor-report"]').textContent();
+    assert.match(card, /Auditor.s report, FY26/);
+    assert.match(card, /Opinion: qualified/);
+    assert.match(card, /The auditor has qualified the opinion \(p\.9\)/);
+    assert.match(card, /not provided for doubtful advances of Rs 120 crore/);
+    assert.match(card, /Contingent liabilities stated with an amount/);
+    assert.match(card, /Rs 506 crore/);
+    await ready(a, "/sentinel/digest", '[data-testid="digest-audit"]');
+    assert.match(await a.locator('[data-testid="digest-audit"]').textContent(), /Alpha Tyres - FY26: the auditor has qualified the opinion/);
+    // Editing a figure by hand must not wipe the checks.
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.locator("#mp-period").selectOption({ label: "FY26 (FY, consolidated)" });
+    const original = await field(a, "Other income").inputValue();
+    await fill(a, "Other income", String(Number(original || 0) + 1));
+    await a.getByRole("button", { name: "Update period" }).click();
+    await a.waitForSelector("text=Period updated.");
+    const [row] = await db("sentinel_statements", `&workspace_id=eq.${IDS.alpha}&period_label=eq.FY26`);
+    assert.match(row.annual_report_checks ?? "", /"o":"qualified"/);
+    // Put the figure back: later checks (the revenue-to-profit bridge) read Alpha FY26 as seeded.
+    await ready(a, "/sentinel/add-period?workspace=" + IDS.alpha, "#mp-company");
+    await a.locator("#mp-period").selectOption({ label: "FY26 (FY, consolidated)" });
+    await fill(a, "Other income", original);
+    await a.getByRole("button", { name: "Update period" }).click();
+    await a.waitForSelector("text=Period updated.");
+  }, a);
+
+  await check("Covenants: limits are tested on the latest annual statement - one tight, one breached - listed in the digest, and a new one can be added and removed", async () => {
+    await ready(a, "/sentinel/covenants?workspace=" + IDS.alpha, '[data-testid="covenants-table"]');
+    const rows = await a.locator('[data-testid="covenant-row"]').allTextContents();
+    assert.equal(rows.length, 2);
+    assert.match(rows[0], /Working capital line/); // breached ranks first
+    assert.match(rows[0], /Breached/);
+    assert.match(rows[0], /1\.25x/);
+    assert.match(rows[0], /Current ratio 1\.25x against at least 1\.50x - 20% past the limit/);
+    assert.match(rows[1], /Term loan A/);
+    assert.match(rows[1], /Tight/);
+    assert.match(rows[1], /Debt \/ equity 0\.50x against at most 0\.55x - 9% of room/);
+    await ready(a, "/sentinel/digest", '[data-testid="digest-covenants"]');
+    const digest = await a.locator('[data-testid="digest-covenants"]').textContent();
+    assert.match(digest, /Alpha Tyres - Working capital line: covenant breached/);
+    assert.match(digest, /Alpha Tyres - Term loan A: covenant tight/);
+    await ready(a, "/sentinel/covenants?workspace=" + IDS.alpha, '[data-testid="covenants-table"]');
+    await a.getByLabel("Lender or facility").fill("Bond covenant");
+    await a.getByLabel("Ratio").selectOption("interest_cover");
+    await a.getByLabel("Limit (x)").fill("2.5");
+    await a.getByRole("button", { name: "Add covenant" }).click();
+    await a.waitForSelector("text=Covenant saved.");
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid="covenant-row"]').length === 3);
+    const added = (await a.locator('[data-testid="covenant-row"]').allTextContents()).find((t) => /Bond covenant/.test(t));
+    assert.match(added, /Cannot test/); // no finance costs on file: no ratio, and it says so
+    await a.getByRole("button", { name: "Remove Bond covenant" }).click();
+    await a.waitForFunction(() => document.querySelectorAll('[data-testid="covenant-row"]').length === 2);
+    assert.equal((await db("sentinel_covenants", `&workspace_id=eq.${IDS.alpha}`)).length, 2);
   }, a);
 
   await check("Calibration: says how many decisions it has and warns that a small sample is not a verdict", async () => {
@@ -516,12 +707,12 @@ async function ready(page, url, waitFor) {
     await ready(a, "/sentinel/projects/" + IDS.ref1, "h1");
     assert.equal(await a.getByRole("heading", { level: 1 }).innerText(), "Apex Reference Tyres");
     const links = await a.getByRole("navigation", { name: /Apex Reference Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(links, ["Overview", "Statements", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(links, ["Overview", "Statements", "KPIs", "Peers and trends", "Results brief", "Investigations", "Reviews", "Settings"]);
     assert.equal(await a.locator('[data-testid="setup-checklist"]').count(), 0);
     assert.equal(await a.getByRole("link", { name: "Add period" }).count(), 0);
     await ready(a, "/sentinel/projects/" + IDS.alpha, "h1");
     const own = await a.getByRole("navigation", { name: /Alpha Tyres pages/ }).getByRole("link").allInnerTexts();
-    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Investigations", "Reviews", "Settings"]);
+    assert.deepEqual(own, ["Overview", "Statements", "Import files", "Edit periods", "KPIs", "Peers and trends", "Results brief", "Covenants", "Investigations", "Reviews", "Settings"]);
   }, a);
 
   await check("Shell: someone else's project, opened by its address, is 'not found' - and nothing of it is shown", async () => {
@@ -983,6 +1174,9 @@ async function ready(page, url, waitFor) {
     await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
     assert.equal(await tileValue(a, "Market cap (₹ crore"), "1,000");
     assert.equal(await stat(a, "P/E"), "5.26x");
+    // EPS = PAT 190 crore x 1e7 / 1 crore shares = 190 rupees; the card says dividend yield is not held, rather than leaving it out silently.
+    assert.equal(await tileValue(a, "Earnings per share"), "₹190.00");
+    assert.match(await a.locator("body").textContent(), /dividend yield, is not held in Sentinel/);
   }, a);
 
   // ------------------------------------------------------------------------------- data entry (server-validated path)

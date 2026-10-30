@@ -150,3 +150,10 @@ test("cadence arithmetic lands on month-ends, and a request is overdue only whil
   assert.equal(isOverdue({ status: "open", due_date: null, period_end_date: "2026-03-31" }, "2026-04-14"), false); // default is 15 days
   assert.equal(isOverdue({ status: "submitted", due_date: "2026-04-10", period_end_date: "2026-03-31" }, "2026-05-01"), false);
 });
+
+test("an impossible calendar date is refused (2026-02-30 is not 2 March)", async () => {
+  const r = await open({ period_end_date: "2026-02-30" });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /YYYY-MM-DD/);
+  assert.equal((await open({ period_end_date: "2026-03-31", due_date: "2026-04-31" })).status, 400);
+});

@@ -12,6 +12,7 @@
 
 import { ALL_FIELDS, type NumericField } from "../fields";
 import { prepareFromForm, type StatementRow } from "../validate";
+import { serialiseChecks } from "./annualChecks";
 import { applyAutofillPeriod } from "./apply";
 import { periodForEndDate } from "./periods";
 import type { AutofillPeriod, AutofillResult } from "./types";
@@ -105,7 +106,12 @@ export function planImport(files: ImportFile[], workspace: Workspace, existing: 
       }
       const others = existing.filter((e) => e !== sameKey);
       const prepared = prepareFromForm(
-        { periodType: type, periodLabel: label, periodEndDate: end, basis, values: applied.values, sourceFile: file.name, extractionNotes: ["Imported by rules (no AI).", ...notes, ...caveats].join(" ").slice(0, 4000) },
+        {
+          periodType: type, periodLabel: label, periodEndDate: end, basis, values: applied.values, sourceFile: file.name, extractionNotes: ["Imported by rules (no AI).", ...notes, ...caveats].join(" ").slice(0, 4000),
+          // What the auditor's report and the Key Audit Matters say belongs to the audited year, not to a quarter or a half-year column read from the same file.
+          keyAuditMattersText: type === "FY" ? file.result.key_audit_matters_text : null,
+          annualReportChecks: type === "FY" && file.result.annual_report_checks ? serialiseChecks(file.result.annual_report_checks) : null,
+        },
         others
       );
       if (!prepared.row) return rows.push(blocked(prepared.errors));

@@ -8,6 +8,7 @@ import "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 import { autofillFromPdfPages } from "./pdf";
 import { autofillFromSheet, parseCsv } from "./sheet";
+import { autofillFromXbrl, looksLikeXbrl } from "./xbrl";
 import { AutofillError, type AutofillOptions, type AutofillResult } from "./types";
 import { xlsxToRows } from "./xlsx";
 
@@ -20,7 +21,7 @@ export class ReadFileError extends Error {
   }
 }
 
-type Kind = "pdf" | "xlsx" | "csv" | "xls" | "unknown";
+type Kind = "pdf" | "xlsx" | "csv" | "xls" | "xbrl" | "unknown";
 
 export function sniff(buffer: Buffer, filename: string, mimeType: string): Kind {
   if (buffer.subarray(0, 5).toString("latin1") === "%PDF-") return "pdf";
@@ -28,6 +29,11 @@ export function sniff(buffer: Buffer, filename: string, mimeType: string): Kind 
   if (buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0) return "xls";
   const head = buffer.subarray(0, 4096);
   if (head.includes(0)) return "unknown"; // binary, not text
+  const startsLikeXml = head.subarray(0, 200).toString("utf8").trimStart().startsWith("<");
+  if (/\.(xml|xbrl)$/i.test(filename) || /xml/.test(mimeType) || startsLikeXml) {
+    // An XML file that is not an XBRL instance is refused as unsupported, not misread as a spreadsheet.
+    return looksLikeXbrl(buffer.subarray(0, 20_000).toString("utf8")) ? "xbrl" : "unknown";
+  }
   if (/\.(csv|tsv|txt)$/i.test(filename) || /^text\//.test(mimeType) || /csv/.test(mimeType)) return "csv";
   return "unknown";
 }
@@ -44,7 +50,7 @@ function decodeText(buffer: Buffer): string {
 export async function readFileToResult(buffer: Buffer, filename: string, mimeType: string, options: AutofillOptions): Promise<AutofillResult> {
   const kind = sniff(buffer, filename, mimeType);
   if (kind === "xls") throw new ReadFileError("Old Excel files (.xls) cannot be read. Open it in Excel and Save As .xlsx or .csv.", 400);
-  if (kind === "unknown") throw new ReadFileError("That file type is not supported. Use a text PDF, a .csv or an .xlsx.", 400);
+  if (kind === "unknown") throw new ReadFileError("That file type is not supported. Use a text PDF, a .csv, an .xlsx or an XBRL .xml file.", 400);
   if (kind !== "pdf" && buffer.length > MAX_SHEET_BYTES) throw new ReadFileError("That spreadsheet is larger than the 10MB limit.", 413);
 
   try {
@@ -77,6 +83,7 @@ export async function readFileToResult(buffer: Buffer, filename: string, mimeTyp
       }
       return autofillFromSheet(rows, { ...options, kind: "xlsx" });
     }
+    if (kind === "xbrl") return autofillFromXbrl(decodeText(buffer), { ...options, sourceFile: options.sourceFile ?? filename });
     return autofillFromSheet(parseCsv(decodeText(buffer)), { ...options, kind: "csv" });
   } catch (e) {
     if (e instanceof ReadFileError) throw e;

@@ -154,6 +154,119 @@ assert.equal((await db.query(`select count(*)::int as n from sentinel_review_lin
 console.log("ok  filings and discussion migration");
 }
 
+async function estimatesMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261108000000_sentinel_estimates.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (metric, source, value = 1080, end = "2026-09-30") =>
+  `insert into sentinel_estimates (workspace_id, owner_id, period_end_date, metric, source, value_cr) values ('${ws}','${U1}','${end}','${metric}','${source}',${value})`;
+await db.query(ins("revenue", "consensus"));
+await assert.rejects(db.query(ins("revenue", "consensus")), /duplicate key/, "one estimate per company, person, quarter, line and source");
+await db.query(ins("revenue", "own")); // a different source is a different estimate
+await db.query(ins("revenue", "consensus", 1100, "2026-12-31")); // so is a different quarter
+await assert.rejects(db.query(ins("eps", "own")), /check constraint/);
+await assert.rejects(db.query(ins("pat", "rumour")), /check constraint/);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_estimates`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("pat", "own")), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_estimates`)).rows[0].n, 0, "deleting the company takes its estimates");
+console.log("ok  estimates migration");
+}
+
+async function transcriptsMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261109000000_sentinel_transcripts.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (end = "2026-09-30") => `insert into sentinel_transcripts (workspace_id, owner_id, period_end_date, items) values ('${ws}','${U1}','${end}','[{"topic":"outlook"}]'::jsonb)`;
+await db.query(ins());
+await assert.rejects(db.query(ins()), /duplicate key/, "one reading per company, person and quarter");
+await db.query(ins("2026-06-30"));
+assert.deepEqual((await db.query(`select items from sentinel_transcripts limit 1`)).rows[0].items, [{ topic: "outlook" }]);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_transcripts`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("2026-03-31")), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_transcripts`)).rows[0].n, 0);
+console.log("ok  transcripts migration");
+}
+
+async function annualChecksMigration() {
+const db = new PGlite();
+await db.exec(`create table sentinel_statements (id uuid primary key default gen_random_uuid(), period_label text, key_audit_matters_text text);`);
+const sql = fs.readFileSync(root + "20261110000000_sentinel_annual_report_checks.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.query(`insert into sentinel_statements (period_label, annual_report_checks) values ('FY26', '{"o":"unmodified","f":[]}')`);
+assert.equal((await db.query(`select annual_report_checks from sentinel_statements`)).rows[0].annual_report_checks, '{"o":"unmodified","f":[]}');
+console.log("ok  annual-report checks migration");
+}
+
+async function covenantsMigration() {
+const db = new PGlite();
+const U1 = "11111111-1111-1111-1111-111111111111";
+await db.exec(`
+  create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  create role authenticated;
+  create table sentinel_workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid);
+  grant select, insert, update, delete on all tables in schema public to authenticated;
+  grant usage on schema auth to authenticated;
+`);
+const sql = fs.readFileSync(root + "20261111000000_sentinel_covenants.sql", "utf8");
+await db.exec(sql);
+await db.exec(sql); // idempotent
+await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+const ws = (await db.query(`insert into sentinel_workspaces (owner_id) values ('${U1}') returning id`)).rows[0].id;
+const ins = (metric, comparator, limit = 3) =>
+  `insert into sentinel_covenants (workspace_id, owner_id, name, metric, comparator, limit_value) values ('${ws}','${U1}','Term loan','${metric}','${comparator}',${limit})`;
+await db.query(ins("net_debt_ebitda", "max"));
+await db.query(ins("net_debt_ebitda", "max")); // two covenants on the same ratio are allowed (different facilities)
+await assert.rejects(db.query(ins("pe_ratio", "max")), /check constraint/);
+await assert.rejects(db.query(ins("interest_cover", "exactly")), /check constraint/);
+await assert.rejects(db.query(ins("interest_cover", "min", 0)), /check constraint/);
+await db.exec(`set role authenticated`);
+await db.exec(`set test.uid = '${U1}'`);
+assert.equal((await db.query(`select * from sentinel_covenants`)).rows.length, 0, "closed to browser reads");
+await assert.rejects(db.query(ins("current_ratio", "min")), /row-level security/);
+await db.exec(`reset role`);
+await db.query(`delete from sentinel_workspaces where id = '${ws}'`);
+assert.equal((await db.query(`select count(*)::int as n from sentinel_covenants`)).rows[0].n, 0, "deleting the company takes its covenants");
+console.log("ok  covenants migration");
+}
+
 await auditMigration();
 await otherMigrations();
 await filingsAndDiscussionMigration();
+await estimatesMigration();
+await transcriptsMigration();
+await annualChecksMigration();
+await covenantsMigration();
