@@ -15,7 +15,7 @@ See `run-2026-10-30/scorecard.md`. In short:
 - Each reader recognised most of its notes in most reports. Where it did not (borrowings maturity for TCS and HCLTech, related parties for Infosys, Wipro and HCLTech) the table says "0", which means *not read*, not *clean*.
 - Receivables: 22 of 22 ageing tables tie to the net figure the report prints on the same page.
 - **Statement figures read from a full integrated annual report are the weak point**: 58% (Infosys) and 65% (TCS) of 24 and 23 typed fields matched, with 3 and 1 wrong and 7 and 7 missing. The statement reader was built and tested on pages cut out of a filing; on a 400-page report it picks the wrong pages for some fields. Until that is fixed, the notes findings that need the company's scale ignore a base that looks wrong, and the Import page should be pointed at the statement pages, a spreadsheet or an XBRL file.
-- Findings raised at high severity: Tech Mahindra (3, all in the auditor's own words and all confirmed by reading the pages), Wipro (2, borrowings due within a year). None for TCS, Infosys, HCLTech.
+- Findings at high severity: Tech Mahindra 2 (both CARO answers, in the auditor's own words), Wipro 2 (borrowings due within a year), none for TCS, Infosys or HCLTech. Medium: Tech Mahindra 3, Wipro 1, TCS 1.
 
 ## What this does not show
 
