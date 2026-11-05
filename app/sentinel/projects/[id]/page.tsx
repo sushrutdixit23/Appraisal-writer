@@ -15,6 +15,7 @@ import { useDisplayUnit } from "../../lib/displayUnit";
 import { parseChecks } from "../../lib/autofill/annualChecks";
 import { NOTE_KINDS, NOTE_LABEL, parseNotes } from "../../lib/autofill/notes";
 import { buildEws, EWS_SOURCE_NOTE, STATUS_LABEL, type EwsStatus } from "../../lib/ews";
+import { buildNotesChange, type ChangeStatus } from "../../lib/notesChange";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
@@ -363,6 +364,66 @@ export default function ProjectOverviewPage() {
               {group("rbi_list").map(row)}
               <h3 style={{ fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, fontWeight: 600, margin: "1rem 0 0.1rem 0" }}>Also read from the filing (Sentinel&apos;s own, not on that list)</h3>
               {group("also_read").map(row)}
+            </div>
+          </section>
+        );
+      })()}
+
+      {!empty && annual.length > 0 && (() => {
+        // The notes of the latest annual year against the year before: new, changed, resolved, and what could not be compared because a note was not read.
+        const result = buildNotesChange(workspace, statements);
+        if (!result) return null;
+        if (!result.comparable) {
+          return (
+            <section aria-label="Change since last year" style={{ marginBottom: "1.8rem" }} data-testid="notes-change-none">
+              <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>What changed since last year</h2>
+              <div style={{ ...card, padding: "0.9rem 1.1rem", fontSize: "0.88rem", color: T.inkSoft, lineHeight: 1.6 }}>{result.reason}</div>
+            </section>
+          );
+        }
+        const c = result.change;
+        const label: Record<ChangeStatus, { text: string; bg: string; fg: string }> = {
+          new: { text: "New", bg: "rgba(122,30,44,0.12)", fg: T.oxblood },
+          changed: { text: "Changed", bg: "rgba(164,74,30,0.14)", fg: T.concern },
+          resolved: { text: "Resolved", bg: "rgba(37,89,58,0.12)", fg: T.green },
+          prior_unread: { text: "Cannot compare", bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
+          now_unread: { text: "Cannot compare", bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
+        };
+        const chip = (st: ChangeStatus) => ({ display: "inline-block", minWidth: 96, textAlign: "center" as const, fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" as const, padding: "0.12rem 0.45rem", borderRadius: 2, marginRight: 10, background: label[st].bg, color: label[st].fg });
+        const note = (st: ChangeStatus) => st === "prior_unread" ? `This note was not read in ${c.prior_label}, so it cannot be called new.` : st === "now_unread" ? `This note was not read in ${c.current_label}, so it cannot be called resolved.` : null;
+        const oneYearOnly = c.coverage.filter((x) => x.read_prior !== x.read_current);
+        const nothing = c.items.length === 0 && c.clauses.length === 0 && !c.opinion;
+        return (
+          <section aria-label="Change since last year" style={{ marginBottom: "1.8rem" }} data-testid="notes-change">
+            <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>What changed since {c.prior_label}</h2>
+            <div style={{ ...card, padding: "0.9rem 1.1rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.6 }} data-testid="notes-change-summary">
+                {nothing ? `Nothing at medium or high changed between ${c.prior_label} and ${c.current_label}${c.unchanged ? ` (${c.unchanged} finding${c.unchanged === 1 ? "" : "s"} carried over unchanged)` : ""}.` : `${c.summary.new} new, ${c.summary.changed} changed, ${c.summary.resolved} resolved${c.summary.prior_unread + c.summary.now_unread ? `, ${c.summary.prior_unread + c.summary.now_unread} that cannot be compared` : ""}; ${c.unchanged} carried over unchanged.`}{" "}
+                <span style={{ color: T.inkSoft }}>Only medium and high findings are compared. &quot;Resolved&quot; means the note was read this year and the problem is not there; it is never claimed for a note that was not read.</span>
+              </p>
+              {c.opinion && <p style={{ margin: "0.7rem 0 0 0", fontSize: "0.88rem", fontWeight: 600 }} data-testid="notes-change-opinion">The auditor&apos;s opinion moved from {c.opinion.from} to {c.opinion.to}.</p>}
+              {c.items.map((i, k) => (
+                <div key={k} style={{ marginTop: "0.7rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }} data-testid="change-item" data-status={i.status}>
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem", lineHeight: 1.45 }}><span style={chip(i.status)}>{label[i.status].text}</span>{i.title}{i.escalated ? <span style={{ color: T.oxblood, marginLeft: 8, fontSize: "0.72rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>escalated</span> : null}</div>
+                  <div style={{ fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55, marginTop: 2 }}>
+                    {i.where}{i.page != null ? `, p.${i.page}` : ""}
+                    {i.status === "changed" && i.figure ? `. ${i.figure.from} in ${c.prior_label} to ${i.figure.to} in ${c.current_label}${i.prior_page != null ? ` (p.${i.prior_page} last year)` : ""}` : ""}
+                    {i.status === "changed" && i.prior_severity && i.prior_severity !== i.severity ? `. Severity ${i.prior_severity} to ${i.severity}` : ""}
+                    {i.status === "resolved" ? `. In ${c.prior_label} on p.${i.prior_page}; not in ${c.current_label}` : ""}
+                    {note(i.status) ? `. ${note(i.status)}` : ""}
+                  </div>
+                </div>
+              ))}
+              {c.clauses.length > 0 && (
+                <div style={{ marginTop: "0.9rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }} data-testid="notes-change-clauses">
+                  <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>CARO clauses that changed</div>
+                  <ul style={{ margin: "0.3rem 0 0 0", paddingLeft: "1.1rem", fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55 }}>
+                    {c.clauses.map((x, k) => <li key={k}>Clause ({x.clause}){x.scope !== "unknown" ? ` (${x.scope})` : ""}: {x.kind === "newly_read" ? `newly read this year, ${x.to}` : x.kind === "no_longer_read" ? `${x.from} in ${c.prior_label}, not found in ${c.current_label}` : `${x.from} to ${x.to}`}{x.page != null ? ` (p.${x.page})` : ""}</li>)}
+                  </ul>
+                </div>
+              )}
+              {!c.clauses_compared && <p style={{ margin: "0.8rem 0 0 0", fontSize: "0.78rem", color: T.inkSoft, lineHeight: 1.5 }} data-testid="notes-change-no-clauses">CARO clauses could not be compared clause by clause: one of the two years was stored before those results were kept. Import it again to compare.</p>}
+              {oneYearOnly.length > 0 && <p style={{ margin: "0.6rem 0 0 0", fontSize: "0.78rem", color: T.inkSoft, lineHeight: 1.5 }} data-testid="notes-change-coverage">Read in only one of the two years: {oneYearOnly.map((x) => `${x.label.toLowerCase()} (${x.read_current ? `not read in ${c.prior_label}` : `not read in ${c.current_label}`})`).join("; ")}.</p>}
             </div>
           </section>
         );

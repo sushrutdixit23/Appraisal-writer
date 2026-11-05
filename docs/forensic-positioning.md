@@ -38,7 +38,7 @@
 ## What to build next, in this order
 
 1. **A forensic memo**: one page per company, findings ranked, each with its page and quote, exportable. It replaces the earnings note and is what a credit analyst attaches to a file.
-2. **Year-on-year change in the notes.** The notes are now stored per year, so the question "what changed in the CARO answers, the ageing tail, the related-party loans since last year" is cheap to answer and is the sharpest forensic question there is.
+2. **Year-on-year change in the notes** (built, 2026-11-05: see README). The notes are now stored per year, so the question "what changed in the CARO answers, the ageing tail, the related-party loans since last year" is cheap to answer and is the sharpest forensic question there is.
 3. **NBFC notes**: stage-3 assets, the asset-liability maturity statement, capital adequacy. Two of the five backtest cases are NBFCs and the reader is currently blind to what matters for them.
 4. **Fix statement extraction on full annual reports** (scorecard: 58-65%).
 5. **The outside check** of `items.csv` and the **backtest** (`docs/backtest/PROTOCOL.md`), then publish both.

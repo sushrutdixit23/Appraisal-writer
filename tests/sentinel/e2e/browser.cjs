@@ -1310,6 +1310,28 @@ async function ready(page, url, waitFor) {
     assert.match(await a.locator('[data-testid="ews-item"][data-id="statutory_dues"] details').textContent(), /Cannot see:.*not the company's ledgers/s);
   }, a);
 
+  await check("What changed since last year: new, changed and resolved findings, a clause that worsened, the opinion that moved, and notes read in one year only", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="notes-change"]');
+    assert.match(await a.locator('[data-testid="notes-change"] h2').textContent(), /What changed since FY25/);
+    assert.match(await a.locator('[data-testid="notes-change-summary"]').textContent(), /2 new, 1 changed, 1 resolved; 0 carried over unchanged\./);
+    assert.match(await a.locator('[data-testid="notes-change-opinion"]').textContent(), /moved from unmodified to qualified/);
+    const status = async (re) => (await a.locator('[data-testid="change-item"]').filter({ hasText: re }).first().getAttribute("data-status"));
+    assert.equal(await status(/CARO answer on fraud/), "new");
+    assert.equal(await status(/qualified the opinion/), "new");
+    assert.equal(await status(/over a year past its due date/), "changed");
+    assert.equal(await status(/tax demands/), "resolved");
+    const changed = await a.locator('[data-testid="change-item"][data-status="changed"]').textContent();
+    assert.match(changed, /5\.1 in FY25 to 8\.5 in FY26 \(p\.170 last year\)/);
+    const clauses = await a.locator('[data-testid="notes-change-clauses"]').textContent();
+    assert.match(clauses, /Clause \(xi\) \(standalone\): clear to adverse \(p\.437\)/);
+    assert.match(clauses, /Clause \(xx\) \(standalone\): clear in FY25, not found in FY26/);
+    assert.match(await a.locator('[data-testid="notes-change-coverage"]').textContent(), /Read in only one of the two years: related-party transactions \(not read in FY26\)/);
+    assert.equal(await a.locator('[data-testid="notes-change-no-clauses"]').count(), 0);
+    // A company with no annual statements shows no change card at all.
+    await ready(a, `/sentinel/projects/${IDS.lakh}`, "h1");
+    assert.equal(await a.locator('[data-testid="notes-change"]').count(), 0);
+  }, a);
+
   await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {
     await ready(a, "/sentinel/projects/" + IDS.alpha, '[data-testid="operating-metrics"]');
     await a.getByLabel("Period", { exact: true }).fill("Q3 FY26");
