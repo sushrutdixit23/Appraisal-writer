@@ -49,8 +49,9 @@ A designed, send-ready overview is in [`docs/Sentinel-overview.pdf`](docs/Sentin
 | **Annual-report fetch from BSE** | Built, tested against a **fake** BSE only. **Not verified against the live site** (it was built where bseindia.com is unreachable). |
 | **Filing watcher** (BSE announcements) | Built, **not verified against the live feed** |
 | Accuracy: tie-outs on five real reports | 22 of 22 receivables tables tie to the printed net |
-| Accuracy: precision and recall of the findings | **Not measured**: needs an outside person to mark `docs/scorecard/run-2026-10-30/items.csv` |
-| Backtest on five known collapses and fifteen controls | **Designed and pre-registered, not run**: needs the filings (`docs/backtest/PROTOCOL.md`) |
+| **Early-warning-signal checklist** (13 indicators, four statuses, page and quote) | Built, tested. The seven RBI-derived indicators are quoted from a research report's secondary source and **not checked against the RBI text** (rbi.org.in could not be reached when this was built). |
+| Accuracy: precision and recall of the findings | **Not measured**: needs an outside person to mark the findings. The review pack (a reproducible 100-row sample, an overlap for a second reviewer, an agreement measure) and a reviewer guide are ready: `docs/scorecard/REVIEWER-GUIDE.md`. |
+| Backtest on five known collapses and fifteen controls | **Designed and pre-registered, not run**: needs the filings (`docs/backtest/PROTOCOL.md`). A dated amendment (`docs/backtest/EXPANSION.md`) adds the research report's 14 cases and finds that only about 8 can be tested with an annual-report reader; 6 are exchange or MCA events. |
 | Statement figures read from a whole 400-page report | **Weak: 58-65% of figures match.** Works well on statement pages, spreadsheets and XBRL. |
 | Automated tests | 776 pass (1 opt-in live-model test skipped), plus migration tests and 84 browser checks |
 
@@ -98,6 +99,7 @@ Everything below exists in the app today. "Verified" means exercised by automate
 | Feature | Detail |
 |---|---|
 | **Notes readers** | Six readers (above), each with its own arithmetic check, a page for every finding, and a statement of which notes were not read. |
+| **Early-warning-signal checklist** | A lender's EWS list tested against the latest annual report, one line per indicator with one of four statuses: **hit** (with the page and the printed words or the computed figures), **clear** (the note or figures were read and the signal was absent), **not read** (testable, but not for this company and year, with the reason) and **not readable from filings** (a ROC charge register, a pledge filing, what was left out). Seven indicators are quoted from a law-firm summary of the RBI Master Directions on Fraud Risk Management (July 2024), **not checked against the RBI text**; the directions leave each lender's board to approve its own list, so it is a starting template. Six more are Sentinel's own (CARO fraud, default, cash-loss and liabilities clauses, a qualified or adverse opinion, a going-concern uncertainty). Code: `app/sentinel/lib/ews.ts`. |
 | **Auditor's report checks** | Reads the audit opinion (unmodified, qualified, adverse, disclaimer), emphasis-of-matter and going-concern paragraphs, and the Key Audit Matters, with pages. |
 | **Anomaly detectors** | Year-on-year swings, peer-relative outliers (EBITDA and PAT margin), exceptional items, liquidity risk, leverage risk, working-capital stress, and unbilled-revenue growth, against sector thresholds (tyre, technology, FMCG, general). |
 | **Transparent confidence** | An investigation's confidence is computed from flag count, corroborating flag types, maximum severity and the size of the peer sample. It is not a number a model guessed. |
@@ -228,9 +230,9 @@ Run on 2026-10-30 over five published FY26 annual reports. Full tables: [`docs/s
 Reading the notes of a loaded report takes 0.3-0.5 s.
 
 **What these results do not show**
-- **Precision**: nobody outside the project has marked the findings against the PDFs. The sheet (`items.csv`) is ready; `npm run score:notes -- --marked items.csv` computes precision with a 95% interval.
+- **Precision**: nobody outside the project has marked the findings against the PDFs. A reviewer guide and a review pack are ready (`docs/scorecard/REVIEWER-GUIDE.md`; `npm run review:sample -- <items.csv>` draws a reproducible stratified 100-row sample and a 30-row overlap for a second reviewer; `--agreement` measures how far two reviewers agree). `npm run score:notes -- --marked <sheet>` then computes precision per reader with a 95% interval.
 - **Recall**: nobody has listed everything that should have been found.
-- **The five collapses**: a pre-registered backtest on five known failures and fifteen healthy controls is designed (`docs/backtest/PROTOCOL.md`, `backtest.json`); the definition of "flagged" is fixed in advance. It has **not been run**.
+- **The five collapses**: a pre-registered backtest on five known failures and fifteen healthy controls is designed (`docs/backtest/PROTOCOL.md`, `backtest.json`); the definition of "flagged" is fixed in advance. It has **not been run**. A later amendment (`docs/backtest/EXPANSION.md`) sorts the research report's 14 cases by whether an annual-report reader can be tested on them (about 8 can; 6 are exchange or MCA events) and states how wide the confidence intervals stay at these sample sizes (for example 6 of 8 flagged is 41% to 93%).
 - **Other reports**: the five were chosen by the author. NBFC-specific notes (stage-3 assets, ALM maturity, capital adequacy) are not read yet.
 - Wipro's "100% of borrowings due within a year" says nothing about its cash; the finding sends the reader to the liquidity discussion.
 
@@ -319,16 +321,26 @@ All in `supabase/migrations/`, run by hand in the Supabase SQL editor, safe to r
 |---|---|
 | `docs/Sentinel-overview.pdf` | Designed 7-page overview, ready to send |
 | `docs/forensic-positioning.md` | Positioning, keep / hide / drop verdicts per feature, the portfolio answer, the build order |
-| `docs/scorecard/` | The repeatable accuracy scorecard, its README, ground truth and first run |
-| `docs/backtest/` | The pre-registered backtest protocol and case list |
+| `docs/scorecard/` | The repeatable accuracy scorecard, its README, ground truth, first run, and `REVIEWER-GUIDE.md` for the outside check |
+| `docs/backtest/` | The pre-registered backtest protocol and case list, and a dated amendment (`EXPANSION.md`) that sorts the research report's 14 cases by what can be tested |
 | `docs/sentinel-audit.md`, `sentinel-ground-truth.md`, `sentinel-tech-checklist.md`, `sentinel-ux.md`, `sentinel-viz.md` | Earlier audits, ground truth, technical checklist, UX and visualisation notes |
 
 ## What is next
 
-In this order (from `docs/forensic-positioning.md`):
+Ranked from a research report on analyst workflows and Indian failures (*Sentinel: Analyst Workflow Research and a Ranked Roadmap*), whose own first recommendation is **validation before features**.
 
-1. **A forensic memo**: one page per company, findings ranked, each with its page and quote, exportable.
-2. **Year-on-year change in the notes**: what changed in the CARO answers, the ageing tail and related-party loans since last year.
-3. **NBFC notes**: stage-3 assets, the asset-liability maturity statement, capital adequacy.
-4. **Fix statement extraction on full annual reports** (currently 58-65%).
-5. **The outside check and the backtest**, then publish both.
+**Needs you, or someone outside the project**
+1. **Check the EWS wording against the RBI text.** rbi.org.in could not be reached from the environment this was built in. Allow the host, or supply the annex, and the checklist's wording and source note can be corrected.
+2. **Outside review of the findings** (`docs/scorecard/REVIEWER-GUIDE.md`): the single biggest credibility gap.
+3. **Run Fetch from BSE once on a real company**, and report what it says.
+4. **The backtest PDFs** for the cases that can be tested (`docs/backtest/EXPANSION.md`).
+
+**Build, in the report's order**
+5. **Auditor, Reg 30, rating-action and pledge watcher** (the BSE feed has to be verified live first).
+6. **Multi-year comparison of the notes** and a flag timeline: what changed in the CARO answers, the ageing tail and related-party loans since last year.
+7. **MCA module**: charges against disclosed borrowings, director changes, late filings (needs a paid data source).
+8. **CAM section generator and CMA builder**, with citations and Word/Excel export.
+9. **Related-party graph** across years and entities, and a consolidated-versus-standalone consistency check.
+10. **NBFC counterparty notes** (RBI divergence, net owned fund, ALM buckets), and a forensic memo per company.
+
+GST and bank-statement reconciliation: integrate with an existing vendor rather than build. Fix statement extraction on full annual reports (currently 58-65%) alongside.

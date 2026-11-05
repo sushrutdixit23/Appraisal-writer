@@ -9,7 +9,7 @@
 import type { PdfPage } from "../../extraction";
 import type { FinancialStatement } from "../../types";
 import { ageingFindings, readReceivablesAgeing, type NoteFinding } from "./ageing";
-import { caroFindings, readCaro } from "./caro";
+import { caroFindings, readCaro, type ClauseStatus } from "./caro";
 import { contingentFindings, readContingentLiabilities } from "./contingent";
 import { maturityFindings, readMaturities } from "./maturity";
 import { crossCheck, ratioFindings, readReportedRatios, type RatioId } from "./ratios";
@@ -29,6 +29,9 @@ export type AnnualNotes = {
   read: Record<NoteKind, number>;
   /** The company's own ratio figures, as disclosed, kept for the cross-check and the reader. */
   ratios: { id: RatioId; current: number; previous: number; page: number; basis: string | null }[];
+  /** Every CARO clause the reader recognised, clean or not: what lets a checklist say "read and clear" rather than only "nothing raised". Absent on notes stored
+   * before it was kept, which a checklist must treat as unknown, not clear. */
+  caro_clauses?: { id: string; status: ClauseStatus; page: number; scope: "standalone" | "consolidated" | "unknown" }[];
 };
 
 /** The company's own figures from the same filing, in the unit the notes are printed in. Everything is optional: a missing figure means a finding is not ranked, not that it is dropped. */
@@ -71,6 +74,7 @@ export function readAnnualNotes(pages: PdfPage[], ctx: NotesContext = {}): Annua
     findings,
     read: { ageing: ageing.length, ratios: ratios.length, caro: caro.reduce((n, r) => n + r.clauses.length, 0), contingent: contingent.length, maturity: maturity.reduce((n, t) => n + t.rows.length, 0), related_parties: rpt.reduce((n, t) => n + t.rows.length, 0) },
     ratios: ratios.map((r) => ({ id: r.id, current: r.current, previous: r.previous, page: r.page, basis: r.basis })),
+    caro_clauses: caro.flatMap((r) => r.clauses.map((c) => ({ id: c.id, status: c.status, page: c.page, scope: r.scope }))),
   };
 }
 
@@ -93,6 +97,7 @@ export function serialiseNotes(n: AnnualNotes, maxChars = 24000): string {
       r: n.read,
       f: n.findings.slice(0, limit).map((f) => ({ n: f.note, i: f.id, s: f.severity === "high" ? "h" : f.severity === "medium" ? "m" : "i", t: f.title.slice(0, 200), d: f.detail.slice(0, MAX_DETAIL), p: f.page })),
       q: n.ratios.slice(0, 30).map((r) => ({ i: r.id, c: r.current, v: r.previous, p: r.page, b: r.basis })),
+      ...(n.caro_clauses ? { c: n.caro_clauses.slice(0, 60).map((c) => ({ i: c.id, s: c.status === "clear" ? "c" : c.status === "adverse" ? "a" : "r", p: c.page, k: c.scope === "standalone" ? "s" : c.scope === "consolidated" ? "c" : "u" })) } : {}),
     });
   let limit = MAX_FINDINGS;
   let s = build(limit);
@@ -103,13 +108,14 @@ export function serialiseNotes(n: AnnualNotes, maxChars = 24000): string {
 export function parseNotes(raw: string | null | undefined): AnnualNotes | null {
   if (!raw) return null;
   try {
-    const j = JSON.parse(raw) as { v?: number; r?: Record<string, number>; f?: { n: NoteKind; i: string; s: string; t: string; d: string; p: number }[]; q?: { i: RatioId; c: number; v: number; p: number; b: string | null }[] };
+    const j = JSON.parse(raw) as { v?: number; r?: Record<string, number>; f?: { n: NoteKind; i: string; s: string; t: string; d: string; p: number }[]; q?: { i: RatioId; c: number; v: number; p: number; b: string | null }[]; c?: { i: string; s: string; p: number; k: string }[] };
     if (j.v !== 1 || !Array.isArray(j.f)) return null;
     const read = Object.fromEntries(NOTE_KINDS.map((k) => [k, Number(j.r?.[k] ?? 0)])) as Record<NoteKind, number>;
     return {
       read,
       findings: j.f.filter((f) => NOTE_KINDS.includes(f.n)).map((f) => ({ note: f.n, id: String(f.i), severity: f.s === "h" ? "high" : f.s === "m" ? "medium" : "info", title: String(f.t), detail: String(f.d), page: Number(f.p) })),
       ratios: (j.q ?? []).map((r) => ({ id: r.i, current: r.c, previous: r.v, page: r.p, basis: r.b })),
+      ...(Array.isArray(j.c) ? { caro_clauses: j.c.map((c) => ({ id: String(c.i), status: (c.s === "c" ? "clear" : c.s === "a" ? "adverse" : "read_it") as ClauseStatus, page: Number(c.p), scope: (c.k === "s" ? "standalone" : c.k === "c" ? "consolidated" : "unknown") as "standalone" | "consolidated" | "unknown" })) } : {}),
     };
   } catch {
     return null;
