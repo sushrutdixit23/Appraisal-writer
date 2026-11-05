@@ -14,6 +14,7 @@ import { supabase } from "../../../lib/supabase";
 import { useDisplayUnit } from "../../lib/displayUnit";
 import { parseChecks } from "../../lib/autofill/annualChecks";
 import { NOTE_KINDS, NOTE_LABEL, parseNotes } from "../../lib/autofill/notes";
+import { buildEws, EWS_SOURCE_NOTE, STATUS_LABEL, type EwsStatus } from "../../lib/ews";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
@@ -322,6 +323,46 @@ export default function ProjectOverviewPage() {
                   Not read from this report (its layout was not recognised, which is not the same as nothing to report): {notRead.map((k) => NOTE_LABEL[k].toLowerCase()).join(", ")}.
                 </p>
               )}
+            </div>
+          </section>
+        );
+      })()}
+
+      {!empty && annual.length > 0 && (() => {
+        // A lender's early-warning checklist against what Sentinel has read of the latest annual report: hit, clear, not read, or not readable from filings.
+        const ews = buildEws(workspace, statements);
+        const color: Record<EwsStatus, { bg: string; fg: string }> = {
+          hit: { bg: "rgba(122,30,44,0.12)", fg: T.oxblood },
+          clear: { bg: "rgba(37,89,58,0.12)", fg: T.green },
+          not_read: { bg: "rgba(122,82,0,0.13)", fg: T.ochre },
+          not_readable: { bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
+        };
+        const chip = (st: EwsStatus) => ({ display: "inline-block", minWidth: 74, textAlign: "center" as const, fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" as const, padding: "0.12rem 0.45rem", borderRadius: 2, marginRight: 10, background: color[st].bg, color: color[st].fg });
+        const group = (g: "rbi_list" | "also_read") => ews.items.filter((i) => i.group === g);
+        const row = (i: (typeof ews.items)[number]) => (
+          <div key={i.id} style={{ padding: "0.65rem 0", borderTop: `1px solid ${T.rule}` }} data-testid="ews-item" data-status={i.status} data-id={i.id}>
+            <div style={{ fontSize: "0.88rem", fontWeight: 600, lineHeight: 1.45 }}><span style={chip(i.status)}>{i.status === "not_readable" ? "Not readable" : STATUS_LABEL[i.status]}</span>{i.wording}</div>
+            <div style={{ fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55, margin: "0.2rem 0 0 0" }}>{i.reason}</div>
+            {i.evidence.map((e, k) => <div key={k} style={{ fontSize: "0.82rem", lineHeight: 1.55, margin: "0.25rem 0 0 0.9rem", borderLeft: `2px solid ${T.rule}`, paddingLeft: "0.6rem" }}>{e.text}{e.page != null ? <span style={{ color: T.inkSoft }}> (p.{e.page})</span> : null}</div>)}
+            <details style={{ marginTop: "0.3rem" }}>
+              <summary style={{ cursor: "pointer", fontSize: "0.76rem", color: T.accent }}>How this is tested, and what it cannot see</summary>
+              <p style={{ margin: "0.3rem 0 0 0", fontSize: "0.78rem", color: T.inkSoft, lineHeight: 1.55 }}><b>Test:</b> {i.how}<br /><b>Cannot see:</b> {i.limit}</p>
+            </details>
+          </div>
+        );
+        return (
+          <section aria-label="Early warning signals" style={{ marginBottom: "1.8rem" }} data-testid="ews">
+            <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>Early warning signals{ews.period_label ? `, ${ews.period_label}` : ""}</h2>
+            <div style={{ ...card, padding: "0.9rem 1.1rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.6 }} data-testid="ews-summary">
+                {ews.summary.hit} hit, {ews.summary.clear} clear, {ews.summary.not_read} not read, {ews.summary.not_readable} not readable from filings.{" "}
+                <span style={{ color: T.inkSoft }}>&quot;Clear&quot; means the note or figures were read and the signal was absent; &quot;not read&quot; is not clear.</span>
+              </p>
+              <p style={{ margin: "0.5rem 0 0.2rem 0", fontSize: "0.78rem", color: T.inkSoft, lineHeight: 1.5 }} data-testid="ews-source">{EWS_SOURCE_NOTE}</p>
+              <h3 style={{ fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, fontWeight: 600, margin: "0.9rem 0 0.1rem 0" }}>From the RBI-derived list</h3>
+              {group("rbi_list").map(row)}
+              <h3 style={{ fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, fontWeight: 600, margin: "1rem 0 0.1rem 0" }}>Also read from the filing (Sentinel&apos;s own, not on that list)</h3>
+              {group("also_read").map(row)}
             </div>
           </section>
         );

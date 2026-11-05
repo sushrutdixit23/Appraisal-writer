@@ -65,4 +65,4 @@ Three per case, matched by **sector and fiscal year**, picked by the rule *large
 
 ## Amendments
 
-(none)
+- **2026-11-05**: see `EXPANSION.md`. It adds the research report's 14 cases, sorted by whether the current readers can be tested on them, and states the statistical limits. It changes nothing above: the original five cases, fifteen controls and the definition of "flagged" stand, and no report had been run when it was written.

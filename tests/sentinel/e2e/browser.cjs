@@ -1289,6 +1289,27 @@ async function ready(page, url, waitFor) {
     assert.equal(await a.locator('[data-testid="bse-note"]').count(), 0);
   }, a);
 
+  await check("Early warning signals: the checklist separates hit, clear, not read and not readable, with pages and the source caveat", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="ews"]');
+    assert.match(await a.locator('[data-testid="ews-summary"]').textContent(), /2 hit, 4 clear, 4 not read, 3 not readable from filings\./);
+    assert.match(await a.locator('[data-testid="ews-source"]').textContent(), /not checked against the RBI text.*starting template/);
+    const status = async (id) => a.locator(`[data-testid="ews-item"][data-id="${id}"]`).getAttribute("data-status");
+    assert.equal(await status("caro_fraud"), "hit");
+    assert.equal(await status("opinion"), "hit");
+    assert.equal(await status("statutory_dues"), "clear");
+    assert.equal(await status("going_concern"), "clear");
+    assert.equal(await status("caro_liabilities"), "not_read"); // clause (xix) is not in the seeded report: not clear
+    assert.equal(await status("roc_liabilities"), "not_readable");
+    assert.equal(await status("promoter_pledge"), "not_readable");
+    const fraud = await a.locator('[data-testid="ews-item"][data-id="caro_fraud"]').textContent();
+    assert.match(fraud, /Form ADT-4/);
+    assert.match(fraud, /\(p\.437\)/);
+    const roc = await a.locator('[data-testid="ews-item"][data-id="roc_liabilities"]').textContent();
+    assert.match(roc, /Registrar of Companies charge register/);
+    await a.locator('[data-testid="ews-item"][data-id="statutory_dues"] summary').click();
+    assert.match(await a.locator('[data-testid="ews-item"][data-id="statutory_dues"] details').textContent(), /Cannot see:.*not the company's ledgers/s);
+  }, a);
+
   await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {
     await ready(a, "/sentinel/projects/" + IDS.alpha, '[data-testid="operating-metrics"]');
     await a.getByLabel("Period", { exact: true }).fill("Q3 FY26");
