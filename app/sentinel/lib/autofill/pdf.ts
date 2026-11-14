@@ -159,6 +159,16 @@ function previousYear(iso: string): string {
   return `${y - 1}-${String(m).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
 
+const RUNNING_HEAD = /\b(?:annual|integrated)\s+report\b/i;
+const NOTE_REF_TAIL = /\s+\d{1,2}\s?\([a-z]{1,2}\)$/i;
+
+type Parent = { name: string; heading: RegExp; parts: { pattern: RegExp; targets: Target[] }[] };
+const PARENTS: Parent[] = [
+  { name: "Trade receivables", heading: /^trade receivables$/i, parts: [{ pattern: /^billed$/i, targets: ["trade_receivables"] }, { pattern: /^unbilled$/i, targets: ["trade_receivables", "unbilled_revenue"] }] },
+  // The two statutory lines feed the same pair of fields the label rules use, so the total is worked out (and labelled as worked out) in one place.
+  { name: "Trade payables", heading: /^trade payables$/i, parts: [{ pattern: /dues of creditors other than/i, targets: ["payables_other"] }, { pattern: /dues of (?:micro|small)/i, targets: ["payables_micro"] }] },
+];
+
 function readPage(page: PdfPage, previous: StatementKind | null, fyStart: number): PageRead {
   const rawLines = page.text.split(/\r?\n/);
   const lines = joinWrappedLines(rawLines);
@@ -170,6 +180,9 @@ function readPage(page: PdfPage, previous: StatementKind | null, fyStart: number
   const header: string[] = [];
   const titles: string[] = [];
   for (const l of rawLines.slice(0, 40)) {
+    // The running head of an annual report ("Integrated Annual Report 2025-26   282") names a fiscal year and is not a column: read as one, it shifts every
+    // figure a column to the right and the previous year is lost.
+    if (RUNNING_HEAD.test(l)) continue;
     const r = splitRow(l);
     if (r && matchLabel(r.label, statement)) break;
     (statementOfHeading(l) ? titles : header).push(l);
@@ -180,7 +193,8 @@ function readPage(page: PdfPage, previous: StatementKind | null, fyStart: number
   const rows: Row[] = [];
   for (const line of lines) {
     const r = splitRow(line);
-    if (r && r.label.length > 1) rows.push({ label: r.label, tokens: r.tokens, text: line });
+    // A lettered note reference ("Property, plant and equipment 8(a) 8,259 8,346") is not an amount, so it is left on the end of the label: take it off.
+    if (r && r.label.length > 1) rows.push({ label: r.label.replace(NOTE_REF_TAIL, ""), tokens: r.tokens, text: line });
   }
 
   // A note-number column ("Revenue from operations  24  1,000.00  900.00") shows up as one extra small
@@ -238,6 +252,35 @@ function readPage(page: PdfPage, previous: StatementKind | null, fyStart: number
       values: tokens.map(tokenValue),
       aligned: cols === 0 || tokens.length === cols,
     });
+  }
+  // A balance-sheet heading with no figure of its own and its parts on the lines below: "Trade receivables" over "Billed" and "Unbilled" (TCS), "Trade payables"
+  // over the two statutory lines for micro and small enterprises and for other creditors. The parts are added (shown as such, at low confidence); a heading that
+  // carries its own figure is read as usual and nothing is added.
+  if (statement === "bs") {
+    const cols = columns.length;
+    const strip = (tokens: string[]) => (noteColumn && tokens.length >= 2 && small(tokens[0]) && (cols === 0 || tokens.length === cols + 1) ? tokens.slice(1) : tokens);
+    for (let i = 0; i < rawLines.length; i++) {
+      const head = rawLines[i].replace(/\t/g, " ").replace(/\s+/g, " ").trim().replace(NOTE_REF_TAIL, "").replace(/\s+\d{1,2}(?:\.\d{1,2})?$/, "");
+      const parent = PARENTS.find((p) => p.heading.test(head));
+      if (!parent) continue;
+      let pending = "";
+      for (let j = i + 1; j < Math.min(rawLines.length, i + 9); j++) {
+        const line = rawLines[j].trim();
+        if (!line) continue;
+        const r = splitRow(line);
+        if (!r) { pending = `${pending} ${line}`.trim(); if (pending.length > 160) break; continue; }
+        const label = `${pending} ${r.label}`.trim().replace(NOTE_REF_TAIL, "");
+        pending = "";
+        const part = parent.parts.find((x) => x.pattern.test(label));
+        if (!part) break;
+        if (r.label.length > 1 && matchLabel(r.label.replace(NOTE_REF_TAIL, ""), statement)) continue; // a line the label rules already read whole is not read twice
+        const tokens = strip(r.tokens);
+        if (tokens.length === 0) break;
+        for (const target of part.targets) {
+          candidates.push({ target, weight: 4, sum: parent.name === "Trade receivables", row: { label: `${parent.name}: ${label}`, tokens: r.tokens, text: line }, page: page.num, values: tokens.map(tokenValue), aligned: cols === 0 || tokens.length === cols });
+        }
+      }
+    }
   }
   return { page: page.num, statement, columns, candidates, noteColumn, notes };
 }

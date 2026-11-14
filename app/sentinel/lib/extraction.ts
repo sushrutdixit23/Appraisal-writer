@@ -101,6 +101,28 @@ function tagBasis(text: string): Basis | null {
   return c < s ? "consolidated" : "standalone";
 }
 
+const STATEMENT_TITLE = /^(?:(standalone|consolidated)\s+)?(?:balance\s+sheet|statement\s+of\s+profit\s+and\s+loss|statement\s+of\s+cash\s+flows?|cash\s+flow\s+statement)\b/i;
+const NOTE_COLUMN = /(?:^|\s)particulars\s+notes?(?:\s+no\.?)?\s|(?:^|\s)notes?\s+(?:as\s+at|year\s+ended|for\s+the\s+year)/i;
+
+/** Is this one of the audited primary statements themselves (balance sheet, profit and loss, cash flow), as opposed to a page that merely tabulates the same line
+ * items: the financial-highlights table in a directors' report, a segment note, a tax reconciliation? Two signatures, either is enough: the statement's own title
+ * near the top of the page, or a "Note" reference column, which only the primary statements carry. Returns the basis the title states, when it states one. */
+export function primaryStatement(text: string): { primary: boolean; basis: Basis | null } {
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\t/g, " ").replace(/\s+/g, " ").trim()).filter((l) => l !== "").slice(0, 8);
+  let titled = false;
+  let basis: Basis | null = null;
+  for (const l of lines) {
+    const m = STATEMENT_TITLE.exec(l);
+    if (m) { titled = true; if (m[1]) basis = m[1].toLowerCase() as Basis; break; }
+  }
+  // A notes page can carry a small table with a Note column too; it says what it is at the top.
+  if (lines.some((l) => /^notes? (?:forming part|to the)\b/i.test(l))) return { primary: false, basis: null };
+  return { primary: titled || lines.some((l) => NOTE_COLUMN.test(l)), basis };
+}
+
+/** How far a primary page may borrow its basis from a titled neighbour: a statement and its continuation pages sit within a few pages of each other. */
+const BASIS_REACH = 8;
+
 export type PageSelection = {
   text: string;
   pages: number[];
@@ -142,6 +164,36 @@ export function selectStatementPages(
   chosen = [...chosen, ...[...extra].map((n) => byNum.get(n)!)];
 
   const notes: string[] = [];
+  // A whole annual report repeats the statement line items many times: in the directors' financial highlights, in segment and tax notes. When the audited
+  // statements themselves can be told apart (by their title or their Note column), read only those. A cut-out or a results filing has no such pages, and
+  // nothing changes for it.
+  const primaries = scored
+    .map((p) => ({ p, ...primaryStatement(p.text) }))
+    .filter((x) => x.primary && x.p.numericRows >= 4 && x.p.items >= 2);
+  if (primaries.length >= 2) {
+    const titled = primaries.filter((x) => x.basis != null);
+    for (const x of primaries) {
+      if (x.basis == null) x.basis = x.p.basis;
+      if (x.basis == null && titled.length > 0) {
+        // An untitled statement page (a continuation, or a title set as an image) takes the basis of the nearest titled statement page.
+        const near = titled.reduce((best, t) => (Math.abs(t.p.num - x.p.num) < Math.abs(best.p.num - x.p.num) ? t : best), titled[0]);
+        if (Math.abs(near.p.num - x.p.num) <= BASIS_REACH) x.basis = near.basis;
+      }
+    }
+    const usable = opts.preferredBasis ? primaries.filter((x) => x.basis === opts.preferredBasis) : primaries;
+    if (usable.length >= 2) {
+      const keep = new Map(usable.map((u) => [u.p.num, { ...u.p, basis: u.basis }]));
+      // A heading-less page that continues the table of a statement page just before it stays with it.
+      for (const n of extra) {
+        const before = keep.get(n - 1), page = byNum.get(n)!;
+        if (before && !primaryStatement(page.text).primary && !/^notes? (?:forming part|to the)\b/im.test(page.text.slice(0, 400))) keep.set(n, { ...page, basis: page.basis ?? before.basis });
+      }
+      const dropped = chosen.filter((c) => !keep.has(c.num)).length;
+      if (opts.preferredBasis && primaries.some((x) => x.basis != null && x.basis !== opts.preferredBasis)) notes.push(`Pages for the other basis were left out; only ${opts.preferredBasis} pages were read.`);
+      chosen = [...keep.values()];
+      if (dropped > 0) notes.push(`Read from the audited statement pages only (p.${chosen.map((c) => c.num).join(", ")}); ${dropped} other page${dropped === 1 ? "" : "s"} that repeat the same line items (summaries, notes) were left out.`);
+    }
+  }
   // Annual reports carry both a standalone and a consolidated set. Keep the basis the company is
   // compared on, when the pages say which is which.
   if (opts.preferredBasis) {

@@ -130,6 +130,7 @@ export const RULES: Rule[] = [
   R("capex", "cf", /^(purchase|purchases) of property plant and equipment/, 4),
   R("capex", "cf", /^(purchase|purchases) of (fixed|tangible) assets/, 4),
   R("capex", "cf", /^(payments? for|acquisition of) property plant and equipment/, 3),
+  R("capex", "cf", /^payments? for purchase of property plant and equipment/, 3), // TCS
   R("capex", "cf", /^expenditure on property plant and equipment/, 3), // "Expenditure on property, plant and equipment and intangibles, net of sale proceeds" (Infosys)
   R("capex", "cf", /^(capital expenditure|additions to (fixed assets|property plant and equipment))/, 3),
 
