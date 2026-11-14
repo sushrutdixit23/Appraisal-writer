@@ -1337,7 +1337,7 @@ async function ready(page, url, waitFor) {
     await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="reading-brief"]');
     assert.match(await a.locator('[data-testid="reading-brief-headline"]').textContent(), /^3 findings to read first, 3 with a page to open; \d+ things? (was|were) not read\.$/);
     const items = await a.locator('[data-testid="brief-item"]').allTextContents();
-    assert.equal(items.length, 3);
+    assert.equal(items.length, 3); // by now earlier import checks have added later, empty years, so the covenants cannot be computed and correctly add nothing (a breached one is proven in the unit tests)
     // Two new highs (3 + 2 each, in the readers' order), then the receivables finding (medium, 1).
     assert.match(items[0], /CARO answer on fraud.*\(p\.437\).*Why here: High severity; New this year \(not in FY25\)\./s);
     assert.match(items[1], /qualified the opinion.*\(p\.9\).*New this year/s);

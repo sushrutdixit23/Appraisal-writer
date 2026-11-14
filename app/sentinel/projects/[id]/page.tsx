@@ -21,6 +21,7 @@ import { VIZ } from "../../lib/viz/tokens";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
+import type { CovenantRow } from "../../lib/covenants";
 import { setupChecklist } from "../../lib/shell/nav";
 import { useShell } from "../../lib/shell/ShellData";
 import { HEALTH_STYLE, summarise } from "../../lib/shell/summary";
@@ -53,6 +54,7 @@ export default function ProjectOverviewPage() {
 
   const [statements, setStatements] = useState<FinancialStatement[]>([]);
   const [investigations, setInvestigations] = useState<{ workspace_id: string; status: string }[]>([]);
+  const [covenants, setCovenants] = useState<CovenantRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +78,15 @@ export default function ProjectOverviewPage() {
       if (s.error) setError(s.error.message);
       setStatements((s.data ?? []) as FinancialStatement[]);
       setInvestigations((i.data ?? []) as { workspace_id: string; status: string }[]);
+      // The covenants are a server-held table (closed to the browser) that only the owner can read; absent until its migration is run.
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (token && workspace.owner_id === userId) {
+          const r = await fetch(`/api/sentinel/covenants?workspace_id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
+          if (r.ok && !cancelled) setCovenants(((await r.json()) as { covenants?: CovenantRow[] }).covenants ?? []);
+        }
+      } catch { /* the brief simply has no covenants */ }
       setLoaded(true);
     })();
     return () => {
@@ -262,7 +273,7 @@ export default function ProjectOverviewPage() {
 
       {!empty && (() => {
         // Where to start: the findings below, in one order, with the reason for each place and what was not read.
-        const brief = buildReadingBrief(workspace, statements);
+        const brief = buildReadingBrief(workspace, statements, covenants);
         if (!brief) return null;
         return (
           <section aria-label="Read first" style={{ marginBottom: "1.8rem" }} data-testid="reading-brief">

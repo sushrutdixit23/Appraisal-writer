@@ -49,13 +49,13 @@ A designed, send-ready overview is in [`docs/Sentinel-overview.pdf`](docs/Sentin
 | **Annual-report fetch from BSE** | Built, tested against a **fake** BSE only. **Not verified against the live site** (it was built where bseindia.com is unreachable). |
 | **Filing watcher** (BSE announcements) | Built, **not verified against the live feed** |
 | Accuracy: tie-outs on five real reports | 22 of 22 receivables tables tie to the printed net |
-| **Reading brief** ("Read first" on each project) | Built, tested. Orders existing findings by stated points (3 high, 1 medium, +2 new this year, +1 worse) and lists what was not read. Whether the order matches an analyst's judgement is not measured. Covenants are not yet included on the project page. |
+| **Reading brief** ("Read first" on each project) | Built, tested. Orders existing findings by stated points (3 high, 1 medium, +2 new this year, +1 worse) and lists what was not read. Whether the order matches an analyst's judgement is not measured. Breached and tight covenants are included. |
 | **Year-on-year change in the notes** | Built, tested (unit and browser). Compares real FY26 reports only against a prior year when one is imported; the real-data test is limited to the layouts of the five FY26 reports. Whether its "changed" matches what a human calls material is not yet measured. |
 | **Early-warning-signal checklist** (13 indicators, four statuses, page and quote) | Built, tested. The seven RBI-derived indicators are quoted from a research report's secondary source and **not checked against the RBI text** (rbi.org.in could not be reached when this was built). |
 | Accuracy: precision and recall of the findings | **Not measured**: needs an outside person to mark the findings. The review pack (a reproducible 100-row sample, an overlap for a second reviewer, an agreement measure) and a reviewer guide are ready: `docs/scorecard/REVIEWER-GUIDE.md`. |
 | Backtest on five known collapses and fifteen controls | **Designed and pre-registered, not run**: needs the filings (`docs/backtest/PROTOCOL.md`). A dated amendment (`docs/backtest/EXPANSION.md`) adds the research report's 14 cases and finds that only about 8 can be tested with an annual-report reader; 6 are exchange or MCA events. |
 | Statement figures read from a whole annual report | **Improved on 2026-11-14: TCS 23 of 23 and Infosys 22 of 24 typed figures match** (was 65% and 58%). Not a held-out test: the fixes were developed on these two reports, so other layouts are unproven. |
-| Automated tests | 776 pass (1 opt-in live-model test skipped), plus migration tests and 84 browser checks |
+| Automated tests | 816 pass (1 opt-in live-model test skipped), plus migration tests and 87 browser checks |
 
 ## What it does
 

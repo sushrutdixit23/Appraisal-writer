@@ -68,6 +68,7 @@ check for this). Figures are never counted up from zero: what you copy or screen
 - **Columns** are wide (62% of their band), solid at the top edge and fading to the baseline, with a crisp cap line: the eye reads the height. Losses use the orange of an unfavourable change, fading the other way.
 - **The company's line** always sits on a soft gradient area, so it reads as the subject before any label is read.
 - **Key figures** that cannot be computed are no longer shown as large empty tiles with a dash. They sit in a labelled list under the grid ("N more figures are not available yet"), each saying what it needs.
+- Start the app with `NEXT_PUBLIC_SENTINEL_DEMO=1` to show a fixed "Illustrative demo data" banner, so every frame of a recording labels itself. The stills in `docs/media/` carry the same caption as a strip.
 - Recording and stills for posting are in `docs/media/`, made from fictional demo data: start the fake backend with `SENTINEL_DEMO=1` for a five-year history. The browser checks run without it and keep their two-year figures.
 
 ## Honest edges

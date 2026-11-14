@@ -153,6 +153,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="sn-root" style={{ display: "flex", minHeight: "100vh", background: T.background, fontFamily: SANS, color: T.ink }}>
       <style>{GLOBAL_CSS}</style>
       <a href="#sentinel-main" className="sn-skip">Skip to content</a>
+      {/* Set NEXT_PUBLIC_SENTINEL_DEMO=1 when recording or screenshotting fictional data, so every frame says what it is. */}
+      {process.env.NEXT_PUBLIC_SENTINEL_DEMO === "1" && (
+        <div role="note" data-testid="demo-banner" style={{ position: "fixed", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 90, background: T.ink, color: T.background, fontSize: "0.74rem", letterSpacing: "0.06em", textTransform: "uppercase", padding: "0.4rem 0.9rem", borderRadius: 3, opacity: 0.92, pointerEvents: "none" }}>
+          Illustrative demo data: a fictional company, not a real filing
+        </div>
+      )}
 
       <aside
         id="sentinel-sidebar"
