@@ -49,6 +49,7 @@ A designed, send-ready overview is in [`docs/Sentinel-overview.pdf`](docs/Sentin
 | **Annual-report fetch from BSE** | Built, tested against a **fake** BSE only. **Not verified against the live site** (it was built where bseindia.com is unreachable). |
 | **Filing watcher** (BSE announcements) | Built, **not verified against the live feed** |
 | Accuracy: tie-outs on five real reports | 22 of 22 receivables tables tie to the printed net |
+| **Reading brief** ("Read first" on each project) | Built, tested. Orders existing findings by stated points (3 high, 1 medium, +2 new this year, +1 worse) and lists what was not read. Whether the order matches an analyst's judgement is not measured. Covenants are not yet included on the project page. |
 | **Year-on-year change in the notes** | Built, tested (unit and browser). Compares real FY26 reports only against a prior year when one is imported; the real-data test is limited to the layouts of the five FY26 reports. Whether its "changed" matches what a human calls material is not yet measured. |
 | **Early-warning-signal checklist** (13 indicators, four statuses, page and quote) | Built, tested. The seven RBI-derived indicators are quoted from a research report's secondary source and **not checked against the RBI text** (rbi.org.in could not be reached when this was built). |
 | Accuracy: precision and recall of the findings | **Not measured**: needs an outside person to mark the findings. The review pack (a reproducible 100-row sample, an overlap for a second reviewer, an agreement measure) and a reviewer guide are ready: `docs/scorecard/REVIEWER-GUIDE.md`. |
@@ -345,4 +346,4 @@ Ranked from a research report on analyst workflows and Indian failures (*Sentine
 9. **Related-party graph** across years and entities, and a consolidated-versus-standalone consistency check.
 10. **NBFC counterparty notes** (RBI divergence, net owned fund, ALM buckets), and a forensic memo per company.
 
-GST and bank-statement reconciliation: integrate with an existing vendor rather than build. Fix statement extraction on full annual reports (currently 58-65%) alongside.
+GST and bank-statement reconciliation: integrate with an existing vendor rather than build. Statement extraction on full annual reports was fixed on the two reports with typed truth (see the status table); it still needs testing on unseen layouts.

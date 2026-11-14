@@ -40,7 +40,7 @@
 1. **A forensic memo**: one page per company, findings ranked, each with its page and quote, exportable. It replaces the earnings note and is what a credit analyst attaches to a file.
 2. **Year-on-year change in the notes** (built, 2026-11-05: see README). The notes are now stored per year, so the question "what changed in the CARO answers, the ageing tail, the related-party loans since last year" is cheap to answer and is the sharpest forensic question there is.
 3. **NBFC notes**: stage-3 assets, the asset-liability maturity statement, capital adequacy. Two of the five backtest cases are NBFCs and the reader is currently blind to what matters for them.
-4. **Fix statement extraction on full annual reports** (scorecard: 58-65%).
+4. **Statement extraction on full annual reports**: fixed on the two reports with typed truth on 2026-11-14 (TCS 23 of 23, Infosys 22 of 24; was 65% and 58%). Still to do: test on reports the fixes were not developed on.
 5. **The outside check** of `items.csv` and the **backtest** (`docs/backtest/PROTOCOL.md`), then publish both.
 
 ## Will Sentinel highlight your portfolio?

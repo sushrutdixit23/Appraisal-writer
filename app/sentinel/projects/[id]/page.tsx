@@ -16,6 +16,8 @@ import { parseChecks } from "../../lib/autofill/annualChecks";
 import { NOTE_KINDS, NOTE_LABEL, parseNotes } from "../../lib/autofill/notes";
 import { buildEws, EWS_SOURCE_NOTE, STATUS_LABEL, type EwsStatus } from "../../lib/ews";
 import { buildNotesChange, type ChangeStatus } from "../../lib/notesChange";
+import { BRIEF_CAVEAT, buildReadingBrief } from "../../lib/readingBrief";
+import { VIZ } from "../../lib/viz/tokens";
 import { computeRatios, findPriorYear } from "../../lib/engine";
 import { OperatingMetrics } from "../../lib/shell/OperatingMetrics";
 import { ChangeHistory } from "../../lib/shell/ChangeHistory";
@@ -259,6 +261,45 @@ export default function ProjectOverviewPage() {
       )}
 
       {!empty && (() => {
+        // Where to start: the findings below, in one order, with the reason for each place and what was not read.
+        const brief = buildReadingBrief(workspace, statements);
+        if (!brief) return null;
+        return (
+          <section aria-label="Read first" style={{ marginBottom: "1.8rem" }} data-testid="reading-brief">
+            <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "1.15rem", margin: "0 0 0.6rem 0" }}>Read first{brief.period_label ? `, ${brief.period_label}` : ""}</h2>
+            <div style={{ ...card, padding: "0.9rem 1.1rem", borderTop: `2px solid ${T.accent}` }}>
+              <p style={{ margin: 0, fontSize: "0.95rem", lineHeight: 1.6, fontWeight: 600 }} data-testid="reading-brief-headline">{brief.headline}</p>
+              {brief.items.length > 0 && (
+                <ol style={{ listStyle: "none", margin: "0.4rem 0 0 0", padding: 0 }}>
+                  {brief.items.map((i) => (
+                    <li key={i.rank} data-testid="brief-item" style={{ display: "flex", gap: "0.9rem", padding: "0.7rem 0", borderTop: `1px solid ${T.rule}` }}>
+                      <span aria-hidden="true" style={{ fontFamily: SERIF, fontSize: "1.5rem", lineHeight: 1, color: T.gold, minWidth: "1.4rem" }}>{i.rank}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.45 }}>
+                          {i.title}
+                          {i.page != null ? <span style={{ color: T.inkSoft, fontWeight: 400 }}> (p.{i.page})</span> : <span style={{ color: T.inkSoft, fontWeight: 400 }}> (computed from the statements, no page)</span>}
+                        </div>
+                        <div style={{ fontSize: "0.78rem", color: T.inkSoft, marginTop: 3 }}>Why here: {i.reasons.join("; ")}.</div>
+                        <div style={{ fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55, marginTop: 3 }}>{i.detail}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {brief.more > 0 && <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem", color: T.inkSoft }}>{brief.more} more at medium or high are in the cards below.</p>}
+              {brief.not_read.length > 0 && (
+                <div style={{ marginTop: "0.7rem", paddingTop: "0.6rem", borderTop: `1px solid ${T.rule}` }} data-testid="brief-not-read">
+                  <div style={{ fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkSoft, fontWeight: 600 }}>Not read (not the same as clean)</div>
+                  <ul style={{ margin: "0.3rem 0 0 0", paddingLeft: "1.1rem", fontSize: "0.82rem", color: T.inkSoft, lineHeight: 1.55 }}>{brief.not_read.map((t, k) => <li key={k}>{t}</li>)}</ul>
+                </div>
+              )}
+              <p style={{ margin: "0.7rem 0 0 0", fontSize: "0.76rem", color: T.inkSoft, lineHeight: 1.5 }}>{BRIEF_CAVEAT} Order: 3 points for high, 1 for medium, 2 more if new this year, 1 more if worse than last year.</p>
+            </div>
+          </section>
+        );
+      })()}
+
+      {!empty && (() => {
         // What the auditor's report said, for the latest audited year that has it on file.
         const audited = [...annual].filter((s) => parseChecks(s.annual_report_checks)).sort((x, y) => y.period_end_date.localeCompare(x.period_end_date))[0];
         const checks = audited ? parseChecks(audited.annual_report_checks) : null;
@@ -333,8 +374,9 @@ export default function ProjectOverviewPage() {
         // A lender's early-warning checklist against what Sentinel has read of the latest annual report: hit, clear, not read, or not readable from filings.
         const ews = buildEws(workspace, statements);
         const color: Record<EwsStatus, { bg: string; fg: string }> = {
-          hit: { bg: "rgba(122,30,44,0.12)", fg: T.oxblood },
-          clear: { bg: "rgba(37,89,58,0.12)", fg: T.green },
+          // Blue and orange, never green and red (docs/sentinel-viz.md); the word in the chip carries the meaning as well.
+          hit: { bg: VIZ.unfavorableWash, fg: VIZ.unfavorableText },
+          clear: { bg: VIZ.favorableWash, fg: VIZ.favorableText },
           not_read: { bg: "rgba(122,82,0,0.13)", fg: T.ochre },
           not_readable: { bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
         };
@@ -383,9 +425,9 @@ export default function ProjectOverviewPage() {
         }
         const c = result.change;
         const label: Record<ChangeStatus, { text: string; bg: string; fg: string }> = {
-          new: { text: "New", bg: "rgba(122,30,44,0.12)", fg: T.oxblood },
+          new: { text: "New", bg: VIZ.unfavorableWash, fg: VIZ.unfavorableText },
           changed: { text: "Changed", bg: "rgba(164,74,30,0.14)", fg: T.concern },
-          resolved: { text: "Resolved", bg: "rgba(37,89,58,0.12)", fg: T.green },
+          resolved: { text: "Resolved", bg: VIZ.favorableWash, fg: VIZ.favorableText },
           prior_unread: { text: "Cannot compare", bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
           now_unread: { text: "Cannot compare", bg: "rgba(0,0,0,0.06)", fg: T.inkSoft },
         };

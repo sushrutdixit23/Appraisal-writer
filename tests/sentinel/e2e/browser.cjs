@@ -1333,6 +1333,24 @@ async function ready(page, url, waitFor) {
     assert.equal(await a.locator('[data-testid="notes-change"]').count(), 0);
   }, a);
 
+  await check("Read first: the brief orders the findings by its stated rules, gives each a reason and a page, and lists what was not read", async () => {
+    await ready(a, `/sentinel/projects/${IDS.alpha}`, '[data-testid="reading-brief"]');
+    assert.match(await a.locator('[data-testid="reading-brief-headline"]').textContent(), /^3 findings to read first, 3 with a page to open; \d+ things? (was|were) not read\.$/);
+    const items = await a.locator('[data-testid="brief-item"]').allTextContents();
+    assert.equal(items.length, 3);
+    // Two new highs (3 + 2 each, in the readers' order), then the receivables finding (medium, 1).
+    assert.match(items[0], /CARO answer on fraud.*\(p\.437\).*Why here: High severity; New this year \(not in FY25\)\./s);
+    assert.match(items[1], /qualified the opinion.*\(p\.9\).*New this year/s);
+    assert.match(items[2], /over a year past its due date.*\(p\.184\).*Why here: Medium severity\./s);
+    const notRead = await a.locator('[data-testid="brief-not-read"]').textContent();
+    assert.match(notRead, /not the same as clean/i);
+    assert.match(notRead, /When borrowings fall due: not recognised in the FY26 report/);
+    assert.match(await a.locator('[data-testid="reading-brief"]').textContent(), /orders the reading; it is not a measure of risk/);
+    // A chip for "clear" is never green: blue for good, orange for bad.
+    const clearColor = await a.locator('[data-testid="ews-item"][data-status="clear"] span').first().evaluate((el) => getComputedStyle(el).color);
+    assert.equal(clearColor, "rgb(31, 92, 153)");
+  }, a);
+
   await check("Operating metrics: the owner records one, it is listed with its source, and a reference company shows none", async () => {
     await ready(a, "/sentinel/projects/" + IDS.alpha, '[data-testid="operating-metrics"]');
     await a.getByLabel("Period", { exact: true }).fill("Q3 FY26");
