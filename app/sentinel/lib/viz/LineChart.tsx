@@ -80,6 +80,7 @@ export function LineChart({
   area?: boolean;
 }) {
   const reduce = useReducedMotion();
+  const areaId = `area${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const uid = useId();
   const [wrapRef, width] = useElementWidth<HTMLDivElement>(640);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -289,6 +290,12 @@ export function LineChart({
       >
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={summary ?? ariaLabel} onPointerMove={onMove} onPointerLeave={onLeave} style={{ display: "block", touchAction: "pan-y", overflow: "visible" }}>
           {/* grid: horizontal hairlines only, one step off the surface */}
+          <defs>
+            <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={VIZ.subject} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={VIZ.subject} stopOpacity={0} />
+            </linearGradient>
+          </defs>
           {ticks.ticks.map((t, k) => (
             <g key={t}>
               <line x1={padL} x2={padL + plotW} y1={y(t)} y2={y(t)} stroke={t === 0 && ticks.min < 0 ? VIZ.axis : VIZ.grid} strokeWidth={1} />
@@ -347,10 +354,10 @@ export function LineChart({
             const endPoint = fruns.length ? fruns[fruns.length - 1][fruns[fruns.length - 1].length - 1] : null;
             return (
               <g key={f.id}>
-                {(area || series.length === 1) && f === subject &&
+                {f === subject &&
                   fruns.map((run, k) =>
                     run.length < 2 ? null : (
-                      <motion.path key={`a${k}`} d={`${path(run)} L${xs[run[run.length - 1][0]].toFixed(1)} ${baselineY.toFixed(1)} L${xs[run[0][0]].toFixed(1)} ${baselineY.toFixed(1)} Z`} fill={color} stroke="none" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 0.1 }} transition={{ delay: reduce ? 0 : MOTION.draw * 0.6, duration: MOTION.base }} />
+                      <motion.path key={`a${k}`} d={`${path(run)} L${xs[run[run.length - 1][0]].toFixed(1)} ${baselineY.toFixed(1)} L${xs[run[0][0]].toFixed(1)} ${baselineY.toFixed(1)} Z`} fill={`url(#${areaId})`} stroke="none" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: reduce ? 0 : MOTION.draw * 0.6, duration: MOTION.base }} />
                     )
                   )}
                 {fruns.map((run, k) =>

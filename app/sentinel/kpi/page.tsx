@@ -850,10 +850,25 @@ export default function KpiDashboardPage() {
             borderBottom: `1px solid ${T.rule}`,
           }}
         >
-          {tiles.map((t, i) => (
+          {tiles.filter((t) => t.value !== "-").map((t, i) => (
             <StatTile key={t.label} ledger index={i} label={t.label} value={t.value} note={t.note} formula={t.formula} delta={t.delta} spark={t.spark} sparkTitle={`${t.label} across the years on file`} />
           ))}
         </div>
+        {tiles.some((t) => t.value === "-") && (
+          <details data-testid="kpi-unavailable" style={{ marginTop: "0.9rem" }}>
+            <summary style={{ cursor: "pointer", fontSize: "0.82rem", color: T.inkSoft }}>
+              {tiles.filter((t) => t.value === "-").length} more figures are not available yet, because a figure they need is not on file
+            </summary>
+            <ul style={{ listStyle: "none", margin: "0.6rem 0 0 0", padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", columnGap: "2rem" }}>
+              {tiles.filter((t) => t.value === "-").map((t) => (
+                <li key={t.label} data-stat={t.label} style={{ display: "flex", justifyContent: "space-between", gap: "1rem", padding: "0.45rem 0", borderBottom: `1px solid ${T.rule}`, fontSize: "0.8rem" }}>
+                  <span style={{ fontWeight: 600 }}>{t.label}</span>
+                  <span data-stat-value style={{ color: T.inkSoft, textAlign: "right" }}>{t.note ?? "Not available: a figure it needs is not on file"}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </Schedule>
 
       <Schedule

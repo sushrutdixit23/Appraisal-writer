@@ -63,6 +63,13 @@ curve. `MotionConfig reducedMotion="user"` is set for the whole section and the 
 `useReducedMotion`, so people who ask for less motion get the final state immediately (there is a browser
 check for this). Figures are never counted up from zero: what you copy or screenshot is what is true.
 
+## Marks (2026-11-14)
+
+- **Columns** are wide (62% of their band), solid at the top edge and fading to the baseline, with a crisp cap line: the eye reads the height. Losses use the orange of an unfavourable change, fading the other way.
+- **The company's line** always sits on a soft gradient area, so it reads as the subject before any label is read.
+- **Key figures** that cannot be computed are no longer shown as large empty tiles with a dash. They sit in a labelled list under the grid ("N more figures are not available yet"), each saying what it needs.
+- Recording and stills for posting are in `docs/media/`, made from fictional demo data: start the fake backend with `SENTINEL_DEMO=1` for a five-year history. The browser checks run without it and keep their two-year figures.
+
 ## Honest edges
 
 - A **profit bridge** shows a step "Other / unreconciled" where the filing's own lines do not add up to the

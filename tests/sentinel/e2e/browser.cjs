@@ -676,8 +676,8 @@ async function ready(page, url, waitFor) {
     await quiet.addInitScript(([k, v]) => { try { localStorage.setItem(k, v); } catch (e) {} }, ["zyntask-engage-session", JSON.stringify(payload)]);
     const q = await quiet.newPage();
     await q.goto(BASE + "/sentinel/kpi?workspace=" + IDS.alpha, { waitUntil: "domcontentloaded" });
-    await q.waitForSelector('figure[aria-label="Revenue by year"] svg path[fill="#B0652B"]', { timeout: 60000 });
-    const h = await q.locator('figure[aria-label="Revenue by year"] svg path[fill="#B0652B"]').last().evaluate((el) => el.getBBox().height);
+    await q.waitForSelector('figure[aria-label="Revenue by year"] svg path[fill^="url(#"]', { timeout: 60000 });
+    const h = await q.locator('figure[aria-label="Revenue by year"] svg path[fill^="url(#"]').last().evaluate((el) => el.getBBox().height);
     assert.ok(h > 100, "the column should already be full height, got " + h);
     await quiet.close();
   });
@@ -1227,9 +1227,10 @@ async function ready(page, url, waitFor) {
   await check("Scores: Altman Z\u2033 and Beneish M are on the KPI page and say what they need when the lines are missing", async () => {
     await ready(a, "/sentinel/kpi?workspace=" + IDS.alpha, 'select[aria-label="Company"]');
     await a.waitForSelector("text=Key figures");
-    assert.equal(await stat(a, "Altman Z\u2033"), "-");
-    assert.equal(await stat(a, "Beneish M score"), "-");
-    assert.equal(await stat(a, "Piotroski F-Score"), "-");
+    assert.match(await stat(a, "Altman Z\u2033"), /Needs|Not available/);
+    assert.match(await stat(a, "Beneish M score"), /Needs|Not available/);
+    assert.match(await stat(a, "Piotroski F-Score"), /Needs|Not available/);
+    await a.locator('[data-testid="kpi-unavailable"] summary').click(); // figures that cannot be computed sit in a labelled list, not as bare dashes
     const tiles = await a.locator('[data-stat="Altman Z\u2033"]').innerText();
     assert.match(tiles, /Needs retained earnings/);
     assert.match(await a.locator('[data-stat="Piotroski F-Score"]').innerText(), /Needs this and last year/);

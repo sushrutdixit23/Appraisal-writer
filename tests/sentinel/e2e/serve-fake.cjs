@@ -54,6 +54,21 @@ b.tables.sentinel_statements = [
   fy(IDS.ref3, "FY26", "2026-03-31", 800, 140, 70, 52), fy(IDS.ref3, "FY25", "2025-03-31", 760, 133, 66, 49),
   fy(IDS.bravo, "FY26", "2026-03-31", 4321, 800, 400, 300), fy(IDS.bravo, "FY25", "2025-03-31", 4000, 700, 350, 260),
 ];
+// SENTINEL_DEMO=1: a fuller, fictional history for screenshots and recordings (five years, cash flow and balance sheet on Alpha).
+// Off by default, so the browser checks keep the two-year figures they assert on.
+if (process.env.SENTINEL_DEMO) {
+  const years = [["FY22", "2022-03-31"], ["FY23", "2023-03-31"], ["FY24", "2024-03-31"]];
+  const hist = { [IDS.alpha]: [620, 760, 880], [IDS.ref1]: [900, 1010, 1100], [IDS.ref2]: [1500, 1650, 1790], [IDS.ref3]: [640, 690, 730] };
+  for (const [ws, revs] of Object.entries(hist)) revs.forEach((r, i) => b.tables.sentinel_statements.push(fy(ws, years[i][0], years[i][1], r, Math.round(r * (0.17 + i * 0.006)), Math.round(r * 0.092), Math.round(r * 0.07))));
+  for (const s of b.tables.sentinel_statements.filter((x) => x.workspace_id === IDS.alpha && x.period_type === "FY")) {
+    const r = s.revenue_from_operations, k = r / 1300;
+    const fill = { total_expenses: Math.round(r * 0.885), depreciation_amortisation: Math.round(r * 0.04), finance_costs: Math.round(r * 0.02), tax_expense: s.profit_before_tax - s.profit_after_tax,
+      total_assets: Math.round(1300 * k), fixed_assets: Math.round(700 * k), current_assets: Math.round(500 * k), cash_and_equivalents: Math.round(110 * k), trade_receivables: Math.round(120 * k), inventory: Math.round(100 * k),
+      total_liabilities: Math.round(700 * k), current_liabilities: Math.round(400 * k), trade_payables: Math.round(170 * k), total_debt: Math.round(300 * k), total_equity: Math.round(600 * k),
+      cash_from_operations: Math.round(r * 0.105), capex: Math.round(r * 0.06), cash_from_investing: -Math.round(r * 0.06), cash_from_financing: -Math.round(r * 0.03) };
+    for (const [key, v] of Object.entries(fill)) if (s[key] == null) s[key] = v;
+  }
+}
 const qfy = (ws, type, label, end, rev, ebitda, pbt, pat, extra = {}) => ({
   id: randomUUID(), workspace_id: ws, review_cycle_id: null, period_type: type, period_label: label, period_end_date: end, basis: "consolidated",
   revenue_from_operations: rev, ebitda, profit_before_tax: pbt, profit_after_tax: pat, tax_expense: pbt - pat, source_file: "seed", source_page: null, extraction_notes: null, ...extra,

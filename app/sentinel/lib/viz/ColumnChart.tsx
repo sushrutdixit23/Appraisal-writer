@@ -5,7 +5,7 @@
 // year-on-year change is in the tooltip and the table rather than drawn as a second axis. Columns are thin, rounded
 // only at the data end, and grow up from the baseline. A loss hangs below it in the unfavourable colour.
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { T } from "../theme";
 import { ChartShell } from "./ChartShell";
@@ -40,6 +40,7 @@ export function ColumnChart({
   seriesLabel?: string;
 }) {
   const reduce = useReducedMotion();
+  const gid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [wrapRef, width] = useElementWidth<HTMLDivElement>(480);
   const [hover, setHover] = useState<number | null>(null);
   const [key, setKey] = useState<number | null>(null);
@@ -62,7 +63,7 @@ export function ColumnChart({
   const y = linearScale(ticks.min, ticks.max, padT + plotH, padT);
   const zeroY = y(0);
   const band = plotW / n;
-  const barW = Math.min(28, band * 0.5);
+  const barW = Math.min(76, band * 0.62);
   const cx = (i: number) => padL + band * (i + 0.5);
 
   const idx = (key ?? hover) != null && (key ?? hover)! < n ? (key ?? hover)! : null;
@@ -144,6 +145,17 @@ export function ColumnChart({
         style={{ position: "relative", width: "100%", outlineOffset: 3 }}
       >
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={summary ?? ariaLabel} onPointerMove={onMove} onPointerLeave={() => { inside.current = false; setHover(null); }} style={{ display: "block", overflow: "visible", touchAction: "pan-y" }}>
+          {/* A column is solid where its value is (the top edge) and fades towards the baseline: the eye reads the height, not a block of ink. */}
+          <defs>
+            <linearGradient id={`${gid}-pos`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={VIZ.subject} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={VIZ.subject} stopOpacity={0.16} />
+            </linearGradient>
+            <linearGradient id={`${gid}-neg`} x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor={VIZ.unfavorable} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={VIZ.unfavorable} stopOpacity={0.16} />
+            </linearGradient>
+          </defs>
           {ticks.ticks.map((t, k) => (
             <g key={t}>
               <line x1={padL} x2={padL + plotW} y1={y(t)} y2={y(t)} stroke={t === 0 ? VIZ.axis : VIZ.grid} strokeWidth={1} />
@@ -162,10 +174,19 @@ export function ColumnChart({
                 {v != null && (
                   <motion.path
                     d={columnPath(x, zeroY, barW, Math.abs(y(v) - zeroY), 4, v >= 0 ? 1 : -1)}
-                    fill={v >= 0 ? VIZ.subject : VIZ.unfavorable}
+                    fill={`url(#${gid}-${v >= 0 ? "pos" : "neg"})`}
                     initial={reduce ? false : { d: columnPath(x, zeroY, barW, 0, 4, v >= 0 ? 1 : -1), opacity: 0.9 }}
                     animate={{ d: columnPath(x, zeroY, barW, Math.abs(y(v) - zeroY), 4, v >= 0 ? 1 : -1), opacity: dim ? 0.45 : 1 }}
                     transition={{ d: { duration: MOTION.draw * 0.8, ease: MOTION.ease, delay: reduce ? 0 : i * MOTION.stagger }, opacity: { duration: MOTION.fast } }}
+                  />
+                )}
+                {v != null && (
+                  <motion.line
+                    x1={x} x2={x + barW}
+                    stroke={v >= 0 ? VIZ.subject : VIZ.unfavorable} strokeWidth={2}
+                    initial={reduce ? false : { y1: zeroY, y2: zeroY, opacity: 0 }}
+                    animate={{ y1: y(v), y2: y(v), opacity: dim ? 0.45 : 1 }}
+                    transition={{ duration: MOTION.draw * 0.8, ease: MOTION.ease, delay: reduce ? 0 : i * MOTION.stagger }}
                   />
                 )}
                 {labelled(i) && v != null && (
