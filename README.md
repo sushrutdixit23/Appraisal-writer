@@ -302,6 +302,7 @@ Tables (all in the `public` schema, prefixed `sentinel_`): `workspaces` (a proje
 ```bash
 npm install
 npm run dev                  # http://localhost:3000/sentinel/projects
+npm run demo                 # no Supabase, no sign-in: fictional data, open http://localhost:3100/demo-signin
 
 npm run test:sentinel        # unit and route tests against a fake Supabase and fake model
 npm run test:migrations      # every migration, in embedded Postgres
